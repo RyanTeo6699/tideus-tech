@@ -2,7 +2,7 @@ export const siteConfig = {
   name: "Tideus",
   mark: "TD",
   description:
-    "Tideus is an AI-powered case workspace for high-frequency Canada temporary resident application and extension prep.",
+    "Tideus is a case-first workflow workspace for high-frequency Canada temporary resident application and extension prep, with export-ready handoff summaries and early-access conversion paths.",
   supportEmail: "support@tideus.tech"
 };
 
@@ -103,7 +103,7 @@ export const faqItems = [
   {
     question: "What does the review output look like?",
     answer:
-      "The review output is structured around readiness, checklist items, missing evidence, risk flags, timeline pressure, and next steps. It is not designed as a generic chatbot response."
+      "The review output is structured around readiness, checklist items, missing evidence, risk flags, timeline pressure, and next steps. The latest version can also be opened as a print-friendly handoff summary for later review or professional discussion."
   }
 ];
 

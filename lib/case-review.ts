@@ -198,7 +198,7 @@ export function buildCaseReviewResult(
   const checklist = documents.map((document) => ({
     key: document.key,
     label: document.label,
-    detail: document.description,
+    detail: buildChecklistDetail(useCaseSlug, intake, document),
     status: document.status,
     materialReference: document.material_reference ?? null
   }));
@@ -210,7 +210,12 @@ export function buildCaseReviewResult(
   const readinessStatus = determineReadinessStatus(missingRequiredDocuments.length, staleDocuments.length, riskFlags);
   const timelineNote = buildTimelineNote(intake);
   const summary = buildSummary(useCaseSlug, intake, readinessStatus, missingRequiredDocuments.length, riskFlags.length);
-  const readinessSummary = buildReadinessSummary(readinessStatus, missingRequiredDocuments.length, riskFlags.length);
+  const readinessSummary = buildReadinessSummary(
+    readinessStatus,
+    missingRequiredDocuments.length,
+    staleDocuments.length,
+    riskFlags.length
+  );
   const missingItems = missingRequiredDocuments.map((item) => item.label);
   const nextSteps = buildNextSteps(useCaseSlug, intake, missingRequiredDocuments, riskFlags);
 
@@ -378,6 +383,22 @@ function buildRiskFlags(
     });
   }
 
+  if (useCaseSlug === "visitor-record" && intake.currentStatus !== "visitor") {
+    riskFlags.push({
+      label: "Current status mismatch",
+      severity: "medium",
+      detail: "This workflow assumes visitor-based extension prep, so the current status should be confirmed before the case is treated as routine."
+    });
+  }
+
+  if (useCaseSlug === "study-permit-extension" && intake.currentStatus !== "student") {
+    riskFlags.push({
+      label: "Student status mismatch",
+      severity: "high",
+      detail: "This workflow assumes an in-status student extension, so confirm the current status before treating the package as standard extension work."
+    });
+  }
+
   if (intake.refusalOrComplianceIssues === "yes") {
     riskFlags.push({
       label: "Prior issue to explain",
@@ -429,6 +450,22 @@ function buildRiskFlags(
       });
     }
 
+    if (intake.supportEvidenceStatus === "partial" && intake.applicationReason === "family-or-host") {
+      riskFlags.push({
+        label: "Host support still partial",
+        severity: "medium",
+        detail: "Host or family support evidence exists, but it still needs a cleaner final version before the package reads as disciplined."
+      });
+    }
+
+    if (intake.applicationReason === "family-or-host" && !intake.supportEntityName.trim()) {
+      riskFlags.push({
+        label: "Support source unclear",
+        severity: "medium",
+        detail: "The stay appears to depend on a host or family contact, but the support source is not clearly named in the intake."
+      });
+    }
+
     if (intake.scenarioProgressStatus === "weak") {
       riskFlags.push({
         label: "Temporary intent is weak",
@@ -442,6 +479,14 @@ function buildRiskFlags(
         detail: "The temporary intent explanation exists but still needs tightening before the file looks disciplined."
       });
     }
+
+    if (intake.applicationReason === "awaiting-next-step" && intake.scenarioProgressStatus !== "clear") {
+      riskFlags.push({
+        label: "Interim plan is not yet clear",
+        severity: "medium",
+        detail: "If the stay depends on waiting for another immigration step, the explanation should still read as temporary, time-bound, and well supported."
+      });
+    }
   }
 
   if (useCaseSlug === "study-permit-extension") {
@@ -450,6 +495,14 @@ function buildRiskFlags(
         label: "Enrolment proof missing",
         severity: "high",
         detail: "Current enrolment evidence is missing, which is a core gap for a Study Permit Extension package."
+      });
+    }
+
+    if (intake.supportEvidenceStatus === "partial") {
+      riskFlags.push({
+        label: "Enrolment proof still partial",
+        severity: "medium",
+        detail: "The enrolment record exists, but the package still needs a current, clean school document that matches the extension period."
       });
     }
 
@@ -496,34 +549,55 @@ function buildSummary(
   missingRequiredCount: number,
   riskCount: number
 ) {
-  const baseLabel = formatUseCaseLabel(useCaseSlug);
+  if (useCaseSlug === "visitor-record") {
+    if (readinessStatus === "review-ready") {
+      return "The Visitor Record package now reads as time-bounded, supported, and organized enough to save as a credible discussion or handoff packet.";
+    }
+
+    if (readinessStatus === "almost-ready") {
+      return "The Visitor Record package is close, but the last cleanup pass still needs to tighten the temporary-intent story and make the final support record easier to scan.";
+    }
+
+    if (readinessStatus === "needs-attention") {
+      return missingRequiredCount > 0
+        ? "The Visitor Record package is still missing one or more core items, so the next pass should focus on completing the file before it is treated as handoff-ready."
+        : "The Visitor Record package is workable, but the explanation and support story still need one cleaner pass before a professional discussion.";
+    }
+
+    if (intake.scenarioProgressStatus === "weak") {
+      return "The Visitor Record package is not ready yet because the temporary-intent explanation remains weak and the supporting evidence is not aligned tightly enough for a serious review.";
+    }
+
+    return "The Visitor Record package is not ready yet because too many core materials or explanation issues are still open for a credible handoff.";
+  }
 
   if (readinessStatus === "review-ready") {
-    return `This ${baseLabel.toLowerCase()} package looks organized enough for a clean review pass, with no major missing pieces and only limited follow-up pressure.`;
+    return "The Study Permit Extension package now reads as internally consistent enough to save as a clean review packet, with enrolment, funding, and explanation materials largely in place.";
   }
 
   if (readinessStatus === "almost-ready") {
-    return `This ${baseLabel.toLowerCase()} package is close, but it still needs a small number of refinements before it should be treated as review-ready.`;
+    return "The Study Permit Extension package is close, but the last pass still needs to line up school records, funding proof, and the extension explanation more cleanly.";
   }
 
   if (readinessStatus === "needs-attention") {
-    return `This ${baseLabel.toLowerCase()} package is workable, but ${missingRequiredCount > 0 ? "required materials are still missing" : "the explanation and risk record still need work"} before the next review step.`;
+    return missingRequiredCount > 0
+      ? "The Study Permit Extension package is still missing core school or funding materials, so the next pass should finish those before the file is treated as handoff-ready."
+      : "The Study Permit Extension package is workable, but the academic record or extension explanation still needs one more disciplined pass.";
   }
 
-  if (useCaseSlug === "visitor-record" && intake.scenarioProgressStatus === "weak") {
-    return "The Visitor Record package is not ready yet because the temporary intent explanation remains weak and the supporting materials are not fully aligned.";
+  if (intake.scenarioProgressStatus === "at-risk") {
+    return "The Study Permit Extension package is not ready yet because the academic or tuition record still creates a review risk that should be addressed directly before handoff.";
   }
 
-  if (useCaseSlug === "study-permit-extension" && intake.scenarioProgressStatus === "at-risk") {
-    return "The Study Permit Extension package is not ready yet because the academic or tuition record still creates a review risk that needs to be addressed directly.";
-  }
-
-  return `This ${baseLabel.toLowerCase()} package is not ready yet because too many core materials or explanation issues are still open.`;
+  return riskCount > 0
+    ? "The Study Permit Extension package is not ready yet because unresolved document and explanation pressure still makes the file too exposed for a clean review."
+    : "The Study Permit Extension package is not ready yet because too many core materials are still open for a credible handoff.";
 }
 
 function buildReadinessSummary(
   readinessStatus: CaseReadinessStatus,
   missingRequiredCount: number,
+  staleDocumentsCount: number,
   riskCount: number
 ) {
   const labels: Record<CaseReadinessStatus, string> = {
@@ -533,7 +607,10 @@ function buildReadinessSummary(
     "review-ready": "The package looks organized enough for a focused professional review or final quality pass."
   };
 
-  const detail = `${missingRequiredCount} required item${missingRequiredCount === 1 ? "" : "s"} still need action and ${riskCount} risk flag${riskCount === 1 ? "" : "s"} remain visible.`;
+  const detail =
+    missingRequiredCount === 0 && staleDocumentsCount === 0 && riskCount === 0
+      ? "No required gaps, refresh flags, or visible risk markers remain in this saved version."
+      : `${missingRequiredCount} required item${missingRequiredCount === 1 ? "" : "s"} still need action, ${staleDocumentsCount} item${staleDocumentsCount === 1 ? "" : "s"} need refresh, and ${riskCount} risk flag${riskCount === 1 ? "" : "s"} remain visible.`;
 
   return `${labels[readinessStatus]} ${detail}`;
 }
@@ -544,23 +621,161 @@ function buildNextSteps(
   missingRequiredDocuments: CaseChecklistItem[],
   riskFlags: CaseRiskFlag[]
 ) {
-  const nextSteps = [
-    missingRequiredDocuments[0]
-      ? `Finish ${missingRequiredDocuments[0].label.toLowerCase()} first so the next review pass addresses a real package instead of a partial one.`
-      : "Freeze the current package version so the next review pass starts from a stable baseline.",
-    useCaseSlug === "visitor-record"
-      ? "Tighten the explanation letter so the temporary stay, support, and exit logic are easy to follow."
-      : "Tighten the explanation letter so the academic plan, funding, and extension reason read as one coherent story.",
-    riskFlags.some((item) => item.severity === "high")
+  const nextSteps: string[] = [];
+  const missingKeys = new Set(missingRequiredDocuments.map((item) => item.key));
+  const hasHighRisk = riskFlags.some((item) => item.severity === "high");
+
+  if (useCaseSlug === "visitor-record") {
+    if (missingKeys.has("extension-explanation") || missingKeys.has("temporary-intent-support")) {
+      nextSteps.push(
+        "Finish the explanation letter and temporary-intent support together so the file clearly explains why the stay continues, why it remains temporary, and what closes it out."
+      );
+    } else if (missingRequiredDocuments[0]) {
+      nextSteps.push(
+        `Finish ${missingRequiredDocuments[0].label.toLowerCase()} first so the next review pass addresses a real package instead of a partial one.`
+      );
+    } else {
+      nextSteps.push(
+        "Freeze the current package version so the next review pass starts from a stable baseline."
+      );
+    }
+
+    if (intake.applicationReason === "family-or-host" && intake.supportEvidenceStatus !== "ready") {
+      nextSteps.push(
+        "Collect the final invitation, accommodation, or host-support record so the package does not rely on a vague family-or-host narrative."
+      );
+    }
+
+    if (intake.proofOfFundsStatus !== "ready") {
+      nextSteps.push(
+        "Add current funding proof that matches the length of stay and the support story described in the explanation letter."
+      );
+    }
+
+    if (intake.scenarioProgressStatus === "clear") {
+      nextSteps.push(
+        "Do one clean explanation pass so the temporary stay, support evidence, and exit logic still read as one coherent visitor record story."
+      );
+    }
+  } else {
+    if (
+      missingKeys.has("enrolment-letter") ||
+      missingKeys.has("transcript-or-progress") ||
+      missingKeys.has("tuition-evidence")
+    ) {
+      nextSteps.push(
+        "Bring the current enrolment, progress, and tuition record into one matching package so the school story is easy to review in one pass."
+      );
+    } else if (missingRequiredDocuments[0]) {
+      nextSteps.push(
+        `Finish ${missingRequiredDocuments[0].label.toLowerCase()} first so the next review pass addresses a real package instead of a partial one.`
+      );
+    } else {
+      nextSteps.push("Freeze the current package version so the next review pass starts from a stable baseline.");
+    }
+
+    if (intake.supportEvidenceStatus !== "ready") {
+      nextSteps.push(
+        "Collect a current enrolment letter or equivalent school record that matches the actual extension period."
+      );
+    }
+
+    if (intake.scenarioProgressStatus !== "good-standing") {
+      nextSteps.push(
+        "Prepare a short academic-progress or tuition explanation so the extension request still reads as credible and organized."
+      );
+    } else {
+      nextSteps.push(
+        "Make sure the explanation letter ties the program plan, funding position, and extension reason into one coherent study extension narrative."
+      );
+    }
+
+    if (intake.proofOfFundsStatus !== "ready") {
+      nextSteps.push(
+        "Add current funding evidence for the remaining study period so the extension packet is not carried by school records alone."
+      );
+    }
+
+    if (intake.applicationReason === "program-transition" || intake.applicationReason === "registration-delay") {
+      nextSteps.push(
+        "Make the explanation letter explicit about the program timing or transition issue so the extension request still reads as controlled rather than improvised."
+      );
+    }
+  }
+
+  nextSteps.push(
+    hasHighRisk
       ? "Route the file to a professional reviewer once the high-risk items are documented, not before."
       : "Run one more materials pass to confirm every required document has a clear reference or final version."
-  ];
+  );
 
   if (intake.urgency === "under-30") {
     nextSteps.push("Set dates for the remaining evidence work this week so the filing window does not collapse.");
   }
 
-  return dedupeStrings(nextSteps).slice(0, 4);
+  return dedupeStrings(nextSteps).slice(0, 5);
+}
+
+function buildChecklistDetail(
+  useCaseSlug: SupportedUseCaseSlug,
+  intake: CaseIntakeValues,
+  document: ReviewDocument
+) {
+  const statusNotes: Record<CaseDocumentStatus, string> = {
+    missing: "It is still missing from the current package and should be resolved before the next serious review pass.",
+    collecting: "It is marked in progress, so confirm the final version and a clear reference before the next review.",
+    "needs-refresh": "A version exists, but it should be refreshed, updated, or replaced before the package is treated as clean.",
+    ready: "It is available in the current package and ready for the next review pass.",
+    "not-applicable": "It is marked not applicable for this case as currently framed."
+  };
+
+  return [document.description, buildDocumentExpectation(useCaseSlug, intake, document.key), statusNotes[document.status]]
+    .filter(Boolean)
+    .join(" ");
+}
+
+function buildDocumentExpectation(
+  useCaseSlug: SupportedUseCaseSlug,
+  intake: CaseIntakeValues,
+  documentKey: string
+) {
+  if (useCaseSlug === "visitor-record") {
+    const notes: Partial<Record<string, string>> = {
+      "passport-copy": "Use the identity page and any pages needed to show current validity or relevant travel history.",
+      "current-status-proof": "The status proof should line up cleanly with the current visitor stay and the expiry date used in the case timeline.",
+      "extension-explanation":
+        "This should explain why the stay continues, why it remains temporary, who is supporting it, and what ends the stay.",
+      "proof-of-funds":
+        "The funding record should match the remaining stay length and the support story described in the explanation letter.",
+      "temporary-intent-support":
+        "Use this to support departure logic, onward planning, or the next lawful status step without making the stay read as open-ended."
+    };
+
+    if (documentKey === "host-or-accommodation") {
+      return intake.applicationReason === "family-or-host"
+        ? "Because the stay depends on host or family support, this evidence should clearly identify the person, location, and support arrangement."
+        : "Use this only if accommodation or host support is part of the file.";
+    }
+
+    return notes[documentKey] ?? "";
+  }
+
+  const notes: Partial<Record<string, string>> = {
+    "passport-copy": "Use the identity page and any pages needed to show current validity for the extension period.",
+    "current-study-permit": "The current permit should line up with the expiry date and the extension timeline used in the case.",
+    "enrolment-letter":
+      "The document should match the current term or extension period and clearly confirm the academic relationship.",
+    "transcript-or-progress":
+      "Use current progress, standing, or attendance evidence so the academic story is easy to review in one pass.",
+    "tuition-evidence":
+      "Payment proof or a payment-plan record should align with the remaining study period described in the extension request.",
+    "proof-of-funds":
+      "The funding record should support the remaining study period and living-cost story, not just the school record.",
+    "extension-explanation":
+      "This should explain why the extension is needed and how the academic plan, funding, and status history still fit together cleanly."
+  };
+
+  return notes[documentKey] ?? "";
 }
 
 function readDaysUntil(value: string) {

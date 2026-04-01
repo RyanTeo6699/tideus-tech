@@ -149,6 +149,12 @@ export type Database = {
           required: boolean;
           status: string;
           material_reference: string | null;
+          storage_bucket: string | null;
+          storage_path: string | null;
+          file_name: string | null;
+          file_size_bytes: number | null;
+          mime_type: string | null;
+          uploaded_at: string | null;
           notes: string | null;
           created_at: string;
           updated_at: string;
@@ -163,6 +169,12 @@ export type Database = {
           required?: boolean;
           status?: string;
           material_reference?: string | null;
+          storage_bucket?: string | null;
+          storage_path?: string | null;
+          file_name?: string | null;
+          file_size_bytes?: number | null;
+          mime_type?: string | null;
+          uploaded_at?: string | null;
           notes?: string | null;
           created_at?: string;
           updated_at?: string;
@@ -177,6 +189,12 @@ export type Database = {
           required?: boolean;
           status?: string;
           material_reference?: string | null;
+          storage_bucket?: string | null;
+          storage_path?: string | null;
+          file_name?: string | null;
+          file_size_bytes?: number | null;
+          mime_type?: string | null;
+          uploaded_at?: string | null;
           notes?: string | null;
           created_at?: string;
           updated_at?: string;
@@ -262,6 +280,78 @@ export type Database = {
           status?: string;
           from_status?: string | null;
           to_status?: string | null;
+          metadata?: Json;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
+      lead_requests: {
+        Row: {
+          id: string;
+          user_id: string | null;
+          email: string;
+          use_case_interest: string;
+          current_stage: string;
+          wants_demo: boolean;
+          wants_early_access: boolean;
+          note: string | null;
+          metadata: Json;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id?: string | null;
+          email: string;
+          use_case_interest: string;
+          current_stage: string;
+          wants_demo?: boolean;
+          wants_early_access?: boolean;
+          note?: string | null;
+          metadata?: Json;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string | null;
+          email?: string;
+          use_case_interest?: string;
+          current_stage?: string;
+          wants_demo?: boolean;
+          wants_early_access?: boolean;
+          note?: string | null;
+          metadata?: Json;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
+      app_events: {
+        Row: {
+          id: string;
+          user_id: string | null;
+          case_id: string | null;
+          lead_request_id: string | null;
+          event_type: string;
+          path: string | null;
+          metadata: Json;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id?: string | null;
+          case_id?: string | null;
+          lead_request_id?: string | null;
+          event_type: string;
+          path?: string | null;
+          metadata?: Json;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string | null;
+          case_id?: string | null;
+          lead_request_id?: string | null;
+          event_type?: string;
+          path?: string | null;
           metadata?: Json;
           created_at?: string;
         };

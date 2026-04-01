@@ -2,6 +2,7 @@ import Link from "next/link";
 
 import type { CaseReviewResult as CaseReviewSnapshot } from "@/lib/case-review";
 import { formatDocumentStatus, formatReadinessStatus } from "@/lib/case-workflows";
+import { EventLink } from "@/components/site/event-link";
 import { buttonVariants } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -16,11 +17,28 @@ type CaseReviewResultProps = {
   caseId: string;
   caseTitle: string;
   useCaseTitle: string;
+  useCaseSlug: string;
+  sourceSurface: string;
   review: CaseReviewSnapshot;
   reviewHistoryFacts?: ReviewHistoryFact[];
+  latestReviewedAt?: string | null;
+  showBookDemoCta?: boolean;
 };
 
-export function CaseReviewResult({ caseId, caseTitle, useCaseTitle, review, reviewHistoryFacts = [] }: CaseReviewResultProps) {
+export function CaseReviewResult({
+  caseId,
+  caseTitle,
+  useCaseTitle,
+  useCaseSlug,
+  sourceSurface,
+  review,
+  reviewHistoryFacts = [],
+  latestReviewedAt = null,
+  showBookDemoCta = false
+}: CaseReviewResultProps) {
+  const checklistReadyCount = review.checklist.filter((item) => item.status === "ready" || item.status === "not-applicable").length;
+  const checklistNeedsWorkCount = review.checklist.length - checklistReadyCount;
+
   return (
     <div className="space-y-6">
       <Card className="border-emerald-200 bg-emerald-50/80 shadow-none">
@@ -36,9 +54,36 @@ export function CaseReviewResult({ caseId, caseTitle, useCaseTitle, review, revi
             <Link className={buttonVariants({ size: "sm" })} href={`/upload-materials/${caseId}`}>
               Update materials
             </Link>
-            <Link className={buttonVariants({ variant: "outline", size: "sm" })} href={`/dashboard/cases/${caseId}`}>
-              View case
-            </Link>
+            <EventLink
+              caseId={caseId}
+              className={buttonVariants({ variant: "outline", size: "sm" })}
+              eventType="export_clicked"
+              href={`/review-results/${caseId}/export`}
+              metadata={{
+                sourceSurface,
+                useCase: useCaseSlug,
+                readinessStatus: review.readinessStatus,
+                missingItemCount: review.missingItems.length,
+                riskCount: review.riskFlags.length
+              }}
+            >
+              Export summary
+            </EventLink>
+            {showBookDemoCta ? (
+              <EventLink
+                caseId={caseId}
+                className={buttonVariants({ variant: "outline", size: "sm" })}
+                eventType="book_demo_clicked"
+                href="/book-demo"
+                metadata={{
+                  sourceSurface,
+                  useCase: useCaseSlug,
+                  readinessStatus: review.readinessStatus
+                }}
+              >
+                Book demo
+              </EventLink>
+            ) : null}
           </div>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -48,6 +93,18 @@ export function CaseReviewResult({ caseId, caseTitle, useCaseTitle, review, revi
             <p className="mt-2">{review.readinessSummary}</p>
             <p className="mt-4 font-semibold uppercase tracking-[0.18em] text-emerald-800">Timeline note</p>
             <p className="mt-2">{review.timelineNote}</p>
+            {latestReviewedAt ? (
+              <>
+                <p className="mt-4 font-semibold uppercase tracking-[0.18em] text-emerald-800">Latest review timestamp</p>
+                <p className="mt-2">{formatDateTime(latestReviewedAt)}</p>
+              </>
+            ) : null}
+          </div>
+          <div className="grid gap-3 sm:grid-cols-4">
+            <SummaryPill label="Checklist ready" value={`${checklistReadyCount}/${review.checklist.length}`} />
+            <SummaryPill label="Needs work" value={checklistNeedsWorkCount.toString()} />
+            <SummaryPill label="Missing items" value={review.missingItems.length.toString()} />
+            <SummaryPill label="Risk flags" value={review.riskFlags.length.toString()} />
           </div>
         </CardContent>
       </Card>
@@ -160,4 +217,23 @@ export function CaseReviewResult({ caseId, caseTitle, useCaseTitle, review, revi
       </div>
     </div>
   );
+}
+
+function SummaryPill({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-2xl border border-emerald-200 bg-white p-4">
+      <p className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-800">{label}</p>
+      <p className="mt-2 text-lg font-semibold text-slate-950">{value}</p>
+    </div>
+  );
+}
+
+function formatDateTime(value: string) {
+  return new Intl.DateTimeFormat("en-CA", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit"
+  }).format(new Date(value));
 }

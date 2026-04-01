@@ -33,10 +33,7 @@ export default async function ReviewResultsPage({ params }: ReviewResultsPagePro
 
   return (
     <WorkspaceShell
-      actions={[
-        { href: `/upload-materials/${caseId}`, label: "Back to materials", variant: "outline" },
-        { href: "/dashboard/cases", label: "Back to cases", variant: "outline" }
-      ]}
+      actions={[{ href: `/dashboard/cases/${caseId}`, label: "View case", variant: "outline" }]}
       description="This result is the saved review version for the current package state."
       eyebrow="Review Results"
       title={`${detail.caseRecord.title} review`}
@@ -45,8 +42,12 @@ export default async function ReviewResultsPage({ params }: ReviewResultsPagePro
         <CaseReviewResult
           caseId={caseId}
           caseTitle={detail.caseRecord.title}
+          latestReviewedAt={detail.latestReview?.created_at ?? detail.caseRecord.latest_reviewed_at}
           review={review}
           reviewHistoryFacts={getReviewHistoryFacts(detail.reviewHistory)}
+          showBookDemoCta
+          sourceSurface="review-results-page"
+          useCaseSlug={detail.caseRecord.use_case_slug}
           useCaseTitle={useCase?.shortTitle || detail.caseRecord.use_case_slug}
         />
       ) : (

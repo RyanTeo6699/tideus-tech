@@ -1,5 +1,4 @@
-import Link from "next/link";
-
+import { EventLink } from "@/components/site/event-link";
 import { buttonVariants } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { SectionContainer } from "@/components/site/section-container";
@@ -20,19 +19,32 @@ export function CTASection() {
             </p>
           </div>
           <div className="flex flex-col gap-3 sm:flex-row">
-            <Link className={buttonVariants({ variant: "secondary", size: "lg" })} href="/start-case">
+            <EventLink
+              className={buttonVariants({ variant: "secondary", size: "lg" })}
+              eventType="landing_cta_clicked"
+              href="/start-case"
+              metadata={{
+                sourceSurface: "home-cta",
+                cta: "start-case"
+              }}
+            >
               Start a case
-            </Link>
-            <Link
+            </EventLink>
+            <EventLink
               className={buttonVariants({
                 variant: "outline",
                 size: "lg",
                 className: "border-white/20 bg-white/5 text-white hover:bg-white/10"
               })}
+              eventType="book_demo_clicked"
               href="/book-demo"
+              metadata={{
+                sourceSurface: "home-cta",
+                cta: "book-demo"
+              }}
             >
               Book demo
-            </Link>
+            </EventLink>
           </div>
         </div>
       </div>

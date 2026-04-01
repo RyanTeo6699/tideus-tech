@@ -13,8 +13,16 @@ const sections = [
     body: "The current product stores case records, intake responses, document-state tracking, review outputs, workflow status history, and saved review versions so users can resume a case without starting over."
   },
   {
+    title: "Uploaded materials",
+    body: "When a user uploads case materials, Tideus stores the file in private case storage and keeps related metadata in the case record, including filename, file type, size, upload time, and the material row it belongs to."
+  },
+  {
     title: "Workflow history",
     body: "Tideus also stores structured case events such as case creation, intake completion, materials updates, review generation, and case resume events. The goal is product continuity and future workflow analysis, not a user-facing analytics dashboard in this sprint."
+  },
+  {
+    title: "Demo and early-access requests",
+    body: "If someone uses the Book Demo or Early Access form, Tideus stores the submitted email address, supported workflow interest, current stage, request intent, optional note, and related launch funnel metadata."
   },
   {
     title: "Service boundaries",
@@ -30,7 +38,7 @@ export default function PrivacyPage() {
   return (
     <>
       <PageHero
-        description="This page describes the data Tideus stores for the current case-first workflow product: account records, case records, document states, review outputs, and workflow history."
+        description="This page describes the data Tideus stores for the current case-first workflow product: account records, case records, uploaded material metadata, review outputs, lead requests, and workflow history."
         eyebrow="Privacy"
         title="Privacy language should match the case workspace the product actually is."
       />

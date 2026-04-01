@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
+import { EventLink } from "@/components/site/event-link";
 import { PageHero } from "@/components/site/page-hero";
 import { SectionContainer } from "@/components/site/section-container";
 import { FeatureCard } from "@/components/site/feature-card";
@@ -33,12 +34,28 @@ export default async function UseCaseDetailPage({ params }: UseCaseDetailPagePro
       <PageHero
         actions={
           <>
-            <Link className={buttonVariants({ size: "lg" })} href={getCaseStartHref(useCase.slug)}>
+            <EventLink
+              className={buttonVariants({ size: "lg" })}
+              eventType="start_case_selected"
+              href={getCaseStartHref(useCase.slug)}
+              metadata={{
+                sourceSurface: "use-case-detail",
+                useCase: useCase.slug
+              }}
+            >
               Start this case
-            </Link>
-            <Link className={buttonVariants({ variant: "outline", size: "lg" })} href="/use-cases">
-              Back to use cases
-            </Link>
+            </EventLink>
+            <EventLink
+              className={buttonVariants({ variant: "outline", size: "lg" })}
+              eventType="book_demo_clicked"
+              href="/book-demo"
+              metadata={{
+                sourceSurface: "use-case-detail",
+                useCase: useCase.slug
+              }}
+            >
+              Book demo
+            </EventLink>
           </>
         }
         description={useCase.detailSummary}

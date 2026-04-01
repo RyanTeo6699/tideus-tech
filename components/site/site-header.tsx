@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { mainNav, siteConfig } from "@/lib/site";
+import { EventLink } from "@/components/site/event-link";
 import { buttonVariants } from "@/components/ui/button";
 
 export function SiteHeader() {
@@ -29,9 +30,28 @@ export function SiteHeader() {
           <Link className={buttonVariants({ variant: "ghost", size: "sm" })} href="/login">
             Log in
           </Link>
-          <Link className={buttonVariants({ size: "sm" })} href="/start-case">
+          <EventLink
+            className={buttonVariants({ variant: "outline", size: "sm" })}
+            eventType="book_demo_clicked"
+            href="/book-demo"
+            metadata={{
+              sourceSurface: "site-header",
+              cta: "book-demo"
+            }}
+          >
+            Book demo
+          </EventLink>
+          <EventLink
+            className={buttonVariants({ size: "sm" })}
+            eventType="landing_cta_clicked"
+            href="/start-case"
+            metadata={{
+              sourceSurface: "site-header",
+              cta: "start-case"
+            }}
+          >
             Start a case
-          </Link>
+          </EventLink>
         </div>
 
         <details className="relative md:hidden">
@@ -50,9 +70,28 @@ export function SiteHeader() {
               <Link className={buttonVariants({ variant: "outline", size: "sm" })} href="/login">
                 Log in
               </Link>
-              <Link className={buttonVariants({ size: "sm" })} href="/start-case">
+              <EventLink
+                className={buttonVariants({ variant: "outline", size: "sm" })}
+                eventType="book_demo_clicked"
+                href="/book-demo"
+                metadata={{
+                  sourceSurface: "mobile-menu",
+                  cta: "book-demo"
+                }}
+              >
+                Book demo
+              </EventLink>
+              <EventLink
+                className={buttonVariants({ size: "sm" })}
+                eventType="landing_cta_clicked"
+                href="/start-case"
+                metadata={{
+                  sourceSurface: "mobile-menu",
+                  cta: "start-case"
+                }}
+              >
                 Start a case
-              </Link>
+              </EventLink>
             </div>
           </div>
         </details>

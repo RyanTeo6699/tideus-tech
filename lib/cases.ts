@@ -41,6 +41,24 @@ type CaseDetailOptions = {
   resumeSource?: "materials" | "review-results";
 };
 
+export type CaseNextAction = {
+  label: string;
+  href: string;
+  description: string;
+};
+
+export type CaseMaterialStatusCounts = {
+  total: number;
+  requiredTotal: number;
+  ready: number;
+  collecting: number;
+  needsRefresh: number;
+  missing: number;
+  notApplicable: number;
+  requiredReady: number;
+  requiredActionCount: number;
+};
+
 export function getCaseIntakeInitialValues(profile: Tables<"profiles"> | null, useCaseSlug: SupportedUseCaseSlug) {
   const values: Partial<CaseIntakeValues> = {};
 
@@ -127,6 +145,100 @@ export function buildCaseFacts(caseRecord: Tables<"cases">, documents: Tables<"c
     { label: "Last review", value: caseRecord.latest_reviewed_at ? formatDate(caseRecord.latest_reviewed_at) : "Not reviewed yet" },
     { label: "Updated", value: formatDate(caseRecord.updated_at) }
   ];
+}
+
+export function getCaseMaterialStatusCounts(documents: Tables<"case_documents">[]): CaseMaterialStatusCounts {
+  let ready = 0;
+  let collecting = 0;
+  let needsRefresh = 0;
+  let missing = 0;
+  let notApplicable = 0;
+  let requiredTotal = 0;
+  let requiredReady = 0;
+
+  for (const item of documents) {
+    if (item.required) {
+      requiredTotal += 1;
+    }
+
+    if (item.status === "ready") {
+      ready += 1;
+      if (item.required) {
+        requiredReady += 1;
+      }
+      continue;
+    }
+
+    if (item.status === "collecting") {
+      collecting += 1;
+      continue;
+    }
+
+    if (item.status === "needs-refresh") {
+      needsRefresh += 1;
+      continue;
+    }
+
+    if (item.status === "missing") {
+      missing += 1;
+      continue;
+    }
+
+    if (item.status === "not-applicable") {
+      notApplicable += 1;
+      if (item.required) {
+        requiredReady += 1;
+      }
+    }
+  }
+
+  return {
+    total: documents.length,
+    requiredTotal,
+    ready,
+    collecting,
+    needsRefresh,
+    missing,
+    notApplicable,
+    requiredReady,
+    requiredActionCount: requiredTotal - requiredReady
+  };
+}
+
+export function getCaseNextAction(caseRecord: Tables<"cases">, documents: Tables<"case_documents">[]): CaseNextAction {
+  const counts = getDocumentProgressCounts(
+    documents.map((item) => ({
+      status: item.status as CaseDocumentStatus,
+      required: item.required
+    }))
+  );
+
+  if (normalizeCaseStatus(caseRecord.status) !== "reviewed") {
+    return {
+      label: "Finish materials and run review",
+      href: `/upload-materials/${caseRecord.id}`,
+      description:
+        counts.actionNeeded > 0
+          ? `${counts.actionNeeded} required material${counts.actionNeeded === 1 ? "" : "s"} still need work before the first clean review pass.`
+          : "The intake is complete. The next step is to confirm the package state and generate the first review version."
+    };
+  }
+
+  if (caseRecord.latest_readiness_status === "review-ready") {
+    return {
+      label: "Export the latest summary",
+      href: `/review-results/${caseRecord.id}/export`,
+      description: "The latest review looks ready enough to print, export, or carry into the next professional handoff."
+    };
+  }
+
+  return {
+    label: "Refresh materials and regenerate review",
+    href: `/upload-materials/${caseRecord.id}`,
+    description:
+      caseRecord.latest_review_summary ||
+      "The case already has a saved review version, but the next pass should tighten the package before export."
+  };
 }
 
 export function buildCaseSnapshotFacts(caseRecord: Tables<"cases">) {

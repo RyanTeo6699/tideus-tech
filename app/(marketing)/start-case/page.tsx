@@ -2,6 +2,7 @@ import Link from "next/link";
 
 import { getCurrentProfileContext } from "@/lib/profile-server";
 import { getCaseStartHref, supportedUseCases } from "@/lib/case-workflows";
+import { EventLink } from "@/components/site/event-link";
 import { PageHero } from "@/components/site/page-hero";
 import { SectionContainer } from "@/components/site/section-container";
 import { buttonVariants } from "@/components/ui/button";
@@ -15,9 +16,16 @@ export default async function StartCasePage() {
       <PageHero
         actions={
           <>
-            <Link className={buttonVariants({ size: "lg" })} href="/use-cases">
-              Browse supported workflows
-            </Link>
+            <EventLink
+              className={buttonVariants({ size: "lg" })}
+              eventType="book_demo_clicked"
+              href="/book-demo"
+              metadata={{
+                sourceSurface: "start-case-page-hero"
+              }}
+            >
+              Book demo
+            </EventLink>
             <Link className={buttonVariants({ variant: "outline", size: "lg" })} href={user ? "/dashboard" : "/login?next=/dashboard"}>
               {user ? "Open case workspace" : "Log in to save cases"}
             </Link>
@@ -45,9 +53,17 @@ export default async function StartCasePage() {
                   ))}
                 </div>
                 <div className="flex flex-col gap-3 sm:flex-row">
-                  <Link className={buttonVariants({ size: "sm" })} href={getCaseStartHref(item.slug)}>
+                  <EventLink
+                    className={buttonVariants({ size: "sm" })}
+                    eventType="start_case_selected"
+                    href={getCaseStartHref(item.slug)}
+                    metadata={{
+                      sourceSurface: "start-case-page",
+                      useCase: item.slug
+                    }}
+                  >
                     Start {item.shortTitle}
-                  </Link>
+                  </EventLink>
                   <Link className={buttonVariants({ variant: "outline", size: "sm" })} href={`/use-cases/${item.slug}`}>
                     View workflow detail
                   </Link>

@@ -1,5 +1,4 @@
-import Link from "next/link";
-
+import { EventLink } from "@/components/site/event-link";
 import { PageHero } from "@/components/site/page-hero";
 import { SectionContainer } from "@/components/site/section-container";
 import { FeatureCard } from "@/components/site/feature-card";
@@ -14,12 +13,28 @@ export default function HowItWorksPage() {
       <PageHero
         actions={
           <>
-            <Link className={buttonVariants({ size: "lg" })} href="/start-case">
+            <EventLink
+              className={buttonVariants({ size: "lg" })}
+              eventType="landing_cta_clicked"
+              href="/start-case"
+              metadata={{
+                sourceSurface: "how-it-works-page",
+                cta: "start-case"
+              }}
+            >
               Start a case
-            </Link>
-            <Link className={buttonVariants({ variant: "outline", size: "lg" })} href="/use-cases">
-              View supported use cases
-            </Link>
+            </EventLink>
+            <EventLink
+              className={buttonVariants({ variant: "outline", size: "lg" })}
+              eventType="book_demo_clicked"
+              href="/book-demo"
+              metadata={{
+                sourceSurface: "how-it-works-page",
+                cta: "book-demo"
+              }}
+            >
+              Book demo
+            </EventLink>
           </>
         }
         description="Tideus is designed to move one narrow case through a clean workflow: intake, materials, structured review, and saved follow-up."

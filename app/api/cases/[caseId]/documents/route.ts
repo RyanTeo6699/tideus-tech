@@ -32,7 +32,7 @@ export async function PATCH(request: Request, { params }: CaseDocumentsRouteProp
 
   const { data: caseRecord, error: caseError } = await supabase
     .from("cases")
-    .select("id, status, status_history")
+    .select("id, status, status_history, use_case_slug")
     .eq("user_id", user.id)
     .eq("id", caseId)
     .maybeSingle();
@@ -53,18 +53,46 @@ export async function PATCH(request: Request, { params }: CaseDocumentsRouteProp
 
   const { data: existingDocuments, error: existingDocumentsError } = await supabase
     .from("case_documents")
-    .select("id")
+    .select("id, status, material_reference, notes, required")
     .eq("case_id", caseId);
 
   if (existingDocumentsError) {
     return NextResponse.json({ message: existingDocumentsError.message }, { status: 500 });
   }
 
-  const validIds = new Set((existingDocuments ?? []).map((item) => item.id));
+  const existingDocumentMap = new Map((existingDocuments ?? []).map((item) => [item.id, item]));
+  const validIds = new Set(existingDocumentMap.keys());
 
   if (parsed.data.documents.some((item) => !validIds.has(item.id))) {
     return NextResponse.json({ message: "One or more material rows could not be matched to the case." }, { status: 400 });
   }
+
+  const changedMaterialsCount = parsed.data.documents.filter((item) => {
+    const existing = existingDocumentMap.get(item.id);
+
+    if (!existing) {
+      return false;
+    }
+
+    return (
+      existing.status !== item.status ||
+      (existing.material_reference ?? "") !== (item.materialReference || "") ||
+      (existing.notes ?? "") !== (item.notes || "")
+    );
+  }).length;
+  const changedRequiredMaterialsCount = parsed.data.documents.filter((item) => {
+    const existing = existingDocumentMap.get(item.id);
+
+    if (!existing?.required) {
+      return false;
+    }
+
+    return (
+      existing.status !== item.status ||
+      (existing.material_reference ?? "") !== (item.materialReference || "") ||
+      (existing.notes ?? "") !== (item.notes || "")
+    );
+  }).length;
 
   for (const item of parsed.data.documents) {
     const { error } = await supabase
@@ -83,6 +111,14 @@ export async function PATCH(request: Request, { params }: CaseDocumentsRouteProp
   }
 
   const nextStatus = getNextCaseStatus(currentStatus, "materials-updated");
+  const readyCount = parsed.data.documents.filter((item) => item.status === "ready" || item.status === "not-applicable").length;
+  const collectingCount = parsed.data.documents.filter((item) => item.status === "collecting").length;
+  const needsRefreshCount = parsed.data.documents.filter((item) => item.status === "needs-refresh").length;
+  const missingCount = parsed.data.documents.filter((item) => item.status === "missing").length;
+  const requiredActionCount = parsed.data.documents.filter((item) => {
+    const existing = existingDocumentMap.get(item.id);
+    return existing?.required && item.status !== "ready" && item.status !== "not-applicable";
+  }).length;
 
   const { error: updateCaseError } = await supabase
     .from("cases")
@@ -105,7 +141,15 @@ export async function PATCH(request: Request, { params }: CaseDocumentsRouteProp
     fromStatus: currentStatus,
     toStatus: nextStatus,
     metadata: {
-      documentCount: parsed.data.documents.length
+      useCaseSlug: caseRecord.use_case_slug,
+      documentCount: parsed.data.documents.length,
+      changedMaterialsCount,
+      changedRequiredMaterialsCount,
+      readyCount,
+      collectingCount,
+      needsRefreshCount,
+      missingCount,
+      requiredActionCount
     }
   });
 

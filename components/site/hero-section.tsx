@@ -1,6 +1,5 @@
-import Link from "next/link";
-
 import { siteConfig } from "@/lib/site";
+import { EventLink } from "@/components/site/event-link";
 import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -23,12 +22,28 @@ export function HeroSection() {
               {siteConfig.name} is being repositioned as an AI-powered case workspace for high-frequency, document-heavy application and extension prep. Phase 1 stays intentionally narrow: supported scenarios, structured review outputs, and a saved case dashboard.
             </p>
             <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-              <Link className={buttonVariants({ size: "lg" })} href="/start-case">
+              <EventLink
+                className={buttonVariants({ size: "lg" })}
+                eventType="landing_cta_clicked"
+                href="/start-case"
+                metadata={{
+                  sourceSurface: "home-hero",
+                  cta: "start-case"
+                }}
+              >
                 Start a case
-              </Link>
-              <Link className={buttonVariants({ variant: "outline", size: "lg" })} href="/use-cases">
-                View supported use cases
-              </Link>
+              </EventLink>
+              <EventLink
+                className={buttonVariants({ variant: "outline", size: "lg" })}
+                eventType="book_demo_clicked"
+                href="/book-demo"
+                metadata={{
+                  sourceSurface: "home-hero",
+                  cta: "book-demo"
+                }}
+              >
+                Book demo
+              </EventLink>
             </div>
             <div className="mt-10 grid gap-6 border-t border-border pt-8 sm:grid-cols-3">
               <div>

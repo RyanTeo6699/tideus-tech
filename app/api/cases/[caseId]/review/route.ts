@@ -60,6 +60,12 @@ export async function POST(_request: Request, { params }: CaseReviewRouteProps) 
   const now = new Date().toISOString();
   const nextStatus = getNextCaseStatus(currentStatus, "reviewed");
   const eventType = nextVersion > 1 ? "review_regenerated" : "review_generated";
+  const checklistReadyCount = review.checklist.filter(
+    (item) => item.status === "ready" || item.status === "not-applicable"
+  ).length;
+  const checklistNeedsWorkCount = review.checklist.length - checklistReadyCount;
+  const highRiskCount = review.riskFlags.filter((item) => item.severity === "high").length;
+  const mediumRiskCount = review.riskFlags.filter((item) => item.severity === "medium").length;
 
   const reviewInsert: TablesInsert<"case_review_versions"> = {
     case_id: caseId,
@@ -111,7 +117,14 @@ export async function POST(_request: Request, { params }: CaseReviewRouteProps) 
     toStatus: nextStatus,
     metadata: {
       versionNumber: nextVersion,
-      readinessStatus: review.readinessStatus
+      readinessStatus: review.readinessStatus,
+      useCaseSlug: caseRecord.use_case_slug,
+      missingItemCount: review.missingItems.length,
+      riskCount: review.riskFlags.length,
+      highRiskCount,
+      mediumRiskCount,
+      checklistReadyCount,
+      checklistNeedsWorkCount
     },
     createdAt: now
   });
@@ -124,6 +137,7 @@ export async function POST(_request: Request, { params }: CaseReviewRouteProps) 
   revalidatePath("/dashboard/cases");
   revalidatePath(`/dashboard/cases/${caseId}`);
   revalidatePath(`/review-results/${caseId}`);
+  revalidatePath(`/review-results/${caseId}/export`);
 
   return NextResponse.json({
     message: "Review generated.",
