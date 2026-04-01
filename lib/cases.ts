@@ -1,0 +1,340 @@
+import type { User } from "@supabase/supabase-js";
+
+import type { Json, Tables, TablesInsert } from "@/lib/database.types";
+import {
+  buildCaseReviewResult,
+  getDocumentProgressCounts,
+  parseStoredChecklistItems,
+  parseStoredRiskFlags,
+  type CaseReviewResult
+} from "@/lib/case-review";
+import {
+  formatCaseStatus,
+  formatReadinessStatus,
+  getUseCaseDefinition,
+  type CaseDocumentStatus,
+  type CaseIntakeValues,
+  type CaseStatus,
+  type SupportedUseCaseSlug
+} from "@/lib/case-workflows";
+import { createClient } from "@/lib/supabase/server";
+
+export type CaseListResult = {
+  user: User | null;
+  items: Tables<"cases">[];
+};
+
+export type CaseDetailResult = {
+  user: User | null;
+  profile: Tables<"profiles"> | null;
+  caseRecord: Tables<"cases"> | null;
+  documents: Tables<"case_documents">[];
+  latestReview: Tables<"case_review_versions"> | null;
+  reviewHistory: Tables<"case_review_versions">[];
+};
+
+export function getCaseIntakeInitialValues(profile: Tables<"profiles"> | null, useCaseSlug: SupportedUseCaseSlug) {
+  const values: Partial<CaseIntakeValues> = {};
+
+  if (profile?.current_status) {
+    values.currentStatus = profile.current_status === "outside-canada" ? "other" : profile.current_status;
+  } else if (useCaseSlug === "visitor-record") {
+    values.currentStatus = "visitor";
+  } else if (useCaseSlug === "study-permit-extension") {
+    values.currentStatus = "student";
+  }
+
+  if (profile?.refusal_history_flag) {
+    values.refusalOrComplianceIssues = "yes";
+  }
+
+  return values;
+}
+
+export function buildCaseTitle(useCaseSlug: SupportedUseCaseSlug, intake: CaseIntakeValues) {
+  if (intake.title.trim()) {
+    return intake.title.trim();
+  }
+
+  const useCase = getUseCaseDefinition(useCaseSlug);
+  const fallback = useCase?.shortTitle ?? "Case";
+  return `${fallback} prep`;
+}
+
+export function buildInitialCaseDocuments(useCaseSlug: SupportedUseCaseSlug, intake: CaseIntakeValues): TablesInsert<"case_documents">[] {
+  const useCase = getUseCaseDefinition(useCaseSlug);
+
+  if (!useCase) {
+    return [];
+  }
+
+  return useCase.expectedDocuments.map((document, index) => ({
+    document_key: document.key,
+    label: document.label,
+    description: document.description,
+    position: index,
+    required: document.required,
+    status: deriveInitialDocumentStatus(useCaseSlug, document.key, intake)
+  }));
+}
+
+export function appendCaseStatusHistory(history: Json | null | undefined, status: CaseStatus) {
+  const nextHistory = Array.isArray(history) ? [...history] : [];
+  nextHistory.push({
+    status,
+    at: new Date().toISOString()
+  });
+  return nextHistory;
+}
+
+export function buildCaseResumeHref(caseRecord: Tables<"cases">) {
+  if (caseRecord.latest_reviewed_at) {
+    return `/review-results/${caseRecord.id}`;
+  }
+
+  return `/upload-materials/${caseRecord.id}`;
+}
+
+export function getCaseReviewSnapshot(latestReview: Tables<"case_review_versions"> | null): CaseReviewResult | null {
+  if (!latestReview) {
+    return null;
+  }
+
+  return {
+    readinessStatus: latestReview.readiness_status as CaseReviewResult["readinessStatus"],
+    readinessSummary: latestReview.readiness_summary,
+    summary: latestReview.result_summary,
+    timelineNote: latestReview.timeline_note ?? "",
+    checklist: parseStoredChecklistItems(latestReview.checklist_items),
+    missingItems: latestReview.missing_items,
+    riskFlags: parseStoredRiskFlags(latestReview.risk_flags),
+    nextSteps: latestReview.next_steps
+  };
+}
+
+export function buildCaseFacts(caseRecord: Tables<"cases">, documents: Tables<"case_documents">[]) {
+  const counts = getDocumentProgressCounts(
+    documents.map((item) => ({
+      status: item.status as CaseDocumentStatus,
+      required: item.required
+    }))
+  );
+
+  return [
+    { label: "Use case", value: getUseCaseDefinition(caseRecord.use_case_slug)?.shortTitle ?? caseRecord.use_case_slug },
+    { label: "Case status", value: formatCaseStatus(caseRecord.status) },
+    { label: "Readiness", value: caseRecord.latest_readiness_status ? formatReadinessStatus(caseRecord.latest_readiness_status) : "Not reviewed yet" },
+    { label: "Materials ready", value: `${counts.ready}/${counts.total}` },
+    { label: "Last review", value: caseRecord.latest_reviewed_at ? formatDate(caseRecord.latest_reviewed_at) : "Not reviewed yet" },
+    { label: "Updated", value: formatDate(caseRecord.updated_at) }
+  ];
+}
+
+export function buildCaseSnapshotFacts(caseRecord: Tables<"cases">) {
+  const intake = readCaseIntake(caseRecord.intake_answers);
+
+  return [
+    { label: "Current status", value: formatStoredValue(intake.currentStatus) || "Not captured" },
+    { label: "Expiry date", value: intake.currentPermitExpiry || "Not captured" },
+    { label: "Timeline", value: formatStoredValue(intake.urgency) || "Not captured" },
+    { label: "Passport validity", value: formatStoredValue(intake.passportValidity) || "Not captured" },
+    { label: "Funds status", value: formatStoredValue(intake.proofOfFundsStatus) || "Not captured" },
+    { label: "Support evidence", value: formatStoredValue(intake.supportEvidenceStatus) || "Not captured" },
+    { label: "Case progress signal", value: formatStoredValue(intake.scenarioProgressStatus) || "Not captured" },
+    { label: "Support entity", value: intake.supportEntityName || "Not captured" }
+  ];
+}
+
+export function buildCaseNotes(caseRecord: Tables<"cases">) {
+  return readCaseIntake(caseRecord.intake_answers).notes || "No case notes saved.";
+}
+
+export function getReviewHistoryFacts(reviewHistory: Tables<"case_review_versions">[]) {
+  return reviewHistory.map((item) => ({
+    label: `Version ${item.version_number}`,
+    value: `${formatReadinessStatus(item.readiness_status)} · ${formatDate(item.created_at)}`
+  }));
+}
+
+export async function getCases(limit = 24): Promise<CaseListResult> {
+  const supabase = await createClient();
+  const {
+    data: { user }
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return {
+      user: null,
+      items: []
+    };
+  }
+
+  const { data } = await supabase
+    .from("cases")
+    .select("*")
+    .eq("user_id", user.id)
+    .order("updated_at", { ascending: false })
+    .limit(limit);
+
+  return {
+    user,
+    items: data ?? []
+  };
+}
+
+export async function getCaseDetail(caseId: string): Promise<CaseDetailResult> {
+  const supabase = await createClient();
+  const {
+    data: { user }
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return {
+      user: null,
+      profile: null,
+      caseRecord: null,
+      documents: [],
+      latestReview: null,
+      reviewHistory: []
+    };
+  }
+
+  const [{ data: profile }, { data: caseRecord }, { data: documents }, { data: reviewHistory }] = await Promise.all([
+    supabase.from("profiles").select("*").eq("user_id", user.id).maybeSingle(),
+    supabase.from("cases").select("*").eq("user_id", user.id).eq("id", caseId).maybeSingle(),
+    supabase.from("case_documents").select("*").eq("case_id", caseId).order("position", { ascending: true }),
+    supabase.from("case_review_versions").select("*").eq("case_id", caseId).order("version_number", { ascending: false })
+  ]);
+
+  return {
+    user,
+    profile: profile ?? null,
+    caseRecord: caseRecord ?? null,
+    documents: documents ?? [],
+    latestReview: reviewHistory?.[0] ?? null,
+    reviewHistory: reviewHistory ?? []
+  };
+}
+
+export async function buildLatestReviewForCase(caseRecord: Tables<"cases">, documents: Tables<"case_documents">[]) {
+  const intake = readCaseIntake(caseRecord.intake_answers);
+  return buildCaseReviewResult(
+    caseRecord.use_case_slug as SupportedUseCaseSlug,
+    intake,
+    documents.map((item) => ({
+      key: item.document_key,
+      label: item.label,
+      description: item.description,
+      required: item.required,
+      status: item.status as CaseDocumentStatus,
+      material_reference: item.material_reference
+    }))
+  );
+}
+
+function deriveInitialDocumentStatus(useCaseSlug: SupportedUseCaseSlug, documentKey: string, intake: CaseIntakeValues): CaseDocumentStatus {
+  if (documentKey === "proof-of-funds") {
+    return mapPreparednessToDocumentStatus(intake.proofOfFundsStatus);
+  }
+
+  if (
+    (useCaseSlug === "visitor-record" && documentKey === "host-or-accommodation") ||
+    (useCaseSlug === "study-permit-extension" && documentKey === "enrolment-letter")
+  ) {
+    return mapPreparednessToDocumentStatus(intake.supportEvidenceStatus);
+  }
+
+  if (
+    (useCaseSlug === "visitor-record" && documentKey === "temporary-intent-support") ||
+    (useCaseSlug === "study-permit-extension" && documentKey === "transcript-or-progress")
+  ) {
+    if (intake.scenarioProgressStatus === "clear" || intake.scenarioProgressStatus === "good-standing") {
+      return "collecting";
+    }
+
+    if (intake.scenarioProgressStatus === "partial" || intake.scenarioProgressStatus === "needs-explanation") {
+      return "needs-refresh";
+    }
+
+    if (intake.scenarioProgressStatus === "weak" || intake.scenarioProgressStatus === "at-risk") {
+      return "missing";
+    }
+  }
+
+  return "missing";
+}
+
+function mapPreparednessToDocumentStatus(value: string): CaseDocumentStatus {
+  if (value === "ready") {
+    return "collecting";
+  }
+
+  if (value === "partial") {
+    return "needs-refresh";
+  }
+
+  if (value === "not-needed") {
+    return "not-applicable";
+  }
+
+  return "missing";
+}
+
+function readCaseIntake(value: Json) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return {
+      title: "",
+      currentStatus: "",
+      currentPermitExpiry: "",
+      urgency: "",
+      passportValidity: "",
+      proofOfFundsStatus: "",
+      refusalOrComplianceIssues: "",
+      applicationReason: "",
+      supportEntityName: "",
+      supportEvidenceStatus: "",
+      scenarioProgressStatus: "",
+      notes: ""
+    };
+  }
+
+  const record = value as Record<string, Json>;
+
+  return {
+    title: readString(record.title),
+    currentStatus: readString(record.currentStatus),
+    currentPermitExpiry: readString(record.currentPermitExpiry),
+    urgency: readString(record.urgency),
+    passportValidity: readString(record.passportValidity),
+    proofOfFundsStatus: readString(record.proofOfFundsStatus),
+    refusalOrComplianceIssues: readString(record.refusalOrComplianceIssues),
+    applicationReason: readString(record.applicationReason),
+    supportEntityName: readString(record.supportEntityName),
+    supportEvidenceStatus: readString(record.supportEvidenceStatus),
+    scenarioProgressStatus: readString(record.scenarioProgressStatus),
+    notes: readString(record.notes)
+  };
+}
+
+function readString(value: Json | undefined) {
+  return typeof value === "string" ? value : "";
+}
+
+function formatStoredValue(value: string | null | undefined) {
+  if (!value) {
+    return null;
+  }
+
+  return value
+    .split("-")
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
+}
+
+function formatDate(value: string) {
+  return new Intl.DateTimeFormat("en-CA", {
+    month: "short",
+    day: "numeric",
+    year: "numeric"
+  }).format(new Date(value));
+}
