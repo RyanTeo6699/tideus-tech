@@ -51,7 +51,7 @@ export async function POST(request: Request) {
     return NextResponse.json({
       result,
       saved: false,
-      message: "Sign in to save this comparison to your dashboard."
+      message: "Sign in to save this legacy comparison record to your dashboard archive."
     });
   }
 
@@ -81,13 +81,15 @@ export async function POST(request: Request) {
   }
 
   revalidatePath("/dashboard");
+  revalidatePath("/dashboard/cases");
   revalidatePath("/dashboard/comparisons");
+  revalidatePath("/start-case");
 
   return NextResponse.json({
     result,
     saved: true,
     savedRecord: data,
-    message: "Comparison saved to your dashboard."
+    message: "Legacy comparison record saved to your dashboard archive."
   });
 }
 

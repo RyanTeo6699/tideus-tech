@@ -231,6 +231,42 @@ export type Database = {
         };
         Relationships: [];
       };
+      case_events: {
+        Row: {
+          id: string;
+          case_id: string;
+          user_id: string;
+          event_type: string;
+          status: string;
+          from_status: string | null;
+          to_status: string | null;
+          metadata: Json;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          case_id: string;
+          user_id: string;
+          event_type: string;
+          status: string;
+          from_status?: string | null;
+          to_status?: string | null;
+          metadata?: Json;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          case_id?: string;
+          user_id?: string;
+          event_type?: string;
+          status?: string;
+          from_status?: string | null;
+          to_status?: string | null;
+          metadata?: Json;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
       assessments: {
         Row: {
           id: string;

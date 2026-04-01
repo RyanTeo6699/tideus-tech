@@ -2,7 +2,9 @@ import { NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
 
 import type { TablesInsert } from "@/lib/database.types";
-import { appendCaseStatusHistory, buildLatestReviewForCase } from "@/lib/cases";
+import { recordCaseEvent } from "@/lib/case-events";
+import { buildLatestReviewForCase } from "@/lib/cases";
+import { appendCaseStatusHistory, getNextCaseStatus, normalizeCaseStatus } from "@/lib/case-state";
 import { createClient } from "@/lib/supabase/server";
 
 type CaseReviewRouteProps = {
@@ -47,9 +49,17 @@ export async function POST(_request: Request, { params }: CaseReviewRouteProps) 
     return NextResponse.json({ message: "The selected case could not be found." }, { status: 404 });
   }
 
+  const currentStatus = normalizeCaseStatus(caseRecord.status);
+
+  if (!currentStatus) {
+    return NextResponse.json({ message: "The case status could not be resolved." }, { status: 500 });
+  }
+
   const review = await buildLatestReviewForCase(caseRecord, documents ?? []);
   const nextVersion = (latestReviewRow?.[0]?.version_number ?? 0) + 1;
   const now = new Date().toISOString();
+  const nextStatus = getNextCaseStatus(currentStatus, "reviewed");
+  const eventType = nextVersion > 1 ? "review_regenerated" : "review_generated";
 
   const reviewInsert: TablesInsert<"case_review_versions"> = {
     case_id: caseId,
@@ -76,20 +86,38 @@ export async function POST(_request: Request, { params }: CaseReviewRouteProps) 
   const { error: updateCaseError } = await supabase
     .from("cases")
     .update({
-      status: "reviewed",
+      status: nextStatus,
       latest_review_version: nextVersion,
       latest_review_summary: review.summary,
       latest_readiness_status: review.readinessStatus,
       latest_timeline_note: review.timelineNote,
       latest_reviewed_at: now,
       checklist_state: review.checklist,
-      status_history: appendCaseStatusHistory(caseRecord.status_history, "reviewed")
+      status_history: appendCaseStatusHistory(caseRecord.status_history, nextStatus, now)
     })
     .eq("user_id", user.id)
     .eq("id", caseId);
 
   if (updateCaseError) {
     return NextResponse.json({ message: updateCaseError.message }, { status: 500 });
+  }
+
+  const eventError = await recordCaseEvent(supabase, {
+    caseId,
+    userId: user.id,
+    eventType,
+    status: nextStatus,
+    fromStatus: currentStatus,
+    toStatus: nextStatus,
+    metadata: {
+      versionNumber: nextVersion,
+      readinessStatus: review.readinessStatus
+    },
+    createdAt: now
+  });
+
+  if (eventError) {
+    console.error("Unable to record case review event", eventError);
   }
 
   revalidatePath("/dashboard");

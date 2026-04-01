@@ -53,9 +53,10 @@ export async function PATCH(request: Request) {
 
   revalidatePath("/dashboard");
   revalidatePath("/dashboard/profile");
-  revalidatePath("/assessment");
-  revalidatePath("/compare");
-  revalidatePath("/copilot");
+  revalidatePath("/dashboard/cases");
+  revalidatePath("/start-case");
+  revalidatePath("/case-intake");
+  revalidatePath("/use-cases");
 
   return NextResponse.json({
     message: "Profile saved. New case intake and review steps will use the updated context."

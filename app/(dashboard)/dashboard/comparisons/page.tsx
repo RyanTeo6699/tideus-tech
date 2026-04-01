@@ -18,15 +18,15 @@ export default async function DashboardComparisonsPage() {
     <WorkspaceShell
       actions={[
         { href: "/dashboard", label: "Back to overview", variant: "outline" },
-        { href: "/compare", label: "Start comparison" }
+        { href: "/start-case", label: "Start a case" }
       ]}
-      description="Review saved tradeoffs, reopen structured detail views, and keep lead versus fallback paths easy to revisit."
-      eyebrow="Saved comparisons"
-      title="Comparison history"
+      description="These older tradeoff records remain accessible for migration continuity, but they are not part of the primary case workflow."
+      eyebrow="Legacy Archive"
+      title="Legacy comparison records"
     >
       {items.length === 0 ? (
         <div className="rounded-[24px] border border-dashed border-slate-200 bg-slate-50 p-6 text-sm leading-6 text-slate-600">
-          No saved comparisons yet. Compare two routes and Tideus will keep the saved tradeoff available from this page.
+          No legacy comparison records yet. The current product flow prioritizes case intake, materials tracking, and review versions.
         </div>
       ) : (
         <div className="space-y-4">
@@ -45,8 +45,8 @@ export default async function DashboardComparisonsPage() {
               </CardHeader>
               <CardContent className="space-y-3">
                 <p className="text-sm leading-6 text-slate-700">{item.result_summary}</p>
-                <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm leading-6 text-slate-900">
-                  {item.result_next_steps[0] || "Open the saved comparison to confirm the lead option."}
+                <div className="rounded-2xl border border-slate-200 bg-white p-4 text-sm leading-6 text-slate-700">
+                  {item.result_next_steps[0] || "Open the legacy record if you need to review the earlier tradeoff output."}
                 </div>
               </CardContent>
             </Card>

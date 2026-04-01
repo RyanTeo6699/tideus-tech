@@ -4,8 +4,9 @@ import type { User } from "@supabase/supabase-js";
 import type { Tables } from "@/lib/database.types";
 import { buildCaseResumeHref } from "@/lib/cases";
 import { getProfileCompletion } from "@/lib/profile";
+import { formatCaseStatus } from "@/lib/case-state";
 import { dashboardNav, legacyWorkspaceLinks, siteConfig } from "@/lib/site";
-import { formatCaseStatus, formatReadinessStatus, getUseCaseDefinition } from "@/lib/case-workflows";
+import { formatReadinessStatus, getUseCaseDefinition } from "@/lib/case-workflows";
 import { LogoutButton } from "@/components/dashboard/logout-button";
 import { buttonVariants } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -17,8 +18,8 @@ type DashboardShellProps = {
   profile: Tables<"profiles"> | null;
   recentCases: Tables<"cases">[];
   metrics: {
-    totalCases: number;
-    reviewedCases: number;
+    activeCases: number;
+    reviewReadyCases: number;
     actionNeededCases: number;
   };
   legacyCounts: {
@@ -143,18 +144,18 @@ export function DashboardShell({ user, profile, recentCases, metrics, legacyCoun
 
           <div className="grid gap-4 md:grid-cols-3">
             <MetricCard
-              detail="Saved case records across the supported wedge workflows."
-              label="Total cases"
-              value={metrics.totalCases}
+              detail="Cases that still need a resume action, a materials update, or another review pass."
+              label="Active cases"
+              value={metrics.activeCases}
             />
             <MetricCard
-              detail="Cases that already have at least one saved review version."
-              label="Reviewed cases"
-              value={metrics.reviewedCases}
+              detail="Cases whose latest saved review currently reads as review-ready."
+              label="Review-ready"
+              value={metrics.reviewReadyCases}
             />
             <MetricCard
-              detail="Cases where the latest review still shows not-ready or needs-attention."
-              label="Action needed"
+              detail="Cases where the current state still shows not-ready, needs-attention, or no review yet."
+              label="Needs attention"
               value={metrics.actionNeededCases}
             />
           </div>
@@ -162,8 +163,8 @@ export function DashboardShell({ user, profile, recentCases, metrics, legacyCoun
           <Card className="border-white/10 bg-white text-slate-950">
             <CardHeader className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
               <div>
-                <CardTitle>Recent cases</CardTitle>
-                <CardDescription>The next useful action should always be one click away from the overview.</CardDescription>
+                <CardTitle>Resume cases</CardTitle>
+                <CardDescription>The dashboard should point back to the next real workflow action, not a general tool menu.</CardDescription>
               </div>
               <Link className={buttonVariants({ variant: "outline", size: "sm" })} href="/dashboard/cases">
                 View all
@@ -217,27 +218,27 @@ export function DashboardShell({ user, profile, recentCases, metrics, legacyCoun
             </CardContent>
           </Card>
 
-          <Card className="border-white/10 bg-white text-slate-950">
+          <Card className="border-slate-200 bg-slate-50/70 text-slate-950 shadow-none">
             <CardHeader>
-              <CardTitle>Legacy workspace records</CardTitle>
+              <CardTitle>Legacy migration archive</CardTitle>
               <CardDescription>
-                The older assessment, comparison, and Copilot records are still preserved, but they are no longer the primary product surface.
+                Older assessment, comparison, and assistant-thread records are still accessible for continuity, but they are intentionally secondary to the active case workspace.
               </CardDescription>
             </CardHeader>
             <CardContent className="grid gap-4 md:grid-cols-3">
               {legacyWorkspaceLinks.map((link) => (
                 <Link
-                  className="rounded-2xl border border-slate-200 bg-slate-50 p-4 transition-colors hover:border-slate-300 hover:bg-white"
+                  className="rounded-2xl border border-dashed border-slate-300 bg-white/80 p-4 transition-colors hover:border-slate-400 hover:bg-white"
                   href={link.href}
                   key={link.href}
                 >
                   <p className="text-sm font-semibold text-slate-950">{link.label}</p>
                   <p className="mt-2 text-sm leading-6 text-slate-600">
                     {link.href === "/dashboard/assessments"
-                      ? `${legacyCounts.assessments} saved record${legacyCounts.assessments === 1 ? "" : "s"}`
+                      ? `${legacyCounts.assessments} legacy record${legacyCounts.assessments === 1 ? "" : "s"}`
                       : link.href === "/dashboard/comparisons"
-                        ? `${legacyCounts.comparisons} saved record${legacyCounts.comparisons === 1 ? "" : "s"}`
-                        : `${legacyCounts.threads} saved thread${legacyCounts.threads === 1 ? "" : "s"}`}
+                        ? `${legacyCounts.comparisons} legacy record${legacyCounts.comparisons === 1 ? "" : "s"}`
+                        : `${legacyCounts.threads} legacy thread${legacyCounts.threads === 1 ? "" : "s"}`}
                   </p>
                 </Link>
               ))}

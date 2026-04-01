@@ -18,15 +18,15 @@ export default async function DashboardAssessmentsPage() {
     <WorkspaceShell
       actions={[
         { href: "/dashboard", label: "Back to overview", variant: "outline" },
-        { href: "/assessment", label: "Start assessment" }
+        { href: "/start-case", label: "Start a case" }
       ]}
-      description="Review every saved intake in one place, reopen the detail view, and keep the next action visible."
-      eyebrow="Saved assessments"
-      title="Assessment history"
+      description="These older structured intakes remain available for migration continuity, but they are no longer the primary product workflow."
+      eyebrow="Legacy Archive"
+      title="Legacy assessment records"
     >
       {items.length === 0 ? (
         <div className="rounded-[24px] border border-dashed border-slate-200 bg-slate-50 p-6 text-sm leading-6 text-slate-600">
-          No saved assessments yet. Start with an intake and Tideus will keep each structured result available from this page.
+          No legacy assessment records yet. The current product flow now starts from case setup and saved case review steps.
         </div>
       ) : (
         <div className="space-y-4">
@@ -45,8 +45,8 @@ export default async function DashboardAssessmentsPage() {
               </CardHeader>
               <CardContent className="space-y-3">
                 <p className="text-sm leading-6 text-slate-700">{item.result_summary}</p>
-                <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm leading-6 text-slate-900">
-                  {item.result_next_steps[0] || "Open the saved result to choose the next step."}
+                <div className="rounded-2xl border border-slate-200 bg-white p-4 text-sm leading-6 text-slate-700">
+                  {item.result_next_steps[0] || "Open the legacy record if you need to review the earlier structured output."}
                 </div>
               </CardContent>
             </Card>

@@ -5,7 +5,8 @@ import { WorkspaceShell } from "@/components/dashboard/workspace-shell";
 import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { buildCaseResumeHref, getCases } from "@/lib/cases";
-import { formatCaseStatus, formatReadinessStatus, getUseCaseDefinition } from "@/lib/case-workflows";
+import { formatCaseStatus } from "@/lib/case-state";
+import { formatReadinessStatus, getUseCaseDefinition } from "@/lib/case-workflows";
 import { cn } from "@/lib/utils";
 
 export default async function DashboardCasesPage() {

@@ -14,7 +14,7 @@ export default function HomePage() {
       <SectionContainer className="py-20" id="value-props">
         <div className="mb-10 max-w-2xl">
           <p className="text-sm font-semibold uppercase tracking-[0.24em] text-muted-foreground">Why this wedge works</p>
-          <h2 className="mt-4 font-serif text-4xl text-foreground">A case workspace is more useful than a broad chatbot shell.</h2>
+          <h2 className="mt-4 font-serif text-4xl text-foreground">A case workspace is more useful than a broad tool shelf.</h2>
           <p className="mt-4 text-base leading-7 text-muted-foreground">
             Tideus is being narrowed on purpose: fewer scenarios, clearer workflow boundaries, and output blocks that help a real case move forward.
           </p>

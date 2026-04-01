@@ -44,9 +44,9 @@ export const homeValueProps = [
   },
   {
     eyebrow: "Structured output",
-    title: "Checklist before chatbot",
+    title: "Structured review before tool sprawl",
     description:
-      "The result centers on readiness, missing items, risk flags, timeline pressure, and next steps instead of a long AI answer."
+      "The core output centers on readiness, missing items, risk flags, timeline pressure, and next steps instead of a sprawling tool-first experience."
   },
   {
     eyebrow: "Saved workflow",
@@ -59,7 +59,7 @@ export const homeValueProps = [
 export const workflowSteps = [
   {
     eyebrow: "01",
-    title: "Choose a supported scenario",
+    title: "Choose a supported workflow",
     description:
       "Start from a narrow use case the product is actually built for, not from a broad immigration search problem."
   },
@@ -115,7 +115,7 @@ export const dashboardNav = [
 ];
 
 export const legacyWorkspaceLinks = [
-  { label: "Saved assessments", href: "/dashboard/assessments" },
-  { label: "Saved comparisons", href: "/dashboard/comparisons" },
-  { label: "Saved Copilot threads", href: "/dashboard/copilot" }
+  { label: "Legacy assessment archive", href: "/dashboard/assessments" },
+  { label: "Legacy comparison archive", href: "/dashboard/comparisons" },
+  { label: "Legacy assistant thread archive", href: "/dashboard/copilot" }
 ];

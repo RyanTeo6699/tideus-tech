@@ -16,10 +16,10 @@ export default async function StartCasePage() {
         actions={
           <>
             <Link className={buttonVariants({ size: "lg" })} href="/use-cases">
-              Compare supported scenarios
+              Browse supported workflows
             </Link>
             <Link className={buttonVariants({ variant: "outline", size: "lg" })} href={user ? "/dashboard" : "/login?next=/dashboard"}>
-              {user ? "Open case dashboard" : "Log in to save cases"}
+              {user ? "Open case workspace" : "Log in to save cases"}
             </Link>
           </>
         }

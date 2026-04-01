@@ -8,8 +8,8 @@ export type DashboardData = {
   profile: Tables<"profiles"> | null;
   recentCases: Tables<"cases">[];
   metrics: {
-    totalCases: number;
-    reviewedCases: number;
+    activeCases: number;
+    reviewReadyCases: number;
     actionNeededCases: number;
   };
   legacyCounts: {
@@ -32,8 +32,8 @@ export async function getDashboardData(): Promise<DashboardData | null> {
   const [
     profileResult,
     recentCasesResult,
-    totalCasesResult,
-    reviewedCasesResult,
+    activeCasesResult,
+    reviewReadyCasesResult,
     actionNeededCasesResult,
     assessmentsCountResult,
     comparisonsCountResult,
@@ -41,13 +41,21 @@ export async function getDashboardData(): Promise<DashboardData | null> {
   ] = await Promise.all([
     supabase.from("profiles").select("*").eq("user_id", user.id).maybeSingle(),
     supabase.from("cases").select("*").eq("user_id", user.id).order("updated_at", { ascending: false }).limit(4),
-    supabase.from("cases").select("id", { count: "exact", head: true }).eq("user_id", user.id),
-    supabase.from("cases").select("id", { count: "exact", head: true }).eq("user_id", user.id).eq("status", "reviewed"),
     supabase
       .from("cases")
       .select("id", { count: "exact", head: true })
       .eq("user_id", user.id)
-      .in("latest_readiness_status", ["not-ready", "needs-attention"]),
+      .or("status.neq.reviewed,latest_readiness_status.is.null,latest_readiness_status.neq.review-ready"),
+    supabase
+      .from("cases")
+      .select("id", { count: "exact", head: true })
+      .eq("user_id", user.id)
+      .eq("latest_readiness_status", "review-ready"),
+    supabase
+      .from("cases")
+      .select("id", { count: "exact", head: true })
+      .eq("user_id", user.id)
+      .or("latest_readiness_status.is.null,latest_readiness_status.eq.not-ready,latest_readiness_status.eq.needs-attention"),
     supabase.from("assessments").select("id", { count: "exact", head: true }).eq("user_id", user.id),
     supabase.from("comparisons").select("id", { count: "exact", head: true }).eq("user_id", user.id),
     supabase.from("copilot_threads").select("id", { count: "exact", head: true }).eq("user_id", user.id)
@@ -58,8 +66,8 @@ export async function getDashboardData(): Promise<DashboardData | null> {
     profile: profileResult.data ?? null,
     recentCases: recentCasesResult.data ?? [],
     metrics: {
-      totalCases: totalCasesResult.count ?? 0,
-      reviewedCases: reviewedCasesResult.count ?? 0,
+      activeCases: activeCasesResult.count ?? 0,
+      reviewReadyCases: reviewReadyCasesResult.count ?? 0,
       actionNeededCases: actionNeededCasesResult.count ?? 0
     },
     legacyCounts: {

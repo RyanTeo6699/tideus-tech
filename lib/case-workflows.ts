@@ -1,7 +1,5 @@
 export type SupportedUseCaseSlug = "visitor-record" | "study-permit-extension";
 
-export type CaseStatus = "draft" | "intake-complete" | "materials-updated" | "reviewed";
-
 export type CaseReadinessStatus = "not-ready" | "needs-attention" | "almost-ready" | "review-ready";
 
 export type CaseDocumentStatus = "missing" | "collecting" | "needs-refresh" | "ready" | "not-applicable";
@@ -422,17 +420,6 @@ export function getCaseStartHref(slug: SupportedUseCaseSlug) {
 
 export function formatUseCaseLabel(slug: SupportedUseCaseSlug | string) {
   return getUseCaseDefinition(slug)?.shortTitle ?? slug;
-}
-
-export function formatCaseStatus(status: CaseStatus | string) {
-  const labels: Record<string, string> = {
-    draft: "Draft",
-    "intake-complete": "Intake complete",
-    "materials-updated": "Materials updated",
-    reviewed: "Reviewed"
-  };
-
-  return labels[status] ?? status;
 }
 
 export function formatReadinessStatus(status: CaseReadinessStatus | string) {

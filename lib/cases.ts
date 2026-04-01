@@ -1,6 +1,7 @@
 import type { User } from "@supabase/supabase-js";
 
 import type { Json, Tables, TablesInsert } from "@/lib/database.types";
+import { recordCaseEvent } from "@/lib/case-events";
 import {
   buildCaseReviewResult,
   getDocumentProgressCounts,
@@ -9,14 +10,17 @@ import {
   type CaseReviewResult
 } from "@/lib/case-review";
 import {
-  formatCaseStatus,
   formatReadinessStatus,
   getUseCaseDefinition,
   type CaseDocumentStatus,
   type CaseIntakeValues,
-  type CaseStatus,
   type SupportedUseCaseSlug
 } from "@/lib/case-workflows";
+import {
+  formatCaseStatus,
+  getInitialCaseStatus,
+  normalizeCaseStatus
+} from "@/lib/case-state";
 import { createClient } from "@/lib/supabase/server";
 
 export type CaseListResult = {
@@ -31,6 +35,10 @@ export type CaseDetailResult = {
   documents: Tables<"case_documents">[];
   latestReview: Tables<"case_review_versions"> | null;
   reviewHistory: Tables<"case_review_versions">[];
+};
+
+type CaseDetailOptions = {
+  resumeSource?: "materials" | "review-results";
 };
 
 export function getCaseIntakeInitialValues(profile: Tables<"profiles"> | null, useCaseSlug: SupportedUseCaseSlug) {
@@ -78,17 +86,8 @@ export function buildInitialCaseDocuments(useCaseSlug: SupportedUseCaseSlug, int
   }));
 }
 
-export function appendCaseStatusHistory(history: Json | null | undefined, status: CaseStatus) {
-  const nextHistory = Array.isArray(history) ? [...history] : [];
-  nextHistory.push({
-    status,
-    at: new Date().toISOString()
-  });
-  return nextHistory;
-}
-
 export function buildCaseResumeHref(caseRecord: Tables<"cases">) {
-  if (caseRecord.latest_reviewed_at) {
+  if (normalizeCaseStatus(caseRecord.status) === "reviewed") {
     return `/review-results/${caseRecord.id}`;
   }
 
@@ -182,7 +181,7 @@ export async function getCases(limit = 24): Promise<CaseListResult> {
   };
 }
 
-export async function getCaseDetail(caseId: string): Promise<CaseDetailResult> {
+export async function getCaseDetail(caseId: string, options?: CaseDetailOptions): Promise<CaseDetailResult> {
   const supabase = await createClient();
   const {
     data: { user }
@@ -205,6 +204,23 @@ export async function getCaseDetail(caseId: string): Promise<CaseDetailResult> {
     supabase.from("case_documents").select("*").eq("case_id", caseId).order("position", { ascending: true }),
     supabase.from("case_review_versions").select("*").eq("case_id", caseId).order("version_number", { ascending: false })
   ]);
+
+  if (caseRecord && options?.resumeSource) {
+    const status = normalizeCaseStatus(caseRecord.status) ?? getInitialCaseStatus();
+    const eventError = await recordCaseEvent(supabase, {
+      caseId: caseRecord.id,
+      userId: user.id,
+      eventType: "case_resumed",
+      status,
+      metadata: {
+        source: options.resumeSource
+      }
+    });
+
+    if (eventError) {
+      console.error("Unable to record case resume event", eventError);
+    }
+  }
 
   return {
     user,

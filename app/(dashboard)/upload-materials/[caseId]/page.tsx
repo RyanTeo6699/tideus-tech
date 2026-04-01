@@ -13,7 +13,9 @@ type UploadMaterialsPageProps = {
 
 export default async function UploadMaterialsPage({ params }: UploadMaterialsPageProps) {
   const { caseId } = await params;
-  const detail = await getCaseDetail(caseId);
+  const detail = await getCaseDetail(caseId, {
+    resumeSource: "materials"
+  });
 
   if (!detail.user) {
     redirect(`/login?next=${encodeURIComponent(`/upload-materials/${caseId}`)}`);

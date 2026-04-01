@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
 
-import { appendCaseStatusHistory } from "@/lib/cases";
+import { recordCaseEvent } from "@/lib/case-events";
 import { parseCaseDocumentsInput } from "@/lib/case-review";
+import { appendCaseStatusHistory, getNextCaseStatus, normalizeCaseStatus } from "@/lib/case-state";
 import { createClient } from "@/lib/supabase/server";
 
 type CaseDocumentsRouteProps = {
@@ -31,7 +32,7 @@ export async function PATCH(request: Request, { params }: CaseDocumentsRouteProp
 
   const { data: caseRecord, error: caseError } = await supabase
     .from("cases")
-    .select("id, status_history")
+    .select("id, status, status_history")
     .eq("user_id", user.id)
     .eq("id", caseId)
     .maybeSingle();
@@ -42,6 +43,12 @@ export async function PATCH(request: Request, { params }: CaseDocumentsRouteProp
 
   if (!caseRecord) {
     return NextResponse.json({ message: "The selected case could not be found." }, { status: 404 });
+  }
+
+  const currentStatus = normalizeCaseStatus(caseRecord.status);
+
+  if (!currentStatus) {
+    return NextResponse.json({ message: "The case status could not be resolved." }, { status: 500 });
   }
 
   const { data: existingDocuments, error: existingDocumentsError } = await supabase
@@ -75,17 +82,35 @@ export async function PATCH(request: Request, { params }: CaseDocumentsRouteProp
     }
   }
 
+  const nextStatus = getNextCaseStatus(currentStatus, "materials-updated");
+
   const { error: updateCaseError } = await supabase
     .from("cases")
     .update({
-      status: "materials-updated",
-      status_history: appendCaseStatusHistory(caseRecord.status_history, "materials-updated")
+      status: nextStatus,
+      status_history: appendCaseStatusHistory(caseRecord.status_history, nextStatus)
     })
     .eq("user_id", user.id)
     .eq("id", caseId);
 
   if (updateCaseError) {
     return NextResponse.json({ message: updateCaseError.message }, { status: 500 });
+  }
+
+  const eventError = await recordCaseEvent(supabase, {
+    caseId,
+    userId: user.id,
+    eventType: "materials_updated",
+    status: nextStatus,
+    fromStatus: currentStatus,
+    toStatus: nextStatus,
+    metadata: {
+      documentCount: parsed.data.documents.length
+    }
+  });
+
+  if (eventError) {
+    console.error("Unable to record case materials event", eventError);
   }
 
   revalidatePath("/dashboard");

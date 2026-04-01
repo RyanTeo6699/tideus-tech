@@ -1,25 +1,31 @@
 # Tideus
 
-Tideus is being repositioned into an AI-powered case workspace for high-frequency, rules-relatively-clear, document-heavy Canada temporary resident application and extension prep.
+Tideus is a case-first workflow workspace for high-frequency, document-heavy Canada temporary resident application and extension preparation.
 
-The current wedge focus is intentionally narrow:
+The current wedge is intentionally narrow:
 
 - Visitor Record
 - Study Permit Extension
 
-The product is not positioned as a broad immigration platform, a generic chatbot, or a replacement for licensed professional advice.
+Tideus is not positioned as:
 
-## Product Direction
+- a generic immigration chatbot
+- a broad immigration platform
+- a legal advice service
+- a tool menu organized around assessments, comparisons, or Copilot threads
 
-The workflow is case-first:
+## Product Model
 
-1. Choose a supported use case
-2. Complete a narrow intake
-3. Mark expected materials
-4. Generate a structured review output
-5. Save and resume the case from the dashboard
+The primary product flow is:
 
-The review output is structured around:
+1. Choose a supported workflow
+2. Create or resume a case
+3. Complete the intake
+4. Update expected materials
+5. Generate a structured review output
+6. Save and continue the case from the dashboard
+
+The review output is intentionally structured:
 
 - readiness status
 - checklist
@@ -28,7 +34,7 @@ The review output is structured around:
 - timeline note
 - next steps
 
-## Current App Surfaces
+## Current Surfaces
 
 Public:
 
@@ -52,13 +58,13 @@ Protected:
 - Review Results
 - Profile
 
-Legacy protected records are still preserved for:
+Legacy records are still preserved behind authenticated archive pages for migration continuity:
 
-- assessments
-- comparisons
-- Copilot threads
+- assessment records
+- comparison records
+- assistant threads
 
-These older records are no longer the primary product surface.
+Those legacy surfaces are secondary and no longer represent the primary product journey.
 
 ## Stack
 
@@ -68,7 +74,7 @@ These older records are no longer the primary product surface.
 - shadcn/ui-style component structure
 - Supabase Auth
 - Supabase Postgres
-- OpenAI dependency installed for future structured assist flows
+- OpenAI dependency installed for future narrow structured assist flows
 - Vercel-ready app router structure
 
 ## Project Structure
@@ -89,7 +95,9 @@ components/
   site/
   ui/
 lib/
+  case-events.ts
   case-review.ts
+  case-state.ts
   case-workflows.ts
   cases.ts
   dashboard.ts
@@ -111,9 +119,9 @@ cp .env.example .env.local
 
 Required:
 
-- `NEXT_PUBLIC_APP_URL`: App base URL such as `http://localhost:3000`
-- `NEXT_PUBLIC_SUPABASE_URL`: Supabase project URL
-- `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`: Supabase publishable key
+- `NEXT_PUBLIC_APP_URL`
+- `NEXT_PUBLIC_SUPABASE_URL`
+- `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`
 
 Optional:
 
@@ -132,52 +140,61 @@ Optional:
    - `supabase/migrations/202603300002_sprint_3_workflows.sql`
    - `supabase/migrations/202603310001_sprint_4_profile_expansion.sql`
    - `supabase/migrations/202603310002_sprint_6_case_workspace.sql`
+   - `supabase/migrations/202603310003_sprint_6_case_events.sql`
 4. In Supabase Auth, enable Email/Password sign-in.
-5. If email confirmation is enabled, the app already supports the `/auth/callback` route.
+5. If email confirmation is enabled, the app supports the `/auth/callback` route.
 
-## Database Notes
+## Core Tables
 
-The active wedge workflow now centers on these entities:
+Primary wedge tables:
 
 - `cases`
 - `case_documents`
 - `case_review_versions`
+- `case_events`
 
-Existing entities still present:
+Supporting tables:
 
 - `profiles`
+
+Legacy archived tables:
+
 - `assessments`
 - `comparisons`
 - `copilot_threads`
 - `copilot_messages`
 
-`cases` stores:
+## Case Lifecycle
 
-- use case slug
-- case status
-- intake answers
-- latest review snapshot fields
-- checklist state
-- status history
-- metadata hooks for exports and tracking
+The case status machine is centralized and explicit:
 
-`case_documents` stores:
+- `draft`
+- `intake-complete`
+- `materials-updated`
+- `reviewed`
 
-- expected document records per case
-- document status
-- material reference
-- notes
+The current workflow transitions are:
 
-`case_review_versions` stores:
+- create case -> `draft`
+- complete intake -> `intake-complete`
+- update materials -> `materials-updated`
+- generate or regenerate review -> `reviewed`
 
-- readiness status
-- readiness summary
-- result summary
-- timeline note
-- checklist items
-- missing items
-- risk flags
-- next steps
+## Workflow Event Capture
+
+Tideus now stores structured `case_events` for future moat and funnel analysis.
+
+Current event types:
+
+- `case_created`
+- `intake_started`
+- `intake_completed`
+- `materials_updated`
+- `review_generated`
+- `review_regenerated`
+- `case_resumed`
+
+No analytics UI is shipped in this sprint. The goal is clean data capture around the actual workflow.
 
 ## Local Development
 
@@ -209,13 +226,12 @@ npm run build
 
 ## Trust Boundary
 
-Tideus is not a law firm, government service, or licensed representative. The product is designed to help users organize supported case prep workflows and produce structured review-ready outputs before the next professional step.
+Tideus is not a law firm, government service, or licensed representative. The product is designed to help users organize narrow case prep workflows, produce structured review-ready outputs, and carry workflow history into a later professional step.
 
 ## Recommended Next Sprint
 
-Tighten the wedge instead of widening it:
+Stay narrow and tighten the wedge:
 
-- add richer document-state rules per supported use case
-- improve the quality of review version comparisons
-- add export-ready package summaries for professional handoff
-- add lightweight file upload or storage integration only for the existing wedge workflows
+- add export-ready case summary packets for professional handoff
+- add richer case-event metadata hooks around exports and handoffs
+- improve document-specific readiness rules for the two supported workflows only

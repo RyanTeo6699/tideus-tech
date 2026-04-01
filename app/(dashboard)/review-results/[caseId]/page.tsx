@@ -16,7 +16,9 @@ type ReviewResultsPageProps = {
 
 export default async function ReviewResultsPage({ params }: ReviewResultsPageProps) {
   const { caseId } = await params;
-  const detail = await getCaseDetail(caseId);
+  const detail = await getCaseDetail(caseId, {
+    resumeSource: "review-results"
+  });
 
   if (!detail.user) {
     redirect(`/login?next=${encodeURIComponent(`/review-results/${caseId}`)}`);

@@ -46,13 +46,13 @@ type ContextNotice = {
 
 const toolConfigs: Record<DecisionSupportVariant, ToolConfig> = {
   assessment: {
-    eyebrow: "Structured intake",
-    title: "Capture the profile details that actually change the plan",
+    eyebrow: "Legacy surface",
+    title: "Legacy assessment intake",
     description:
-      "This intake keeps the core facts structured so the recommendation and the saved profile stay aligned.",
-    submitLabel: "Generate assessment",
-    emptyStateTitle: "No assessment yet",
-    emptyStateBody: `Complete the form to generate a structured assessment. Sign in to save the result and profile details to ${siteConfig.name}.`,
+      "This older intake remains in the codebase for migration continuity, but the primary product flow now starts from saved cases.",
+    submitLabel: "Save legacy assessment",
+    emptyStateTitle: "No legacy assessment yet",
+    emptyStateBody: `Complete the form to generate a legacy structured assessment. Sign in to save the result and profile details to ${siteConfig.name}.`,
     apiPath: "/api/assessments",
     fields: [
       {
@@ -220,13 +220,13 @@ const toolConfigs: Record<DecisionSupportVariant, ToolConfig> = {
     ]
   },
   compare: {
-    eyebrow: "Decision support",
-    title: "Compare two options with clearer inputs",
+    eyebrow: "Legacy surface",
+    title: "Legacy comparison intake",
     description:
-      "This comparison keeps the tradeoff explicit so the lead path and fallback stay easy to review later.",
-    submitLabel: "Build comparison",
-    emptyStateTitle: "No comparison yet",
-    emptyStateBody: `Enter two options and how each fits the current situation. Sign in to save the result to ${siteConfig.name}.`,
+      "This older tradeoff flow remains available for migration continuity, but it is no longer part of the primary case workspace.",
+    submitLabel: "Save legacy comparison",
+    emptyStateTitle: "No legacy comparison yet",
+    emptyStateBody: `Enter two options and how each fits the current situation if you need to save a legacy comparison record in ${siteConfig.name}.`,
     apiPath: "/api/comparisons",
     fields: [
       {

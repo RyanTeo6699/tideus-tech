@@ -8,7 +8,7 @@ import { trustBoundaryPoints } from "@/lib/site";
 
 const commitments = [
   "Tideus is not presented as government, legal counsel, or a universal immigration platform.",
-  "The product is built to surface workflow gaps and organize case preparation for a narrow set of supported scenarios.",
+  "The product is built to organize case prep, surface workflow gaps, and save structured review history for a narrow set of supported workflows.",
   "If the case facts move outside the supported workflow or the risk profile gets serious, the right next step is a professional review."
 ];
 
@@ -26,7 +26,7 @@ export default function TrustPage() {
             </Link>
           </>
         }
-        description="Trust here comes from sharp scope boundaries, structured outputs, and explicit handoff points when a human reviewer should take over."
+        description="Trust here comes from narrow scope, structured review outputs, saved workflow history, and explicit handoff points when a human reviewer should take over."
         eyebrow="Trust & Boundaries"
         title="Tideus is a case workspace, not legal advice."
       />
@@ -55,7 +55,7 @@ export default function TrustPage() {
           <CardHeader>
             <CardTitle>What Tideus does commit to</CardTitle>
             <CardDescription>
-              The promise is narrow: help users organize a case package and see what is still missing before the next serious review step.
+              The promise is narrow: help users organize a case package, see what is still missing, and carry clean workflow history into the next serious review step.
             </CardDescription>
           </CardHeader>
           <CardContent className="grid gap-4 md:grid-cols-3">

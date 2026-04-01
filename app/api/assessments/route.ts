@@ -23,7 +23,7 @@ export async function POST(request: Request) {
     return NextResponse.json({
       result,
       saved: false,
-      message: "Sign in to save this assessment to your dashboard."
+      message: "Sign in to save this legacy assessment record to your dashboard archive."
     });
   }
 
@@ -95,16 +95,16 @@ export async function POST(request: Request) {
 
   revalidatePath("/dashboard");
   revalidatePath("/dashboard/profile");
+  revalidatePath("/dashboard/cases");
   revalidatePath("/dashboard/assessments");
-  revalidatePath("/assessment");
-  revalidatePath("/compare");
-  revalidatePath("/copilot");
+  revalidatePath("/start-case");
+  revalidatePath("/case-intake");
 
   return NextResponse.json({
     result,
     saved: true,
     savedRecord: data,
-    message: "Assessment saved to your dashboard."
+    message: "Legacy assessment record saved to your dashboard archive."
   });
 }
 

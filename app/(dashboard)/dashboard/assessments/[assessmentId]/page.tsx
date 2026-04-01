@@ -27,8 +27,8 @@ export default async function AssessmentDetailPage({ params }: AssessmentDetailP
   return (
     <DetailShell
       backHref="/dashboard/assessments"
-      backLabel="Back to assessment history"
-      eyebrow="Saved assessment"
+      backLabel="Back to legacy assessment records"
+      eyebrow="Legacy archive"
       facts={[
         { label: "Created", value: formatDate(detail.record.created_at) },
         { label: "Current status", value: formatValue(detail.record.current_status) },
@@ -39,8 +39,8 @@ export default async function AssessmentDetailPage({ params }: AssessmentDetailP
       ]}
       notes={detail.record.notes}
       notesLabel="Saved context notes"
-      primaryHref="/assessment"
-      primaryLabel="Start a new assessment"
+      primaryHref="/start-case"
+      primaryLabel="Start a new case"
       sections={[
         { title: "Why this matters", items: detail.record.result_why_matters },
         { title: "Risks or constraints", items: detail.record.result_risks_and_constraints, tone: "warning" },
@@ -58,7 +58,7 @@ export default async function AssessmentDetailPage({ params }: AssessmentDetailP
         { label: "Refusal history", value: readSnapshotBoolean(snapshot, "refusalHistoryFlag") ? "Yes" : "No" }
       ]}
       snapshotTitle="Assessment profile snapshot"
-      subtitle="Review the saved intake, the structured recommendation, and the next actions from one place."
+      subtitle="Review the saved legacy intake, the structured recommendation, and the next actions from one place."
       summary={detail.record.result_summary}
       title={`${formatValue(detail.record.current_status)} to ${formatValue(detail.record.goal)}`}
     />

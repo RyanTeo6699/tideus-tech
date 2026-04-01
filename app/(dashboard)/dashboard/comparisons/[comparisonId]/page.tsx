@@ -27,8 +27,8 @@ export default async function ComparisonDetailPage({ params }: ComparisonDetailP
   return (
     <DetailShell
       backHref="/dashboard/comparisons"
-      backLabel="Back to comparison history"
-      eyebrow="Saved comparison"
+      backLabel="Back to legacy comparison records"
+      eyebrow="Legacy archive"
       facts={[
         { label: "Created", value: formatDate(detail.record.created_at) },
         { label: "Lead options", value: `${detail.record.option_a} vs ${detail.record.option_b}` },
@@ -39,8 +39,8 @@ export default async function ComparisonDetailPage({ params }: ComparisonDetailP
       ]}
       notes={detail.record.profile_notes}
       notesLabel="Saved profile notes"
-      primaryHref="/compare"
-      primaryLabel="Start a new comparison"
+      primaryHref="/start-case"
+      primaryLabel="Start a new case"
       sections={[
         { title: "Why this matters", items: detail.record.result_why_matters },
         { title: "Risks or constraints", items: detail.record.result_risks_and_constraints, tone: "warning" },
@@ -56,7 +56,7 @@ export default async function ComparisonDetailPage({ params }: ComparisonDetailP
         { label: "Option B timeline fit", value: formatValue(readSnapshotString(snapshot, "optionBTimelineFit")) }
       ]}
       snapshotTitle="Comparison input snapshot"
-      subtitle="Review the saved tradeoff, the lead recommendation, and the fallback logic in one place."
+      subtitle="Review the saved legacy tradeoff, the lead recommendation, and the fallback logic in one place."
       summary={detail.record.result_summary}
       title={`${detail.record.option_a} vs ${detail.record.option_b}`}
     />
