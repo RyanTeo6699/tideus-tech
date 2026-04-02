@@ -115,7 +115,7 @@ export const dashboardNav = [
 ];
 
 export const legacyWorkspaceLinks = [
-  { label: "Legacy assessment archive", href: "/dashboard/assessments" },
-  { label: "Legacy comparison archive", href: "/dashboard/comparisons" },
-  { label: "Legacy assistant thread archive", href: "/dashboard/copilot" }
+  { label: "Assessment archive", href: "/dashboard/assessments" },
+  { label: "Comparison archive", href: "/dashboard/comparisons" },
+  { label: "Assistant thread archive", href: "/dashboard/copilot" }
 ];

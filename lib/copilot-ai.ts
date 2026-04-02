@@ -7,7 +7,7 @@ import {
   type CopilotInput,
   type CopilotResponseSource,
   type CopilotStructuredResponse
-} from "@/lib/tool-results";
+} from "@/lib/legacy/tool-results";
 
 type CopilotProfileContext = Pick<
   Tables<"profiles">,

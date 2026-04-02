@@ -3,7 +3,7 @@ import Link from "next/link";
 import type { CopilotWorkspaceData } from "@/lib/copilot";
 import type { Tables } from "@/lib/database.types";
 import { buildProfileSummaryFacts, getProfileCompletion } from "@/lib/profile";
-import { getCopilotStructuredResponse, getCopilotUserMessageMetadata } from "@/lib/tool-results";
+import { getCopilotStructuredResponse, getCopilotUserMessageMetadata } from "@/lib/legacy/tool-results";
 import { siteConfig } from "@/lib/site";
 import { CopilotComposer } from "@/components/copilot/copilot-composer";
 import { buttonVariants } from "@/components/ui/button";

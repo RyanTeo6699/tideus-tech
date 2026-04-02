@@ -38,6 +38,7 @@ export function DashboardShell({ user, profile, recentCases, metrics, legacyCoun
   const userEmail = user.email ?? profile?.email ?? "No email available";
   const firstName = displayName.split(" ")[0] ?? displayName;
   const profileCompletion = getProfileCompletion(profile);
+  const legacyTotal = legacyCounts.assessments + legacyCounts.comparisons + legacyCounts.threads;
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-50">
@@ -218,30 +219,50 @@ export function DashboardShell({ user, profile, recentCases, metrics, legacyCoun
             </CardContent>
           </Card>
 
-          <Card className="border-slate-200 bg-slate-50/70 text-slate-950 shadow-none">
-            <CardHeader>
-              <CardTitle>Legacy migration archive</CardTitle>
-              <CardDescription>
-                Older assessment, comparison, and assistant-thread records are still accessible for continuity, but they are intentionally secondary to the active case workspace.
-              </CardDescription>
+          <Card className="border-slate-200 bg-slate-50/40 text-slate-950 shadow-none">
+            <CardHeader className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+              <div>
+                <CardTitle className="text-lg">Continuity archive</CardTitle>
+                <CardDescription>
+                  Older assessment, comparison, and assistant-thread records remain available for continuity only. They are intentionally secondary to the active case workspace.
+                </CardDescription>
+              </div>
+              <Badge variant="secondary">
+                {legacyTotal} archived item{legacyTotal === 1 ? "" : "s"}
+              </Badge>
             </CardHeader>
-            <CardContent className="grid gap-4 md:grid-cols-3">
-              {legacyWorkspaceLinks.map((link) => (
-                <Link
-                  className="rounded-2xl border border-dashed border-slate-300 bg-white/80 p-4 transition-colors hover:border-slate-400 hover:bg-white"
-                  href={link.href}
-                  key={link.href}
-                >
-                  <p className="text-sm font-semibold text-slate-950">{link.label}</p>
-                  <p className="mt-2 text-sm leading-6 text-slate-600">
-                    {link.href === "/dashboard/assessments"
-                      ? `${legacyCounts.assessments} legacy record${legacyCounts.assessments === 1 ? "" : "s"}`
-                      : link.href === "/dashboard/comparisons"
-                        ? `${legacyCounts.comparisons} legacy record${legacyCounts.comparisons === 1 ? "" : "s"}`
-                        : `${legacyCounts.threads} legacy thread${legacyCounts.threads === 1 ? "" : "s"}`}
-                  </p>
-                </Link>
-              ))}
+            <CardContent>
+              <details className="rounded-2xl border border-dashed border-slate-300 bg-white/80">
+                <summary className="flex cursor-pointer list-none items-center justify-between gap-4 px-4 py-4 text-sm font-medium text-slate-950">
+                  <div>
+                    <p>Open archive links</p>
+                    <p className="mt-1 text-sm font-normal leading-6 text-slate-600">
+                      Use these only if you need earlier records from the pre-case workspace.
+                    </p>
+                  </div>
+                  <span className="text-xs uppercase tracking-[0.18em] text-slate-500">
+                    {legacyTotal === 0 ? "Empty" : "Secondary"}
+                  </span>
+                </summary>
+                <div className="grid gap-3 border-t border-slate-200 p-4 md:grid-cols-3">
+                  {legacyWorkspaceLinks.map((link) => (
+                    <Link
+                      className="rounded-2xl border border-dashed border-slate-300 bg-white p-4 transition-colors hover:border-slate-400 hover:bg-slate-50"
+                      href={link.href}
+                      key={link.href}
+                    >
+                      <p className="text-sm font-semibold text-slate-950">{link.label}</p>
+                      <p className="mt-2 text-sm leading-6 text-slate-600">
+                        {link.href === "/dashboard/assessments"
+                          ? `${legacyCounts.assessments} archived record${legacyCounts.assessments === 1 ? "" : "s"}`
+                          : link.href === "/dashboard/comparisons"
+                            ? `${legacyCounts.comparisons} archived record${legacyCounts.comparisons === 1 ? "" : "s"}`
+                            : `${legacyCounts.threads} archived thread${legacyCounts.threads === 1 ? "" : "s"}`}
+                      </p>
+                    </Link>
+                  ))}
+                </div>
+              </details>
             </CardContent>
           </Card>
         </main>

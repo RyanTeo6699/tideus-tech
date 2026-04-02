@@ -3,7 +3,7 @@ import { revalidatePath } from "next/cache";
 
 import type { TablesInsert } from "@/lib/database.types";
 import { buildCompareProfileNotes } from "@/lib/profile";
-import { buildComparisonResult, parseComparisonInput } from "@/lib/tool-results";
+import { buildComparisonResult, parseComparisonInput } from "@/lib/legacy/tool-results";
 import { createClient } from "@/lib/supabase/server";
 
 export async function POST(request: Request) {

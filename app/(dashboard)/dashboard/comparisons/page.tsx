@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import { WorkspaceShell } from "@/components/dashboard/workspace-shell";
 import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { getComparisonHistory } from "@/lib/history";
+import { getComparisonHistory } from "@/lib/legacy/history";
 import { cn } from "@/lib/utils";
 
 export default async function DashboardComparisonsPage() {

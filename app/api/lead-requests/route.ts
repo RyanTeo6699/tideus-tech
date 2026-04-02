@@ -30,7 +30,10 @@ export async function POST(request: Request) {
       note: parsed.data.note || null,
       metadata: {
         source: "book-demo-form",
-        sourceSurface: "book-demo-page"
+        sourceSurface: "book-demo-page",
+        requestType: parsed.data.requestType,
+        noteProvided: Boolean(parsed.data.note),
+        userSignedIn: Boolean(user)
       }
     })
     .select("id")
@@ -50,6 +53,9 @@ export async function POST(request: Request) {
         emailDomain: parsed.data.email.split("@")[1] ?? "",
         useCaseInterest: parsed.data.useCaseInterest,
         currentStage: parsed.data.currentStage,
+        requestType: parsed.data.requestType,
+        noteProvided: Boolean(parsed.data.note),
+        userSignedIn: Boolean(user),
         wantsDemo: requestFlags.wantsDemo,
         wantsEarlyAccess: requestFlags.wantsEarlyAccess,
         sourceSurface: "book-demo-page"

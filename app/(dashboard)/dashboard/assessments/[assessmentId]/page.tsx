@@ -1,7 +1,7 @@
 import { notFound, redirect } from "next/navigation";
 
 import type { Json } from "@/lib/database.types";
-import { getAssessmentDetail } from "@/lib/history";
+import { getAssessmentDetail } from "@/lib/legacy/history";
 import { DetailShell } from "@/components/dashboard/detail-shell";
 
 type AssessmentDetailPageProps = {

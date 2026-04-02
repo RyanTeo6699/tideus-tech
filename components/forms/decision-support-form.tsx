@@ -3,7 +3,7 @@
 import { useState } from "react";
 
 import { siteConfig } from "@/lib/site";
-import type { StructuredDecisionResult } from "@/lib/tool-results";
+import type { StructuredDecisionResult } from "@/lib/legacy/tool-results";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";

@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import { WorkspaceShell } from "@/components/dashboard/workspace-shell";
 import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { getCopilotThreadHistory } from "@/lib/history";
+import { getCopilotThreadHistory } from "@/lib/legacy/history";
 import { cn } from "@/lib/utils";
 
 export default async function DashboardCopilotPage() {

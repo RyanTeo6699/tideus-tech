@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
 
 import type { Json, TablesInsert } from "@/lib/database.types";
-import { buildAssessmentResult, parseAssessmentInput } from "@/lib/tool-results";
+import { buildAssessmentResult, parseAssessmentInput } from "@/lib/legacy/tool-results";
 import { createClient } from "@/lib/supabase/server";
 
 export async function POST(request: Request) {

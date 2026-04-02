@@ -4,7 +4,7 @@ import Link from "next/link";
 import { startTransition, useState } from "react";
 import { useRouter } from "next/navigation";
 
-import type { CopilotStructuredResponse } from "@/lib/tool-results";
+import type { CopilotStructuredResponse } from "@/lib/legacy/tool-results";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";

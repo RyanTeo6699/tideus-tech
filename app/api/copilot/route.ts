@@ -10,7 +10,7 @@ import {
   parseCopilotInput,
   type CopilotStructuredMessageMetadata,
   type CopilotUserMessageMetadata
-} from "@/lib/tool-results";
+} from "@/lib/legacy/tool-results";
 import { createClient } from "@/lib/supabase/server";
 
 export async function POST(request: Request) {
