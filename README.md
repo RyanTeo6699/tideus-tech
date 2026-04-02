@@ -243,11 +243,11 @@ Current metadata examples:
 
 No analytics dashboard ships in this branch. The goal is clean future analysis value without broadening scope.
 
-## Legacy Archive Continuity
+## Migration Archive Continuity
 
 Older surfaces are still preserved for migration continuity, but they are explicitly secondary to the case workspace.
 
-Legacy archived routes:
+Migration archive routes:
 
 - `/dashboard/assessments`
 - `/dashboard/comparisons`
@@ -259,14 +259,14 @@ Public legacy marketing routes are already demoted and redirected:
 - `/compare`
 - `/copilot`
 
-Legacy archived tables:
+Migration archive tables:
 
 - `assessments`
 - `comparisons`
 - `copilot_threads`
 - `copilot_messages`
 
-Legacy-only helpers now sit behind `lib/legacy/` for clearer separation. Top-level compatibility bridges remain where needed so old imports and migration-safe behavior do not break suddenly.
+Legacy-only helpers now sit behind `lib/legacy/` for clearer separation. Compatibility bridges remain where needed so older imports and migration-safe behavior do not break suddenly.
 
 ## Stack
 

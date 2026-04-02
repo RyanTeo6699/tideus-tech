@@ -27,8 +27,8 @@ export default async function ComparisonDetailPage({ params }: ComparisonDetailP
   return (
     <DetailShell
       backHref="/dashboard/comparisons"
-      backLabel="Back to legacy comparison records"
-      eyebrow="Legacy archive"
+      backLabel="Back to comparison migration archive"
+      eyebrow="Migration Archive"
       facts={[
         { label: "Created", value: formatDate(detail.record.created_at) },
         { label: "Lead options", value: `${detail.record.option_a} vs ${detail.record.option_b}` },
@@ -56,7 +56,7 @@ export default async function ComparisonDetailPage({ params }: ComparisonDetailP
         { label: "Option B timeline fit", value: formatValue(readSnapshotString(snapshot, "optionBTimelineFit")) }
       ]}
       snapshotTitle="Comparison input snapshot"
-      subtitle="Review the saved legacy tradeoff, the lead recommendation, and the fallback logic in one place."
+      subtitle="Review the saved migration-era tradeoff, the lead recommendation, and the fallback logic in one place."
       summary={detail.record.result_summary}
       title={`${detail.record.option_a} vs ${detail.record.option_b}`}
     />

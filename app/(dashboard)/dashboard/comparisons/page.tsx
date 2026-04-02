@@ -20,13 +20,13 @@ export default async function DashboardComparisonsPage() {
         { href: "/dashboard", label: "Back to overview", variant: "outline" },
         { href: "/start-case", label: "Start a case" }
       ]}
-      description="These older tradeoff records remain accessible for migration continuity, but they are not part of the primary case workflow."
-      eyebrow="Legacy Archive"
-      title="Legacy comparison records"
+      description="These older tradeoff records remain accessible in the migration archive for continuity, but they are not part of the primary case workflow."
+      eyebrow="Migration Archive"
+      title="Comparison migration archive"
     >
       {items.length === 0 ? (
         <div className="rounded-[24px] border border-dashed border-slate-200 bg-slate-50 p-6 text-sm leading-6 text-slate-600">
-          No legacy comparison records yet. The current product flow prioritizes case intake, materials tracking, and review versions.
+          No comparison records are currently stored in the migration archive. The current product flow prioritizes case intake, materials tracking, and review versions.
         </div>
       ) : (
         <div className="space-y-4">

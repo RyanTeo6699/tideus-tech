@@ -20,13 +20,13 @@ export default async function DashboardAssessmentsPage() {
         { href: "/dashboard", label: "Back to overview", variant: "outline" },
         { href: "/start-case", label: "Start a case" }
       ]}
-      description="These older structured intakes remain available for migration continuity, but they are no longer the primary product workflow."
-      eyebrow="Legacy Archive"
-      title="Legacy assessment records"
+      description="These older structured intakes remain available in the migration archive for continuity, but they are no longer the primary product workflow."
+      eyebrow="Migration Archive"
+      title="Assessment migration archive"
     >
       {items.length === 0 ? (
         <div className="rounded-[24px] border border-dashed border-slate-200 bg-slate-50 p-6 text-sm leading-6 text-slate-600">
-          No legacy assessment records yet. The current product flow now starts from case setup and saved case review steps.
+          No assessment records are currently stored in the migration archive. The current product flow now starts from case setup and saved case review steps.
         </div>
       ) : (
         <div className="space-y-4">

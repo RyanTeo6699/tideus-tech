@@ -20,13 +20,13 @@ export default async function DashboardCopilotPage() {
         { href: "/dashboard", label: "Back to overview", variant: "outline" },
         { href: "/dashboard/cases", label: "Open case workspace" }
       ]}
-      description="These older assistant threads remain accessible for continuity, but they are no longer a primary product surface."
-      eyebrow="Legacy Archive"
-      title="Legacy assistant threads"
+      description="These older assistant threads remain accessible in the migration archive for continuity, but they are no longer a primary product surface."
+      eyebrow="Migration Archive"
+      title="Assistant migration archive"
     >
       {items.length === 0 ? (
         <div className="rounded-[24px] border border-dashed border-slate-200 bg-slate-50 p-6 text-sm leading-6 text-slate-600">
-          No legacy assistant threads yet. The current product flow prioritizes saved cases, document state, and structured review outputs.
+          No assistant threads are currently stored in the migration archive. The current product flow prioritizes saved cases, document state, and structured review outputs.
         </div>
       ) : (
         <div className="space-y-4">
@@ -44,7 +44,7 @@ export default async function DashboardCopilotPage() {
               <CardContent className="space-y-3">
                 <p className="text-sm leading-6 text-slate-700">{item.summary || "No thread summary saved yet."}</p>
                 <div className="rounded-2xl border border-slate-200 bg-white p-4 text-sm leading-6 text-slate-700">
-                  Open the legacy thread only if you need to reference an earlier migration-era conversation.
+                  Open the archived thread only if you need to reference an earlier migration-era conversation.
                 </div>
               </CardContent>
             </Card>

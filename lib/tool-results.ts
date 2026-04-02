@@ -1,3 +1,7 @@
+// Legacy decision-support implementation.
+// Active case-first workflow code should not import this file directly.
+// Prefer "@/lib/legacy/tool-results" so migration-era logic stays explicitly secondary.
+
 import type { Json } from "@/lib/database.types";
 
 export type StructuredDecisionResult = {

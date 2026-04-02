@@ -222,9 +222,9 @@ export function DashboardShell({ user, profile, recentCases, metrics, legacyCoun
           <Card className="border-slate-200 bg-slate-50/40 text-slate-950 shadow-none">
             <CardHeader className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
               <div>
-                <CardTitle className="text-lg">Continuity archive</CardTitle>
+                <CardTitle className="text-lg">Migration archive</CardTitle>
                 <CardDescription>
-                  Older assessment, comparison, and assistant-thread records remain available for continuity only. They are intentionally secondary to the active case workspace.
+                  Older assessment, comparison, and assistant-thread records remain available for migration continuity only. They are intentionally secondary to the active case workspace.
                 </CardDescription>
               </div>
               <Badge variant="secondary">
@@ -235,7 +235,7 @@ export function DashboardShell({ user, profile, recentCases, metrics, legacyCoun
               <details className="rounded-2xl border border-dashed border-slate-300 bg-white/80">
                 <summary className="flex cursor-pointer list-none items-center justify-between gap-4 px-4 py-4 text-sm font-medium text-slate-950">
                   <div>
-                    <p>Open archive links</p>
+                    <p>Open migration archive links</p>
                     <p className="mt-1 text-sm font-normal leading-6 text-slate-600">
                       Use these only if you need earlier records from the pre-case workspace.
                     </p>
