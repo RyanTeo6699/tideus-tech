@@ -1,6 +1,11 @@
 import type { User } from "@supabase/supabase-js";
 
 import type { Json, Tables, TablesInsert } from "@/lib/database.types";
+import {
+  parseStoredIntakeNormalization,
+  parseStoredMaterialInterpretation,
+  parseStoredReviewDelta
+} from "@/lib/case-ai";
 import { recordCaseEvent } from "@/lib/case-events";
 import {
   buildCaseReviewResult,
@@ -267,6 +272,18 @@ export function getReviewHistoryFacts(reviewHistory: Tables<"case_review_version
   }));
 }
 
+export function getCaseReviewDeltaSnapshot(latestReview: Tables<"case_review_versions"> | null) {
+  return latestReview ? parseStoredReviewDelta(latestReview.metadata) : null;
+}
+
+export function getCaseMaterialInterpretationSnapshot(caseRecord: Tables<"cases">) {
+  return parseStoredMaterialInterpretation(caseRecord.metadata);
+}
+
+export function getCaseIntakeNormalizationSnapshot(caseRecord: Tables<"cases">) {
+  return parseStoredIntakeNormalization(caseRecord.metadata);
+}
+
 export async function getCases(limit = 24): Promise<CaseListResult> {
   const supabase = await createClient();
   const {
@@ -408,7 +425,7 @@ function mapPreparednessToDocumentStatus(value: string): CaseDocumentStatus {
   return "missing";
 }
 
-function readCaseIntake(value: Json) {
+export function readCaseIntake(value: Json) {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
     return {
       title: "",

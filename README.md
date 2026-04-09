@@ -114,6 +114,7 @@ components/
 lib/
   app-events.ts
   case-events.ts
+  case-knowledge.ts
   case-files.ts
   case-review.ts
   case-state.ts
@@ -142,6 +143,7 @@ Primary server-side domain modules:
 
 - `lib/cases.ts`: case reads, review snapshots, workspace facts, resume paths
 - `lib/case-review.ts`: deterministic wedge review output generation
+- `lib/case-knowledge.ts`: internal structured knowledge adapter for wedge review context
 - `lib/case-workflows.ts`: supported use-case definitions and document expectations
 - `lib/case-state.ts`: case status machine and history
 - `lib/case-events.ts`: structured case-event writes
@@ -242,6 +244,84 @@ Current metadata examples:
 - lead-request intent and stage on early-access requests
 
 No analytics dashboard ships in this branch. The goal is clean future analysis value without broadening scope.
+
+## AI Workflow Embedding
+
+AI is embedded inside the case workflow only. Tideus does not expose a generic public Copilot surface, broad RAG search, or data portal as the primary product.
+
+Current AI-assisted workflow layers:
+
+- intake normalization: optional freeform intake notes are normalized into typed workflow signals and inferred fields where possible
+- material interpretation: material references, file names, statuses, and short notes are lightly classified without OCR or document-content claims
+- review enrichment: deterministic review generation remains the baseline, and AI can only refine structured review fields inside a strict schema
+- review delta: the latest review can be compared with the previous saved version to produce structured improvements, gaps, risks, and priority actions
+- handoff quality: export packets benefit from the structured review fields instead of separate AI prose
+
+## Internal Knowledge Adapter
+
+Tideus can consume external-knowledge capability patterns internally without changing the product surface. The current adapter is deliberately small and scenario-limited.
+
+Supported scenarios:
+
+- Visitor Record
+- Study Permit Extension
+
+The adapter borrows only the useful backend pattern from ImmiPilot-style systems: source-aware, versioned, freshness-conscious knowledge context. It does not import ImmiPilot public pages, data dashboards, broad RAG search, pathway comparison, or Copilot UX.
+
+Structured knowledge context is built in `lib/case-knowledge.ts` and passed into case review generation as internal workflow input:
+
+- `processingTimeNote`
+- `supportingContextNotes[]`
+- `materialsGuidanceNotes[]`
+- `scenarioSpecificWarnings[]`
+- `officialReferenceLabels[]`
+- `references[]`
+
+The review pipeline now combines:
+
+1. deterministic Tideus workflow rules
+2. saved case intake and material state
+3. optional AI intake normalization
+4. optional AI material interpretation
+5. internal structured knowledge context
+6. optional AI review enrichment inside a strict schema
+
+If AI enrichment is unavailable, the route still uses the knowledge-enhanced deterministic review baseline. If a future live knowledge provider is unavailable, this adapter can return unavailable context without breaking review generation.
+
+Knowledge traceability is stored in existing review metadata:
+
+- `case_review_versions.metadata.knowledgeAdapter`
+- `case_review_versions.metadata.aiWorkflow.reviewGeneration.inputSnapshot.knowledgeContext`
+
+Each knowledge context includes:
+
+- source
+- source version
+- scenario tag
+- generated timestamp
+- official reference labels
+- freshness markers such as `live-check-required`
+
+Processing-time context is intentionally a reminder to check the current official reference, not a stored claim about live processing times.
+
+AI traceability is stored in existing JSON metadata rather than new product surfaces:
+
+- `cases.metadata.aiWorkflow.intakeNormalization`
+- `cases.metadata.aiWorkflow.materialInterpretation`
+- `case_review_versions.metadata.aiWorkflow.reviewGeneration`
+- `case_review_versions.metadata.aiWorkflow.reviewDelta`
+
+Each AI envelope includes:
+
+- source
+- prompt version
+- model when applicable
+- input snapshot
+- structured output
+- timestamp
+- fallback reason when deterministic fallback is used
+
+If OpenAI is unavailable, times out, or returns invalid structure, Tideus falls back to deterministic workflow output.
 
 ## Migration Archive Continuity
 

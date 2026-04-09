@@ -1,10 +1,23 @@
 import { NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
 
-import type { TablesInsert } from "@/lib/database.types";
+import type { Json, TablesInsert } from "@/lib/database.types";
+import {
+  buildCaseMaterialSnapshots,
+  buildCaseReviewDeltaWithAi,
+  enrichCaseReviewWithAi,
+  parseStoredIntakeNormalization,
+  parseStoredMaterialInterpretation
+} from "@/lib/case-ai";
+import {
+  applyCaseKnowledgeToReview,
+  buildCaseKnowledgeContext,
+  summarizeCaseKnowledgeContext
+} from "@/lib/case-knowledge";
 import { recordCaseEvent } from "@/lib/case-events";
-import { buildLatestReviewForCase } from "@/lib/cases";
+import { buildLatestReviewForCase, getCaseReviewSnapshot, readCaseIntake } from "@/lib/cases";
 import { appendCaseStatusHistory, getNextCaseStatus, normalizeCaseStatus } from "@/lib/case-state";
+import type { SupportedUseCaseSlug } from "@/lib/case-workflows";
 import { createClient } from "@/lib/supabase/server";
 
 type CaseReviewRouteProps = {
@@ -33,7 +46,7 @@ export async function POST(_request: Request, { params }: CaseReviewRouteProps) 
         .eq("id", caseId)
         .maybeSingle(),
       supabase.from("case_documents").select("*").eq("case_id", caseId).order("position", { ascending: true }),
-      supabase.from("case_review_versions").select("version_number").eq("case_id", caseId).order("version_number", { ascending: false }).limit(1)
+      supabase.from("case_review_versions").select("*").eq("case_id", caseId).order("version_number", { ascending: false }).limit(1)
     ]);
 
   if (caseError || documentsError || latestReviewError) {
@@ -55,7 +68,37 @@ export async function POST(_request: Request, { params }: CaseReviewRouteProps) 
     return NextResponse.json({ message: "The case status could not be resolved." }, { status: 500 });
   }
 
-  const review = await buildLatestReviewForCase(caseRecord, documents ?? []);
+  const deterministicReview = await buildLatestReviewForCase(caseRecord, documents ?? []);
+  const previousReview = latestReviewRow?.[0] ? getCaseReviewSnapshot(latestReviewRow[0]) : null;
+  const intake = readCaseIntake(caseRecord.intake_answers);
+  const materialSnapshots = buildCaseMaterialSnapshots(documents ?? []);
+  const intakeNormalization = parseStoredIntakeNormalization(caseRecord.metadata);
+  const materialInterpretation = parseStoredMaterialInterpretation(caseRecord.metadata);
+  const knowledgeContext = buildCaseKnowledgeContext({
+    useCaseSlug: caseRecord.use_case_slug as SupportedUseCaseSlug,
+    intake,
+    documents: materialSnapshots,
+    intakeNormalization,
+    materialInterpretation
+  });
+  const baselineReview = applyCaseKnowledgeToReview(deterministicReview, knowledgeContext);
+  const aiReview = await enrichCaseReviewWithAi({
+    useCaseSlug: caseRecord.use_case_slug as SupportedUseCaseSlug,
+    intake,
+    documents: materialSnapshots,
+    baselineReview,
+    intakeNormalization,
+    materialInterpretation,
+    knowledgeContext
+  });
+  const review = aiReview.review;
+  const reviewDelta = previousReview
+    ? await buildCaseReviewDeltaWithAi({
+        useCaseSlug: caseRecord.use_case_slug as SupportedUseCaseSlug,
+        previousReview,
+        latestReview: review
+      })
+    : null;
   const nextVersion = (latestReviewRow?.[0]?.version_number ?? 0) + 1;
   const now = new Date().toISOString();
   const nextStatus = getNextCaseStatus(currentStatus, "reviewed");
@@ -79,7 +122,13 @@ export async function POST(_request: Request, { params }: CaseReviewRouteProps) 
     risk_flags: review.riskFlags,
     next_steps: review.nextSteps,
     metadata: {
-      source: "deterministic-case-review"
+      source: aiReview.trace.source === "openai" ? "knowledge-ai-enriched-case-review" : "knowledge-enhanced-deterministic-case-review",
+      knowledgeAdapter: knowledgeContext as Json,
+      aiWorkflow: {
+        reviewGeneration: aiReview.trace as Json,
+        reviewDelta: reviewDelta as Json | null
+      },
+      reviewDelta: reviewDelta?.output ?? null
     }
   };
 
@@ -124,7 +173,16 @@ export async function POST(_request: Request, { params }: CaseReviewRouteProps) 
       highRiskCount,
       mediumRiskCount,
       checklistReadyCount,
-      checklistNeedsWorkCount
+      checklistNeedsWorkCount,
+      knowledgeAdapterStatus: knowledgeContext.status,
+      knowledgeSourceVersion: knowledgeContext.sourceVersion,
+      knowledgeScenarioTag: knowledgeContext.scenarioTag,
+      knowledgeSummary: summarizeCaseKnowledgeContext(knowledgeContext),
+      reviewGenerationSource: aiReview.trace.source,
+      reviewPromptVersion: aiReview.trace.promptVersion,
+      deltaGenerated: Boolean(reviewDelta),
+      deltaSource: reviewDelta?.source ?? null,
+      deltaPromptVersion: reviewDelta?.promptVersion ?? null
     },
     createdAt: now
   });

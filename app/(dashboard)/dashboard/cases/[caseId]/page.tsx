@@ -10,8 +10,11 @@ import {
   buildCaseResumeHref,
   buildCaseSnapshotFacts,
   getCaseDetail,
+  getCaseIntakeNormalizationSnapshot,
+  getCaseMaterialInterpretationSnapshot,
   getCaseMaterialStatusCounts,
   getCaseNextAction,
+  getCaseReviewDeltaSnapshot,
   getCaseReviewSnapshot,
   getReviewHistoryFacts
 } from "@/lib/cases";
@@ -41,6 +44,10 @@ export default async function CaseDetailPage({ params }: CaseDetailPageProps) {
   const nextAction = getCaseNextAction(detail.caseRecord, detail.documents);
   const materialCounts = getCaseMaterialStatusCounts(detail.documents);
   const reviewHistoryFacts = getReviewHistoryFacts(detail.reviewHistory);
+  const reviewDelta = getCaseReviewDeltaSnapshot(detail.latestReview);
+  const materialInterpretation = getCaseMaterialInterpretationSnapshot(detail.caseRecord);
+  const intakeNormalization = getCaseIntakeNormalizationSnapshot(detail.caseRecord);
+  const materialSignals = materialInterpretation?.items.filter((item) => item.issueFlags.length > 0).slice(0, 4) ?? [];
 
   return (
     <WorkspaceShell
@@ -169,6 +176,17 @@ export default async function CaseDetailPage({ params }: CaseDetailPageProps) {
                   </div>
                 </div>
               ) : null}
+              {reviewDelta ? (
+                <div className="space-y-3">
+                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Review delta</p>
+                  <div className="grid gap-3 md:grid-cols-2">
+                    <DeltaBlock title="Improved areas" items={reviewDelta.improvedAreas} />
+                    <DeltaBlock title="Remaining gaps" items={reviewDelta.remainingGaps} />
+                    <DeltaBlock title="New risks" items={reviewDelta.newRisks} />
+                    <DeltaBlock title="Priority actions" items={reviewDelta.priorityActions} />
+                  </div>
+                </div>
+              ) : null}
             </CardContent>
           </Card>
 
@@ -210,6 +228,22 @@ export default async function CaseDetailPage({ params }: CaseDetailPageProps) {
                   </p>
                 </div>
               </div>
+              {materialSignals.length > 0 ? (
+                <div className="space-y-3">
+                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Material interpretation signals</p>
+                  <div className="space-y-3">
+                    {materialSignals.map((item) => (
+                      <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-slate-900" key={item.documentId}>
+                        <p className="font-semibold">{item.label}</p>
+                        <p className="mt-2">{item.interpretationNote}</p>
+                        <p className="mt-2 text-xs font-semibold uppercase tracking-[0.18em] text-amber-800">
+                          {item.issueFlags.join(", ")}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
             </CardContent>
           </Card>
         </div>
@@ -259,10 +293,35 @@ export default async function CaseDetailPage({ params }: CaseDetailPageProps) {
               <div className="rounded-2xl border border-slate-200 bg-slate-50 p-5 text-sm leading-7 text-slate-700">
                 {buildCaseNotes(detail.caseRecord)}
               </div>
+              {intakeNormalization && intakeNormalization.reviewNotes.length > 0 ? (
+                <div className="mt-4 space-y-3">
+                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Structured intake signals</p>
+                  {intakeNormalization.reviewNotes.slice(0, 3).map((item) => (
+                    <div className="rounded-2xl border border-slate-200 bg-white p-4 text-sm leading-6 text-slate-700" key={item}>
+                      {item}
+                    </div>
+                  ))}
+                </div>
+              ) : null}
             </CardContent>
           </Card>
         </div>
       </div>
     </WorkspaceShell>
+  );
+}
+
+function DeltaBlock({ title, items }: { title: string; items: string[] }) {
+  return (
+    <div className="rounded-2xl border border-slate-200 bg-white p-4">
+      <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">{title}</p>
+      <div className="mt-3 space-y-2">
+        {items.map((item) => (
+          <p className="text-sm leading-6 text-slate-900" key={item}>
+            {item}
+          </p>
+        ))}
+      </div>
+    </div>
   );
 }

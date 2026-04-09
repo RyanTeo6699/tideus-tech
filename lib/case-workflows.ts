@@ -156,9 +156,9 @@ const commonFields: CaseIntakeField[] = [
     label: "Case notes",
     type: "textarea",
     wide: true,
-    required: true,
     placeholder:
-      "Add the facts that still need explanation, the constraints shaping the filing, and anything a later professional reviewer should not miss."
+      "Optional. Add facts that still need explanation, constraints shaping the filing, or anything a later professional reviewer should not miss.",
+    helper: "Tideus will normalize these notes into structured workflow signals where possible."
   }
 ];
 

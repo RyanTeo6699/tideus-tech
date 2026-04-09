@@ -1,9 +1,16 @@
 import { NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
 
+import type { Json } from "@/lib/database.types";
+import {
+  buildCaseMaterialSnapshots,
+  interpretCaseMaterialsWithAi,
+  summarizeMaterialInterpretationIssues
+} from "@/lib/case-ai";
 import { recordCaseEvent } from "@/lib/case-events";
 import { parseCaseDocumentsInput } from "@/lib/case-review";
 import { appendCaseStatusHistory, getNextCaseStatus, normalizeCaseStatus } from "@/lib/case-state";
+import type { SupportedUseCaseSlug } from "@/lib/case-workflows";
 import { createClient } from "@/lib/supabase/server";
 
 type CaseDocumentsRouteProps = {
@@ -32,7 +39,7 @@ export async function PATCH(request: Request, { params }: CaseDocumentsRouteProp
 
   const { data: caseRecord, error: caseError } = await supabase
     .from("cases")
-    .select("id, status, status_history, use_case_slug")
+    .select("id, status, status_history, use_case_slug, metadata")
     .eq("user_id", user.id)
     .eq("id", caseId)
     .maybeSingle();
@@ -53,7 +60,7 @@ export async function PATCH(request: Request, { params }: CaseDocumentsRouteProp
 
   const { data: existingDocuments, error: existingDocumentsError } = await supabase
     .from("case_documents")
-    .select("id, status, material_reference, notes, required")
+    .select("id, document_key, label, description, required, status, material_reference, notes, file_name, mime_type")
     .eq("case_id", caseId);
 
   if (existingDocumentsError) {
@@ -119,12 +126,41 @@ export async function PATCH(request: Request, { params }: CaseDocumentsRouteProp
     const existing = existingDocumentMap.get(item.id);
     return existing?.required && item.status !== "ready" && item.status !== "not-applicable";
   }).length;
+  const proposedDocuments = parsed.data.documents.flatMap((item) => {
+    const existing = existingDocumentMap.get(item.id);
+
+    if (!existing) {
+      return [];
+    }
+
+    return [
+      {
+        ...existing,
+        status: item.status,
+        material_reference: item.materialReference || null,
+        notes: item.notes || null
+      }
+    ];
+  });
+  const materialInterpretation = await interpretCaseMaterialsWithAi(
+    caseRecord.use_case_slug as SupportedUseCaseSlug,
+    buildCaseMaterialSnapshots(proposedDocuments)
+  );
+  const materialInterpretationSummary = summarizeMaterialInterpretationIssues(materialInterpretation.output);
+  const nextCaseMetadata = {
+    ...readMetadataRecord(caseRecord.metadata),
+    aiWorkflow: {
+      ...readMetadataRecord(readMetadataRecord(caseRecord.metadata).aiWorkflow),
+      materialInterpretation: materialInterpretation as Json
+    }
+  };
 
   const { error: updateCaseError } = await supabase
     .from("cases")
     .update({
       status: nextStatus,
-      status_history: appendCaseStatusHistory(caseRecord.status_history, nextStatus)
+      status_history: appendCaseStatusHistory(caseRecord.status_history, nextStatus),
+      metadata: nextCaseMetadata
     })
     .eq("user_id", user.id)
     .eq("id", caseId);
@@ -149,7 +185,11 @@ export async function PATCH(request: Request, { params }: CaseDocumentsRouteProp
       collectingCount,
       needsRefreshCount,
       missingCount,
-      requiredActionCount
+      requiredActionCount,
+      materialInterpretationSource: materialInterpretation.source,
+      materialInterpretationPromptVersion: materialInterpretation.promptVersion,
+      materialIssueFlagCount: materialInterpretationSummary.issueFlagCount,
+      materialSuggestedStatusChangesCount: materialInterpretationSummary.suggestedStatusChangesCount
     }
   });
 
@@ -165,4 +205,12 @@ export async function PATCH(request: Request, { params }: CaseDocumentsRouteProp
   return NextResponse.json({
     message: "Materials saved."
   });
+}
+
+function readMetadataRecord(metadata: Json | null | undefined) {
+  if (!metadata || typeof metadata !== "object" || Array.isArray(metadata)) {
+    return {};
+  }
+
+  return metadata;
 }

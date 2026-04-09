@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
 
-import type { TablesInsert } from "@/lib/database.types";
+import type { Json, TablesInsert } from "@/lib/database.types";
+import { normalizeCaseIntakeWithAi } from "@/lib/case-ai";
 import { recordCaseEvents } from "@/lib/case-events";
 import { parseCaseCreateInput } from "@/lib/case-review";
 import { buildCaseTitle, buildInitialCaseDocuments } from "@/lib/cases";
@@ -28,6 +29,7 @@ export async function POST(request: Request) {
   const now = new Date().toISOString();
   const createdStatus = getInitialCaseStatus();
   const completedStatus = getNextCaseStatus(createdStatus, "intake-complete");
+  const intakeNormalization = await normalizeCaseIntakeWithAi(parsed.data.useCase, parsed.data.intake);
   const caseInsert: TablesInsert<"cases"> = {
     user_id: user.id,
     use_case_slug: parsed.data.useCase,
@@ -42,6 +44,9 @@ export async function POST(request: Request) {
       tracking_hooks: {
         review_generated: false,
         materials_completed: false
+      },
+      aiWorkflow: {
+        intakeNormalization: intakeNormalization as Json
       }
     }
   };
@@ -110,7 +115,11 @@ export async function POST(request: Request) {
       fromStatus: createdStatus,
       toStatus: completedStatus,
       metadata: {
-        useCaseSlug: parsed.data.useCase
+        useCaseSlug: parsed.data.useCase,
+        intakeNormalizationSource: intakeNormalization.source,
+        intakeNormalizationPromptVersion: intakeNormalization.promptVersion,
+        normalizedFieldCount: Object.keys(intakeNormalization.output.inferredFields).length,
+        normalizedReviewNoteCount: intakeNormalization.output.reviewNotes.length
       },
       createdAt: now
     }

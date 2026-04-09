@@ -117,6 +117,7 @@ export function CaseIntakeForm({ useCase, initialValues, profileFacts }: CaseInt
             <div className="mt-4 space-y-3">
               {[
                 "The case record is created and saved to your dashboard.",
+                "Optional notes are normalized into structured workflow signals when possible.",
                 "The expected materials list is seeded for this workflow.",
                 "The next step moves directly into the materials review."
               ].map((item) => (
