@@ -5,9 +5,11 @@ import type { Tables } from "@/lib/database.types";
 import { buildCaseResumeHref } from "@/lib/cases";
 import { getProfileCompletion } from "@/lib/profile";
 import { formatCaseStatus } from "@/lib/case-state";
-import { dashboardNav, legacyWorkspaceLinks, siteConfig } from "@/lib/site";
+import { legacyWorkspaceLinks } from "@/lib/legacy/site";
+import { dashboardNav, siteConfig } from "@/lib/site";
 import { formatReadinessStatus, getUseCaseDefinition } from "@/lib/case-workflows";
 import { LogoutButton } from "@/components/dashboard/logout-button";
+import { EventLink } from "@/components/site/event-link";
 import { buttonVariants } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -207,9 +209,21 @@ export function DashboardShell({ user, profile, recentCases, metrics, legacyCoun
                           <Link className={buttonVariants({ variant: "outline", size: "sm" })} href={`/dashboard/cases/${item.id}`}>
                             View detail
                           </Link>
-                          <Link className={buttonVariants({ size: "sm" })} href={buildCaseResumeHref(item)}>
+                          <EventLink
+                            caseId={item.id}
+                            className={buttonVariants({ size: "sm" })}
+                            eventType="dashboard_resume_clicked"
+                            href={buildCaseResumeHref(item)}
+                            metadata={{
+                              sourceSurface: "dashboard-recent-cases",
+                              useCase: item.use_case_slug,
+                              caseStatus: item.status,
+                              readinessStatus: item.latest_readiness_status,
+                              reviewVersion: item.latest_review_version
+                            }}
+                          >
                             Resume
-                          </Link>
+                          </EventLink>
                         </div>
                       </div>
                     </div>

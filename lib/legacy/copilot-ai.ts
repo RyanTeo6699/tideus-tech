@@ -9,6 +9,7 @@ import {
   type CopilotStructuredResponse
 } from "@/lib/legacy/tool-results";
 
+// Migration archive AI helper for the legacy Copilot route. New AI work should attach to case workflows instead.
 type CopilotProfileContext = Pick<
   Tables<"profiles">,
   | "current_status"

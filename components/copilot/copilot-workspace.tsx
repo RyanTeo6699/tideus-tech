@@ -1,6 +1,6 @@
 import Link from "next/link";
 
-import type { CopilotWorkspaceData } from "@/lib/copilot";
+import type { CopilotWorkspaceData } from "@/lib/legacy/copilot";
 import type { Tables } from "@/lib/database.types";
 import { buildProfileSummaryFacts, getProfileCompletion } from "@/lib/profile";
 import { getCopilotStructuredResponse, getCopilotUserMessageMetadata } from "@/lib/legacy/tool-results";

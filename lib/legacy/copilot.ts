@@ -4,6 +4,7 @@ import type { Tables } from "@/lib/database.types";
 import { ensureProfile } from "@/lib/profile-server";
 import { createClient } from "@/lib/supabase/server";
 
+// Migration archive helper for the legacy Copilot thread surface.
 export type CopilotWorkspaceData = {
   user: User | null;
   profile: Tables<"profiles"> | null;

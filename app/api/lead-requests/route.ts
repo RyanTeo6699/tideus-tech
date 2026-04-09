@@ -31,6 +31,7 @@ export async function POST(request: Request) {
       metadata: {
         source: "book-demo-form",
         sourceSurface: "book-demo-page",
+        useCase: parsed.data.useCaseInterest,
         requestType: parsed.data.requestType,
         noteProvided: Boolean(parsed.data.note),
         userSignedIn: Boolean(user)
@@ -51,6 +52,7 @@ export async function POST(request: Request) {
       path: "/book-demo",
       metadata: {
         emailDomain: parsed.data.email.split("@")[1] ?? "",
+        useCase: parsed.data.useCaseInterest,
         useCaseInterest: parsed.data.useCaseInterest,
         currentStage: parsed.data.currentStage,
         requestType: parsed.data.requestType,

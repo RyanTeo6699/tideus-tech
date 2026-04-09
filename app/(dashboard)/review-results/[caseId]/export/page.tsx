@@ -58,7 +58,8 @@ export default async function ReviewExportPage({ params }: ReviewExportPageProps
               metadata={{
                 sourceSurface: "review-export-page",
                 useCase: detail.caseRecord.use_case_slug,
-                readinessStatus: review.readinessStatus
+                readinessStatus: review.readinessStatus,
+                reviewVersion: detail.latestReview?.version_number ?? detail.caseRecord.latest_review_version
               }}
             >
               Book demo

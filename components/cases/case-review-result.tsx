@@ -1,5 +1,3 @@
-import Link from "next/link";
-
 import type { CaseReviewResult as CaseReviewSnapshot } from "@/lib/case-review";
 import { formatDocumentStatus, formatReadinessStatus } from "@/lib/case-workflows";
 import { EventLink } from "@/components/site/event-link";
@@ -22,6 +20,7 @@ type CaseReviewResultProps = {
   review: CaseReviewSnapshot;
   reviewHistoryFacts?: ReviewHistoryFact[];
   latestReviewedAt?: string | null;
+  latestReviewVersion?: number | null;
   showBookDemoCta?: boolean;
 };
 
@@ -34,6 +33,7 @@ export function CaseReviewResult({
   review,
   reviewHistoryFacts = [],
   latestReviewedAt = null,
+  latestReviewVersion = null,
   showBookDemoCta = false
 }: CaseReviewResultProps) {
   const checklistReadyCount = review.checklist.filter((item) => item.status === "ready" || item.status === "not-applicable").length;
@@ -51,9 +51,21 @@ export function CaseReviewResult({
             <CardDescription>{useCaseTitle}</CardDescription>
           </div>
           <div className="flex flex-col gap-3 sm:flex-row">
-            <Link className={buttonVariants({ size: "sm" })} href={`/upload-materials/${caseId}`}>
+            <EventLink
+              caseId={caseId}
+              className={buttonVariants({ size: "sm" })}
+              eventType="review_cta_clicked"
+              href={`/upload-materials/${caseId}`}
+              metadata={{
+                sourceSurface,
+                cta: "update-materials",
+                useCase: useCaseSlug,
+                readinessStatus: review.readinessStatus,
+                reviewVersion: latestReviewVersion
+              }}
+            >
               Update materials
-            </Link>
+            </EventLink>
             <EventLink
               caseId={caseId}
               className={buttonVariants({ variant: "outline", size: "sm" })}
@@ -63,6 +75,7 @@ export function CaseReviewResult({
                 sourceSurface,
                 useCase: useCaseSlug,
                 readinessStatus: review.readinessStatus,
+                reviewVersion: latestReviewVersion,
                 missingItemCount: review.missingItems.length,
                 riskCount: review.riskFlags.length
               }}
@@ -78,7 +91,8 @@ export function CaseReviewResult({
                 metadata={{
                   sourceSurface,
                   useCase: useCaseSlug,
-                  readinessStatus: review.readinessStatus
+                  readinessStatus: review.readinessStatus,
+                  reviewVersion: latestReviewVersion
                 }}
               >
                 Book demo

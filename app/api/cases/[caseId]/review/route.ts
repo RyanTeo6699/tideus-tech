@@ -167,7 +167,9 @@ export async function POST(_request: Request, { params }: CaseReviewRouteProps) 
     metadata: {
       versionNumber: nextVersion,
       readinessStatus: review.readinessStatus,
+      useCase: caseRecord.use_case_slug,
       useCaseSlug: caseRecord.use_case_slug,
+      missingCount: review.missingItems.length,
       missingItemCount: review.missingItems.length,
       riskCount: review.riskFlags.length,
       highRiskCount,

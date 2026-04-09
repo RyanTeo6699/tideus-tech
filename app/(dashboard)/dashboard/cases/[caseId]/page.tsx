@@ -1,8 +1,8 @@
-import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 
 import { CaseReviewResult } from "@/components/cases/case-review-result";
 import { WorkspaceShell } from "@/components/dashboard/workspace-shell";
+import { EventLink } from "@/components/site/event-link";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   buildCaseFacts,
@@ -18,7 +18,7 @@ import {
   getCaseReviewSnapshot,
   getReviewHistoryFacts
 } from "@/lib/cases";
-import { getUseCaseDefinition } from "@/lib/case-workflows";
+import { formatReadinessStatus, getUseCaseDefinition } from "@/lib/case-workflows";
 import { buttonVariants } from "@/components/ui/button";
 
 type CaseDetailPageProps = {
@@ -48,6 +48,11 @@ export default async function CaseDetailPage({ params }: CaseDetailPageProps) {
   const materialInterpretation = getCaseMaterialInterpretationSnapshot(detail.caseRecord);
   const intakeNormalization = getCaseIntakeNormalizationSnapshot(detail.caseRecord);
   const materialSignals = materialInterpretation?.items.filter((item) => item.issueFlags.length > 0).slice(0, 4) ?? [];
+  const latestReviewedLabel = detail.caseRecord.latest_reviewed_at ? formatDateTime(detail.caseRecord.latest_reviewed_at) : "Not reviewed yet";
+  const latestReadinessLabel = detail.caseRecord.latest_readiness_status
+    ? formatReadinessStatus(detail.caseRecord.latest_readiness_status)
+    : "Not reviewed yet";
+  const latestReviewVersion = detail.latestReview?.version_number ?? detail.caseRecord.latest_review_version;
 
   return (
     <WorkspaceShell
@@ -60,41 +65,72 @@ export default async function CaseDetailPage({ params }: CaseDetailPageProps) {
       title={detail.caseRecord.title}
     >
       <div className="space-y-6">
-        <Card className="border-emerald-200 bg-emerald-50/80 shadow-none">
+        <Card className="overflow-hidden border-emerald-200 bg-emerald-50/80 shadow-none">
           <CardHeader className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
             <div className="max-w-3xl">
-              <CardTitle className="text-2xl">Next recommended action</CardTitle>
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-emerald-800">Next recommended action</p>
+              <CardTitle className="mt-3 text-3xl">{nextAction.label}</CardTitle>
               <CardDescription>
-                Keep the current case moving with the next high-leverage action, not with a generic workspace detour.
+                This is the highest-leverage path for the current saved case state.
               </CardDescription>
             </div>
             <div className="flex flex-col gap-3 sm:flex-row">
-              <Link className={buttonVariants({ size: "sm" })} href={nextAction.href}>
+              <EventLink
+                caseId={detail.caseRecord.id}
+                className={buttonVariants({ size: "sm" })}
+                eventType="dashboard_resume_clicked"
+                href={nextAction.href}
+                metadata={{
+                  sourceSurface: "case-detail-next-action",
+                  cta: "next-recommended-action",
+                  useCase: detail.caseRecord.use_case_slug,
+                  caseStatus: detail.caseRecord.status,
+                  readinessStatus: detail.caseRecord.latest_readiness_status,
+                  reviewVersion: latestReviewVersion
+                }}
+              >
                 {nextAction.label}
-              </Link>
-              <Link className={buttonVariants({ variant: "outline", size: "sm" })} href={buildCaseResumeHref(detail.caseRecord)}>
+              </EventLink>
+              <EventLink
+                caseId={detail.caseRecord.id}
+                className={buttonVariants({ variant: "outline", size: "sm" })}
+                eventType="dashboard_resume_clicked"
+                href={buildCaseResumeHref(detail.caseRecord)}
+                metadata={{
+                  sourceSurface: "case-detail-header",
+                  cta: "resume-case",
+                  useCase: detail.caseRecord.use_case_slug,
+                  caseStatus: detail.caseRecord.status,
+                  readinessStatus: detail.caseRecord.latest_readiness_status,
+                  reviewVersion: latestReviewVersion
+                }}
+              >
                 Resume case
-              </Link>
+              </EventLink>
             </div>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="rounded-2xl border border-emerald-200 bg-white p-5 text-sm leading-7 text-slate-900">
-              {nextAction.description}
-            </div>
-            <div className="grid gap-3 md:grid-cols-3">
+            <div className="grid gap-3 md:grid-cols-[1.3fr_0.9fr_0.9fr_0.9fr]">
               <div className="rounded-2xl border border-white/80 bg-white p-4">
-                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Latest review state</p>
+                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Why this action</p>
                 <p className="mt-2 text-sm leading-6 text-slate-900">
-                  {detail.caseRecord.latest_review_summary || "No saved review version yet. Generate the first review after the materials state is updated."}
+                  {nextAction.description}
                 </p>
               </div>
               <div className="rounded-2xl border border-white/80 bg-white p-4">
-                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Materials still needing work</p>
-                <p className="mt-2 text-2xl font-semibold text-slate-950">{materialCounts.requiredActionCount}</p>
+                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Latest review</p>
+                <p className="mt-2 text-lg font-semibold text-slate-950">{latestReadinessLabel}</p>
+                <p className="mt-1 text-xs text-slate-500">{latestReviewedLabel}</p>
               </div>
               <div className="rounded-2xl border border-white/80 bg-white p-4">
-                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Saved review versions</p>
+                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Materials action</p>
+                <p className="mt-2 text-2xl font-semibold text-slate-950">{materialCounts.requiredActionCount}</p>
+                <p className="mt-1 text-xs text-slate-500">required item{materialCounts.requiredActionCount === 1 ? "" : "s"} need work</p>
+              </div>
+              <div className="rounded-2xl border border-white/80 bg-white p-4">
+                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Review history</p>
                 <p className="mt-2 text-2xl font-semibold text-slate-950">{detail.reviewHistory.length}</p>
+                <p className="mt-1 text-xs text-slate-500">saved version{detail.reviewHistory.length === 1 ? "" : "s"}</p>
               </div>
             </div>
           </CardContent>
@@ -140,32 +176,24 @@ export default async function CaseDetailPage({ params }: CaseDetailPageProps) {
                 <div className="rounded-2xl border border-slate-200 bg-white p-4">
                   <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Latest review timestamp</p>
                   <p className="mt-2 text-sm leading-6 text-slate-900">
-                    {detail.caseRecord.latest_reviewed_at
-                      ? new Intl.DateTimeFormat("en-CA", {
-                          month: "short",
-                          day: "numeric",
-                          year: "numeric",
-                          hour: "numeric",
-                          minute: "2-digit"
-                        }).format(new Date(detail.caseRecord.latest_reviewed_at))
-                      : "Not reviewed yet"}
+                    {latestReviewedLabel}
                   </p>
                 </div>
                 <div className="rounded-2xl border border-slate-200 bg-white p-4">
                   <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Readiness state</p>
                   <p className="mt-2 text-sm leading-6 text-slate-900">
-                    {detail.caseRecord.latest_readiness_status
-                      ? detail.caseRecord.latest_readiness_status
-                          .split("-")
-                          .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-                          .join(" ")
-                      : "Not reviewed yet"}
+                    {latestReadinessLabel}
                   </p>
                 </div>
               </div>
               {reviewHistoryFacts.length > 0 ? (
                 <div className="space-y-3">
-                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Recent review versions</p>
+                  <div className="flex flex-col gap-1">
+                    <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Recent review versions</p>
+                    <p className="text-sm leading-6 text-slate-600">
+                      Latest saved version is listed first. Use this history to compare whether the package is improving between review passes.
+                    </p>
+                  </div>
                   <div className="grid gap-3 md:grid-cols-3">
                     {reviewHistoryFacts.slice(0, 3).map((item) => (
                       <div className="rounded-2xl border border-slate-200 bg-white p-4" key={`${item.label}-${item.value}`}>
@@ -198,6 +226,15 @@ export default async function CaseDetailPage({ params }: CaseDetailPageProps) {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
+              <div className="rounded-2xl border border-slate-200 bg-slate-950 p-5 text-slate-50">
+                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-300">Package state</p>
+                <p className="mt-2 text-sm leading-6 text-slate-300">
+                  {materialCounts.requiredReady} of {materialCounts.requiredTotal} required items are ready or not applicable.
+                  {materialCounts.requiredActionCount > 0
+                    ? ` ${materialCounts.requiredActionCount} required item${materialCounts.requiredActionCount === 1 ? "" : "s"} still need action before the next clean handoff.`
+                    : " No required material gaps are visible in the current state."}
+                </p>
+              </div>
               <div className="grid gap-3 sm:grid-cols-2">
                 <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
                   <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Required ready</p>
@@ -253,6 +290,7 @@ export default async function CaseDetailPage({ params }: CaseDetailPageProps) {
             caseId={caseId}
             caseTitle={detail.caseRecord.title}
             latestReviewedAt={detail.latestReview?.created_at ?? detail.caseRecord.latest_reviewed_at}
+            latestReviewVersion={latestReviewVersion}
             review={review}
             reviewHistoryFacts={reviewHistoryFacts}
             sourceSurface="case-detail-page"
@@ -324,4 +362,14 @@ function DeltaBlock({ title, items }: { title: string; items: string[] }) {
       </div>
     </div>
   );
+}
+
+function formatDateTime(value: string) {
+  return new Intl.DateTimeFormat("en-CA", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit"
+  }).format(new Date(value));
 }

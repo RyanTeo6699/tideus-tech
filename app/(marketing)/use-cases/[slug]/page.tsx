@@ -36,10 +36,11 @@ export default async function UseCaseDetailPage({ params }: UseCaseDetailPagePro
           <>
             <EventLink
               className={buttonVariants({ size: "lg" })}
-              eventType="start_case_selected"
+              eventType="use_case_cta_clicked"
               href={getCaseStartHref(useCase.slug)}
               metadata={{
                 sourceSurface: "use-case-detail",
+                cta: "start-this-case",
                 useCase: useCase.slug
               }}
             >

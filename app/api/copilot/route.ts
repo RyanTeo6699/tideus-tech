@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
 
 import type { TablesInsert, TablesUpdate } from "@/lib/database.types";
-import { generateCopilotStructuredResponse } from "@/lib/copilot-ai";
+import { generateCopilotStructuredResponse } from "@/lib/legacy/copilot-ai";
 import {
   buildCopilotAssistantMessageText,
   buildCopilotThreadSummary,

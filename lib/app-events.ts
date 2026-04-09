@@ -5,6 +5,9 @@ import type { Database, Json, TablesInsert } from "@/lib/database.types";
 export const appEventTypes = [
   "landing_cta_clicked",
   "start_case_selected",
+  "use_case_cta_clicked",
+  "review_cta_clicked",
+  "dashboard_resume_clicked",
   "book_demo_clicked",
   "early_access_requested",
   "export_clicked"

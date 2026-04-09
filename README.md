@@ -125,7 +125,6 @@ lib/
   profile.ts
   site.ts
   supabase/
-  legacy/
 supabase/
   migrations/
 ```
@@ -231,6 +230,9 @@ Current `app_events` types:
 
 - `landing_cta_clicked`
 - `start_case_selected`
+- `use_case_cta_clicked`
+- `review_cta_clicked`
+- `dashboard_resume_clicked`
 - `book_demo_clicked`
 - `early_access_requested`
 - `export_clicked`
@@ -240,6 +242,8 @@ Current metadata examples:
 - CTA source surface
 - selected use case
 - current readiness status on export
+- review version on export and review-result CTAs
+- case status and readiness on dashboard resume clicks
 - missing-item and risk counts on export
 - lead-request intent and stage on early-access requests
 
@@ -323,31 +327,6 @@ Each AI envelope includes:
 
 If OpenAI is unavailable, times out, or returns invalid structure, Tideus falls back to deterministic workflow output.
 
-## Migration Archive Continuity
-
-Older surfaces are still preserved for migration continuity, but they are explicitly secondary to the case workspace.
-
-Migration archive routes:
-
-- `/dashboard/assessments`
-- `/dashboard/comparisons`
-- `/dashboard/copilot`
-
-Public legacy marketing routes are already demoted and redirected:
-
-- `/assessment`
-- `/compare`
-- `/copilot`
-
-Migration archive tables:
-
-- `assessments`
-- `comparisons`
-- `copilot_threads`
-- `copilot_messages`
-
-Legacy-only helpers now sit behind `lib/legacy/` for clearer separation. Compatibility bridges remain where needed so older imports and migration-safe behavior do not break suddenly.
-
 ## Stack
 
 - Next.js 15
@@ -357,7 +336,7 @@ Legacy-only helpers now sit behind `lib/legacy/` for clearer separation. Compati
 - Supabase Auth
 - Supabase Postgres
 - Supabase Storage
-- OpenAI dependency installed for future narrow structured assist flows
+- OpenAI SDK for server-side structured workflow assist flows
 - Vercel-ready app router structure
 
 ## Environment Variables
@@ -395,6 +374,7 @@ No new environment variables are required for the current wedge workflow MVP. Up
    - `supabase/migrations/202603310002_sprint_6_case_workspace.sql`
    - `supabase/migrations/202603310003_sprint_6_case_events.sql`
    - `supabase/migrations/202603310004_sprint_7_launch_readiness.sql`
+   - `supabase/migrations/202604090001_expand_app_event_types.sql`
 4. Enable Email/Password sign-in in Supabase Auth.
 5. If email confirmation is enabled, the app supports `/auth/callback`.
 
@@ -432,3 +412,28 @@ Run `npm run typecheck` and `npm run build` serially, not in parallel, because b
 ## Trust Boundary
 
 Tideus is not a law firm, government service, or licensed representative. The product is designed to help users organize narrow case-prep workflows, produce structured review-ready outputs, and carry workflow history into a later professional step.
+
+## Migration Archive
+
+Older assessment, comparison, and Copilot records are preserved only for migration continuity. They are not primary product surfaces and should not shape new workflow work.
+
+Archive routes:
+
+- `/dashboard/assessments`
+- `/dashboard/comparisons`
+- `/dashboard/copilot`
+
+Redirected legacy public routes:
+
+- `/assessment`
+- `/compare`
+- `/copilot`
+
+Archive tables:
+
+- `assessments`
+- `comparisons`
+- `copilot_threads`
+- `copilot_messages`
+
+Legacy-only helpers sit behind `lib/legacy/`, including migration-era decision-support logic, Copilot helpers, and archive navigation.

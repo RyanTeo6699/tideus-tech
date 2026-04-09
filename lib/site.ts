@@ -113,9 +113,3 @@ export const dashboardNav = [
   { label: "Profile", href: "/dashboard/profile" },
   { label: "Start a Case", href: "/start-case" }
 ];
-
-export const legacyWorkspaceLinks = [
-  { label: "Assessment archive", href: "/dashboard/assessments" },
-  { label: "Comparison archive", href: "/dashboard/comparisons" },
-  { label: "Assistant thread archive", href: "/dashboard/copilot" }
-];

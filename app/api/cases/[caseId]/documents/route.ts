@@ -122,6 +122,14 @@ export async function PATCH(request: Request, { params }: CaseDocumentsRouteProp
   const collectingCount = parsed.data.documents.filter((item) => item.status === "collecting").length;
   const needsRefreshCount = parsed.data.documents.filter((item) => item.status === "needs-refresh").length;
   const missingCount = parsed.data.documents.filter((item) => item.status === "missing").length;
+  const requiredReadyCount = parsed.data.documents.filter((item) => {
+    const existing = existingDocumentMap.get(item.id);
+    return existing?.required && (item.status === "ready" || item.status === "not-applicable");
+  }).length;
+  const requiredMissingCount = parsed.data.documents.filter((item) => {
+    const existing = existingDocumentMap.get(item.id);
+    return existing?.required && item.status === "missing";
+  }).length;
   const requiredActionCount = parsed.data.documents.filter((item) => {
     const existing = existingDocumentMap.get(item.id);
     return existing?.required && item.status !== "ready" && item.status !== "not-applicable";
@@ -179,12 +187,15 @@ export async function PATCH(request: Request, { params }: CaseDocumentsRouteProp
     metadata: {
       useCaseSlug: caseRecord.use_case_slug,
       documentCount: parsed.data.documents.length,
+      changedCount: changedMaterialsCount,
       changedMaterialsCount,
       changedRequiredMaterialsCount,
       readyCount,
+      requiredReadyCount,
       collectingCount,
       needsRefreshCount,
       missingCount,
+      requiredMissingCount,
       requiredActionCount,
       materialInterpretationSource: materialInterpretation.source,
       materialInterpretationPromptVersion: materialInterpretation.promptVersion,
