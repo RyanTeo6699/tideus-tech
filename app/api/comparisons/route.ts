@@ -1,12 +1,15 @@
-import { NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
+import { NextResponse } from "next/server";
 
 import type { TablesInsert } from "@/lib/database.types";
+import { getCurrentLocale } from "@/lib/i18n/server";
+import { pickLocale } from "@/lib/i18n/workspace";
 import { buildCompareProfileNotes } from "@/lib/legacy/profile";
 import { buildComparisonResult, parseComparisonInput } from "@/lib/legacy/tool-results";
 import { createClient } from "@/lib/supabase/server";
 
 export async function POST(request: Request) {
+  const locale = await getCurrentLocale();
   const body = await request.json().catch(() => null);
   const parsed = parseComparisonInput(body);
 
@@ -32,7 +35,7 @@ export async function POST(request: Request) {
 
   const comparisonInput = {
     ...parsed.data,
-    profileNotes: mergeProfileNotes(savedProfileNotes, parsed.data.profileNotes)
+    profileNotes: mergeProfileNotes(savedProfileNotes, parsed.data.profileNotes, locale)
   };
   let result;
 
@@ -41,7 +44,10 @@ export async function POST(request: Request) {
   } catch (error) {
     return NextResponse.json(
       {
-        message: error instanceof Error ? error.message : "Unable to generate the comparison."
+        message:
+          error instanceof Error
+            ? error.message
+            : pickLocale(locale, "暂时无法生成这条归档比较记录。", "暫時無法產生這條歸檔比較紀錄。")
       },
       { status: 400 }
     );
@@ -51,7 +57,7 @@ export async function POST(request: Request) {
     return NextResponse.json({
       result,
       saved: false,
-      message: "Sign in to save this legacy comparison record to your dashboard archive."
+      message: pickLocale(locale, "登录后即可将这条旧比较记录保存到工作台归档。", "登入後即可將這條舊比較紀錄儲存到工作台歸檔。")
     });
   }
 
@@ -89,16 +95,16 @@ export async function POST(request: Request) {
     result,
     saved: true,
     savedRecord: data,
-    message: "Legacy comparison record saved to your dashboard archive."
+    message: pickLocale(locale, "旧比较记录已保存到工作台归档。", "舊比較紀錄已儲存到工作台歸檔。")
   });
 }
 
-function mergeProfileNotes(savedProfileNotes: string, userNotes: string) {
+function mergeProfileNotes(savedProfileNotes: string, userNotes: string, locale: "zh-CN" | "zh-TW") {
   const trimmedUserNotes = userNotes.trim();
 
   if (!savedProfileNotes) {
     return trimmedUserNotes;
   }
 
-  return [savedProfileNotes, "", "Decision-specific notes:", trimmedUserNotes].join("\n");
+  return [savedProfileNotes, "", pickLocale(locale, "决策专用备注：", "決策專用備註："), trimmedUserNotes].join("\n");
 }

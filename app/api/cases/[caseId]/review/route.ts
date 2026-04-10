@@ -17,6 +17,8 @@ import {
 } from "@/lib/knowledge/adapter";
 import { recordCaseEvent } from "@/lib/case-events";
 import { buildLatestReviewForCase, getCaseReviewSnapshot, readCaseIntake } from "@/lib/cases";
+import { getCurrentLocale } from "@/lib/i18n/server";
+import { pickLocale } from "@/lib/i18n/workspace";
 import { appendCaseStatusHistory, getNextCaseStatus, normalizeCaseStatus } from "@/lib/case-state";
 import type { SupportedUseCaseSlug } from "@/lib/case-workflows";
 import { createClient } from "@/lib/supabase/server";
@@ -29,13 +31,17 @@ type CaseReviewRouteProps = {
 
 export async function POST(_request: Request, { params }: CaseReviewRouteProps) {
   const { caseId } = await params;
+  const locale = await getCurrentLocale();
   const supabase = await createClient();
   const {
     data: { user }
   } = await supabase.auth.getUser();
 
   if (!user) {
-    return NextResponse.json({ message: "Sign in to generate a case review." }, { status: 401 });
+    return NextResponse.json(
+      { message: pickLocale(locale, "请先登录后再生成案件审查。", "請先登入後再生成案件審查。") },
+      { status: 401 }
+    );
   }
 
   const { data: caseRecord, error: caseError } = await supabase
@@ -50,7 +56,10 @@ export async function POST(_request: Request, { params }: CaseReviewRouteProps) 
   }
 
   if (!caseRecord) {
-    return NextResponse.json({ message: "The selected case could not be found." }, { status: 404 });
+    return NextResponse.json(
+      { message: pickLocale(locale, "找不到所选案件。", "找不到所選案件。") },
+      { status: 404 }
+    );
   }
 
   const [{ data: documents, error: documentsError }, { data: latestReviewRow, error: latestReviewError }] = await Promise.all([
@@ -61,7 +70,10 @@ export async function POST(_request: Request, { params }: CaseReviewRouteProps) 
   if (documentsError || latestReviewError) {
     return NextResponse.json(
       {
-        message: documentsError?.message || latestReviewError?.message || "Unable to load the case."
+        message:
+          documentsError?.message ||
+          latestReviewError?.message ||
+          pickLocale(locale, "暂时无法加载案件。", "暫時無法載入案件。")
       },
       { status: 500 }
     );
@@ -70,16 +82,20 @@ export async function POST(_request: Request, { params }: CaseReviewRouteProps) 
   const currentStatus = normalizeCaseStatus(caseRecord.status);
 
   if (!currentStatus) {
-    return NextResponse.json({ message: "The case status could not be resolved." }, { status: 500 });
+    return NextResponse.json(
+      { message: pickLocale(locale, "暂时无法解析案件状态。", "暫時無法解析案件狀態。") },
+      { status: 500 }
+    );
   }
 
-  const deterministicReview = await buildLatestReviewForCase(caseRecord, documents ?? []);
+  const deterministicReview = await buildLatestReviewForCase(caseRecord, documents ?? [], locale);
   const previousReview = latestReviewRow?.[0] ? getCaseReviewSnapshot(latestReviewRow[0]) : null;
   const intake = readCaseIntake(caseRecord.intake_answers);
   const materialSnapshots = buildCaseMaterialSnapshots(documents ?? []);
   const intakeNormalization = parseStoredIntakeNormalization(caseRecord.metadata);
-  const materialInterpretation = parseStoredMaterialInterpretation(caseRecord.metadata);
-  const knowledgeContext = buildKnowledgeContext({
+  const materialInterpretation = parseStoredMaterialInterpretation(caseRecord.metadata, locale);
+  const knowledgeContext = await buildKnowledgeContext({
+    language: locale,
     useCaseSlug: caseRecord.use_case_slug as SupportedUseCaseSlug,
     intake,
     documents: materialSnapshots,
@@ -88,6 +104,7 @@ export async function POST(_request: Request, { params }: CaseReviewRouteProps) 
   });
   const baselineReview = applyKnowledgeToReview(deterministicReview, knowledgeContext);
   const aiReview = await enrichCaseReviewWithAi({
+    language: locale,
     useCaseSlug: caseRecord.use_case_slug as SupportedUseCaseSlug,
     intake,
     documents: materialSnapshots,
@@ -99,6 +116,7 @@ export async function POST(_request: Request, { params }: CaseReviewRouteProps) 
   const review = aiReview.review;
   const reviewDelta = previousReview
     ? await buildCaseReviewDeltaWithAi({
+        language: locale,
         useCaseSlug: caseRecord.use_case_slug as SupportedUseCaseSlug,
         previousReview,
         latestReview: review
@@ -106,6 +124,7 @@ export async function POST(_request: Request, { params }: CaseReviewRouteProps) 
     : null;
   const nextVersion = (latestReviewRow?.[0]?.version_number ?? 0) + 1;
   const handoffIntelligence = await buildCaseHandoffIntelligenceWithAi({
+    language: locale,
     useCaseSlug: caseRecord.use_case_slug as SupportedUseCaseSlug,
     caseTitle: caseRecord.title,
     reviewVersion: nextVersion,
@@ -223,7 +242,7 @@ export async function POST(_request: Request, { params }: CaseReviewRouteProps) 
   revalidatePath(`/review-results/${caseId}/export`);
 
   return NextResponse.json({
-    message: "Review generated.",
+    message: pickLocale(locale, "审查已生成。", "審查已生成。"),
     readinessStatus: review.readinessStatus
   });
 }

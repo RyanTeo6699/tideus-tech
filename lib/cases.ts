@@ -27,6 +27,9 @@ import {
   getInitialCaseStatus,
   normalizeCaseStatus
 } from "@/lib/case-state";
+import { defaultLocale, type AppLocale } from "@/lib/i18n/config";
+import { formatAppDate } from "@/lib/i18n/format";
+import { pickLocale } from "@/lib/i18n/workspace";
 import { createClient } from "@/lib/supabase/server";
 
 export type CaseListResult = {
@@ -83,18 +86,22 @@ export function getCaseIntakeInitialValues(profile: Tables<"profiles"> | null, u
   return values;
 }
 
-export function buildCaseTitle(useCaseSlug: SupportedUseCaseSlug, intake: CaseIntakeValues) {
+export function buildCaseTitle(useCaseSlug: SupportedUseCaseSlug, intake: CaseIntakeValues, locale: AppLocale = defaultLocale) {
   if (intake.title.trim()) {
     return intake.title.trim();
   }
 
-  const useCase = getUseCaseDefinition(useCaseSlug);
-  const fallback = useCase?.shortTitle ?? "Case";
-  return `${fallback} prep`;
+  const useCase = getUseCaseDefinition(useCaseSlug, locale);
+  const fallback = useCase?.shortTitle ?? pickLocale(locale, "案件", "案件");
+  return pickLocale(locale, `${fallback} 准备`, `${fallback} 準備`);
 }
 
-export function buildInitialCaseDocuments(useCaseSlug: SupportedUseCaseSlug, intake: CaseIntakeValues): TablesInsert<"case_documents">[] {
-  const useCase = getUseCaseDefinition(useCaseSlug);
+export function buildInitialCaseDocuments(
+  useCaseSlug: SupportedUseCaseSlug,
+  intake: CaseIntakeValues,
+  locale: AppLocale = defaultLocale
+): TablesInsert<"case_documents">[] {
+  const useCase = getUseCaseDefinition(useCaseSlug, locale);
 
   if (!useCase) {
     return [];
@@ -139,7 +146,11 @@ export function getCaseReviewSnapshot(latestReview: Tables<"case_review_versions
   };
 }
 
-export function buildCaseFacts(caseRecord: Tables<"cases">, documents: Tables<"case_documents">[]) {
+export function buildCaseFacts(
+  caseRecord: Tables<"cases">,
+  documents: Tables<"case_documents">[],
+  locale: AppLocale = defaultLocale
+) {
   const counts = getDocumentProgressCounts(
     documents.map((item) => ({
       status: item.status as CaseDocumentStatus,
@@ -148,12 +159,25 @@ export function buildCaseFacts(caseRecord: Tables<"cases">, documents: Tables<"c
   );
 
   return [
-    { label: "Use case", value: getUseCaseDefinition(caseRecord.use_case_slug)?.shortTitle ?? caseRecord.use_case_slug },
-    { label: "Case status", value: formatCaseStatus(caseRecord.status) },
-    { label: "Readiness", value: caseRecord.latest_readiness_status ? formatReadinessStatus(caseRecord.latest_readiness_status) : "Not reviewed yet" },
-    { label: "Materials ready", value: `${counts.ready}/${counts.total}` },
-    { label: "Last review", value: caseRecord.latest_reviewed_at ? formatDate(caseRecord.latest_reviewed_at) : "Not reviewed yet" },
-    { label: "Updated", value: formatDate(caseRecord.updated_at) }
+    {
+      label: pickLocale(locale, "案件类型", "案件類型"),
+      value: getUseCaseDefinition(caseRecord.use_case_slug, locale)?.shortTitle ?? caseRecord.use_case_slug
+    },
+    { label: pickLocale(locale, "案件状态", "案件狀態"), value: formatCaseStatus(caseRecord.status, locale) },
+    {
+      label: pickLocale(locale, "就绪度", "就緒度"),
+      value: caseRecord.latest_readiness_status
+        ? formatReadinessStatus(caseRecord.latest_readiness_status, locale)
+        : pickLocale(locale, "尚未审查", "尚未審查")
+    },
+    { label: pickLocale(locale, "材料就绪", "材料就緒"), value: `${counts.ready}/${counts.total}` },
+    {
+      label: pickLocale(locale, "最近审查", "最近審查"),
+      value: caseRecord.latest_reviewed_at
+        ? formatAppDate(caseRecord.latest_reviewed_at, locale)
+        : pickLocale(locale, "尚未审查", "尚未審查")
+    },
+    { label: pickLocale(locale, "最近更新", "最近更新"), value: formatAppDate(caseRecord.updated_at, locale) }
   ];
 }
 
@@ -215,7 +239,11 @@ export function getCaseMaterialStatusCounts(documents: Tables<"case_documents">[
   };
 }
 
-export function getCaseNextAction(caseRecord: Tables<"cases">, documents: Tables<"case_documents">[]): CaseNextAction {
+export function getCaseNextAction(
+  caseRecord: Tables<"cases">,
+  documents: Tables<"case_documents">[],
+  locale: AppLocale = defaultLocale
+): CaseNextAction {
   const counts = getDocumentProgressCounts(
     documents.map((item) => ({
       status: item.status as CaseDocumentStatus,
@@ -225,68 +253,108 @@ export function getCaseNextAction(caseRecord: Tables<"cases">, documents: Tables
 
   if (normalizeCaseStatus(caseRecord.status) !== "reviewed") {
     return {
-      label: "Finish materials and run review",
+      label: pickLocale(locale, "完成材料并生成审查", "完成材料並生成審查"),
       href: `/upload-materials/${caseRecord.id}`,
       description:
         counts.actionNeeded > 0
-          ? `${counts.actionNeeded} required material${counts.actionNeeded === 1 ? "" : "s"} still need work before the first clean review pass.`
-          : "The intake is complete. The next step is to confirm the package state and generate the first review version."
+          ? pickLocale(
+              locale,
+              `还有 ${counts.actionNeeded} 份必需材料需要处理，然后才能进入第一轮干净的审查。`,
+              `還有 ${counts.actionNeeded} 份必需材料需要處理，然後才能進入第一輪乾淨的審查。`
+            )
+          : pickLocale(
+              locale,
+              "intake 已完成。下一步是确认材料包状态并生成第一版审查结果。",
+              "intake 已完成。下一步是確認材料包狀態並生成第一版審查結果。"
+            )
     };
   }
 
   if (caseRecord.latest_readiness_status === "review-ready") {
     return {
-      label: "Export the latest summary",
+      label: pickLocale(locale, "导出最新摘要", "匯出最新摘要"),
       href: `/review-results/${caseRecord.id}/export`,
-      description: "The latest review looks ready enough to print, export, or carry into the next professional handoff."
+      description: pickLocale(
+        locale,
+        "最新审查结果已足够清晰，可用于打印、导出或进入下一步专业交接。",
+        "最新審查結果已足夠清晰，可用於列印、匯出或進入下一步專業交接。"
+      )
     };
   }
 
   return {
-    label: "Refresh materials and regenerate review",
+    label: pickLocale(locale, "更新材料并重新生成审查", "更新材料並重新生成審查"),
     href: `/upload-materials/${caseRecord.id}`,
     description:
       caseRecord.latest_review_summary ||
-      "The case already has a saved review version, but the next pass should tighten the package before export."
+      pickLocale(
+        locale,
+        "该案件已经有保存的审查版本，但在导出前仍应先把材料包再收紧一轮。",
+        "該案件已經有儲存的審查版本，但在匯出前仍應先把材料包再收緊一輪。"
+      )
   };
 }
 
-export function buildCaseSnapshotFacts(caseRecord: Tables<"cases">) {
+export function buildCaseSnapshotFacts(caseRecord: Tables<"cases">, locale: AppLocale = defaultLocale) {
   const intake = readCaseIntake(caseRecord.intake_answers);
 
   return [
-    { label: "Current status", value: formatStoredValue(intake.currentStatus) || "Not captured" },
-    { label: "Expiry date", value: intake.currentPermitExpiry || "Not captured" },
-    { label: "Timeline", value: formatStoredValue(intake.urgency) || "Not captured" },
-    { label: "Passport validity", value: formatStoredValue(intake.passportValidity) || "Not captured" },
-    { label: "Funds status", value: formatStoredValue(intake.proofOfFundsStatus) || "Not captured" },
-    { label: "Support evidence", value: formatStoredValue(intake.supportEvidenceStatus) || "Not captured" },
-    { label: "Case progress signal", value: formatStoredValue(intake.scenarioProgressStatus) || "Not captured" },
-    { label: "Support entity", value: intake.supportEntityName || "Not captured" }
+    {
+      label: pickLocale(locale, "当前身份", "目前身分"),
+      value: formatStoredValue(intake.currentStatus, locale) || pickLocale(locale, "尚未记录", "尚未記錄")
+    },
+    { label: pickLocale(locale, "到期日期", "到期日期"), value: intake.currentPermitExpiry || pickLocale(locale, "尚未记录", "尚未記錄") },
+    {
+      label: pickLocale(locale, "时间紧迫度", "時間緊迫度"),
+      value: formatStoredValue(intake.urgency, locale) || pickLocale(locale, "尚未记录", "尚未記錄")
+    },
+    {
+      label: pickLocale(locale, "护照有效期", "護照效期"),
+      value: formatStoredValue(intake.passportValidity, locale) || pickLocale(locale, "尚未记录", "尚未記錄")
+    },
+    {
+      label: pickLocale(locale, "资金状态", "資金狀態"),
+      value: formatStoredValue(intake.proofOfFundsStatus, locale) || pickLocale(locale, "尚未记录", "尚未記錄")
+    },
+    {
+      label: pickLocale(locale, "支持性证据", "支援性證據"),
+      value: formatStoredValue(intake.supportEvidenceStatus, locale) || pickLocale(locale, "尚未记录", "尚未記錄")
+    },
+    {
+      label: pickLocale(locale, "案件进度信号", "案件進度訊號"),
+      value: formatStoredValue(intake.scenarioProgressStatus, locale) || pickLocale(locale, "尚未记录", "尚未記錄")
+    },
+    { label: pickLocale(locale, "支持主体", "支援主體"), value: intake.supportEntityName || pickLocale(locale, "尚未记录", "尚未記錄") }
   ];
 }
 
-export function buildCaseNotes(caseRecord: Tables<"cases">) {
-  return readCaseIntake(caseRecord.intake_answers).notes || "No case notes saved.";
+export function buildCaseNotes(caseRecord: Tables<"cases">, locale: AppLocale = defaultLocale) {
+  return readCaseIntake(caseRecord.intake_answers).notes || pickLocale(locale, "当前没有保存案件备注。", "目前沒有儲存案件備註。");
 }
 
-export function getReviewHistoryFacts(reviewHistory: Tables<"case_review_versions">[]) {
+export function getReviewHistoryFacts(reviewHistory: Tables<"case_review_versions">[], locale: AppLocale = defaultLocale) {
   return reviewHistory.map((item) => ({
-    label: `Version ${item.version_number}`,
-    value: `${formatReadinessStatus(item.readiness_status)} · ${formatDate(item.created_at)}`
+    label: pickLocale(locale, `版本 ${item.version_number}`, `版本 ${item.version_number}`),
+    value: `${formatReadinessStatus(item.readiness_status, locale)} · ${formatAppDate(item.created_at, locale)}`
   }));
 }
 
-export function getCaseReviewDeltaSnapshot(latestReview: Tables<"case_review_versions"> | null) {
-  return latestReview ? parseStoredReviewDelta(latestReview.metadata) : null;
+export function getCaseReviewDeltaSnapshot(
+  latestReview: Tables<"case_review_versions"> | null,
+  locale: AppLocale = defaultLocale
+) {
+  return latestReview ? parseStoredReviewDelta(latestReview.metadata, locale) : null;
 }
 
 export function getCaseHandoffIntelligenceSnapshot(latestReview: Tables<"case_review_versions"> | null) {
   return latestReview ? parseStoredHandoffIntelligence(latestReview.metadata) : null;
 }
 
-export function getCaseMaterialInterpretationSnapshot(caseRecord: Tables<"cases">) {
-  return parseStoredMaterialInterpretation(caseRecord.metadata);
+export function getCaseMaterialInterpretationSnapshot(
+  caseRecord: Tables<"cases">,
+  locale: AppLocale = defaultLocale
+) {
+  return parseStoredMaterialInterpretation(caseRecord.metadata, locale);
 }
 
 export function getCaseIntakeNormalizationSnapshot(caseRecord: Tables<"cases">) {
@@ -384,7 +452,11 @@ export async function getCaseDetail(caseId: string, options?: CaseDetailOptions)
   };
 }
 
-export async function buildLatestReviewForCase(caseRecord: Tables<"cases">, documents: Tables<"case_documents">[]) {
+export async function buildLatestReviewForCase(
+  caseRecord: Tables<"cases">,
+  documents: Tables<"case_documents">[],
+  locale: AppLocale = defaultLocale
+) {
   const intake = readCaseIntake(caseRecord.intake_answers);
   return buildCaseReviewResult(
     caseRecord.use_case_slug as SupportedUseCaseSlug,
@@ -396,7 +468,8 @@ export async function buildLatestReviewForCase(caseRecord: Tables<"cases">, docu
       required: item.required,
       status: item.status as CaseDocumentStatus,
       material_reference: item.material_reference
-    }))
+    })),
+    locale
   );
 }
 
@@ -522,21 +595,45 @@ function readStringArray(value: Json | undefined): string[] {
   return value.flatMap((item) => (typeof item === "string" && item.trim() ? [item.trim()] : []));
 }
 
-function formatStoredValue(value: string | null | undefined) {
+function formatStoredValue(value: string | null | undefined, locale: AppLocale = defaultLocale) {
   if (!value) {
     return null;
   }
 
-  return value
-    .split("-")
-    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-    .join(" ");
-}
+  const labels: Record<string, string> = {
+    visitor: pickLocale(locale, "访问者", "訪客"),
+    student: pickLocale(locale, "学生", "學生"),
+    worker: pickLocale(locale, "工作者", "工作者"),
+    "outside-canada": pickLocale(locale, "加拿大境外", "加拿大境外"),
+    other: pickLocale(locale, "其他", "其他"),
+    "under-30": pickLocale(locale, "30 天内", "30 天內"),
+    "30-60": pickLocale(locale, "31 到 60 天内", "31 到 60 天內"),
+    "under-90": pickLocale(locale, "90 天内", "90 天內"),
+    "90-plus": pickLocale(locale, "90 天以上", "90 天以上"),
+    "under-6": pickLocale(locale, "少于 6 个月", "少於 6 個月"),
+    "6-12": pickLocale(locale, "6 到 12 个月", "6 到 12 個月"),
+    "12-plus": pickLocale(locale, "12 个月以上", "12 個月以上"),
+    missing: pickLocale(locale, "缺失", "缺失"),
+    partial: pickLocale(locale, "部分具备", "部分具備"),
+    ready: pickLocale(locale, "已具备", "已具備"),
+    "not-needed": pickLocale(locale, "不需要", "不需要"),
+    unclear: pickLocale(locale, "不清楚", "不清楚"),
+    yes: pickLocale(locale, "是", "是"),
+    no: pickLocale(locale, "否", "否"),
+    "family-or-host": pickLocale(locale, "家人 / 邀请方支持", "家人 / 邀請方支援"),
+    tourism: pickLocale(locale, "旅游或个人行程", "旅遊或個人行程"),
+    "wrap-up": pickLocale(locale, "离境前处理事务", "離境前處理事務"),
+    "registration-delay": pickLocale(locale, "注册或文件延误", "註冊或文件延誤"),
+    "program-transition": pickLocale(locale, "课程或学习安排变动", "課程或學習安排變動"),
+    "tourism-or-visit": pickLocale(locale, "探访 / 停留", "探訪 / 停留"),
+    "awaiting-next-step": pickLocale(locale, "等待下一步安排", "等待下一步安排"),
+    clear: pickLocale(locale, "清晰", "清晰"),
+    partial: pickLocale(locale, "部分清晰", "部分清晰"),
+    weak: pickLocale(locale, "偏弱", "偏弱"),
+    "good-standing": pickLocale(locale, "状态良好", "狀態良好"),
+    "needs-explanation": pickLocale(locale, "需要解释", "需要解釋"),
+    "at-risk": pickLocale(locale, "存在风险", "存在風險")
+  };
 
-function formatDate(value: string) {
-  return new Intl.DateTimeFormat("en-CA", {
-    month: "short",
-    day: "numeric",
-    year: "numeric"
-  }).format(new Date(value));
+  return labels[value] ?? value;
 }

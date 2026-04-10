@@ -3,15 +3,19 @@ import type { User } from "@supabase/supabase-js";
 
 import type { Tables } from "@/lib/database.types";
 import { buildCaseResumeHref } from "@/lib/cases";
-import { getProfileCompletion } from "@/lib/profile";
 import { formatCaseStatus } from "@/lib/case-state";
-import { dashboardNav, siteConfig } from "@/lib/site";
+import { getProfileCompletion } from "@/lib/profile";
 import { formatReadinessStatus, getUseCaseDefinition } from "@/lib/case-workflows";
+import { formatAppDate } from "@/lib/i18n/format";
+import { getCurrentLocale } from "@/lib/i18n/server";
+import { getWorkspaceCopy, pickLocale } from "@/lib/i18n/workspace";
+import { dashboardNav, siteConfig } from "@/lib/site";
 import { LogoutButton } from "@/components/dashboard/logout-button";
 import { DashboardArchiveLinks } from "@/components/legacy/dashboard-archive-links";
 import { EventLink } from "@/components/site/event-link";
-import { buttonVariants } from "@/components/ui/button";
+import { LanguageSwitcher } from "@/components/site/language-switcher";
 import { Badge } from "@/components/ui/badge";
+import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 
@@ -26,15 +30,27 @@ type DashboardShellProps = {
   };
 };
 
-export function DashboardShell({ user, profile, recentCases, metrics }: DashboardShellProps) {
+export async function DashboardShell({ user, profile, recentCases, metrics }: DashboardShellProps) {
+  const locale = await getCurrentLocale();
+  const copy = getWorkspaceCopy(locale);
   const displayName =
     profile?.full_name ??
     (typeof user.user_metadata?.full_name === "string" && user.user_metadata.full_name.trim()
       ? user.user_metadata.full_name.trim()
-      : user.email?.split("@")[0] ?? "Member");
-  const userEmail = user.email ?? profile?.email ?? "No email available";
+      : user.email?.split("@")[0] ?? copy.common.notSet);
   const firstName = displayName.split(" ")[0] ?? displayName;
+  const userEmail = user.email ?? profile?.email ?? copy.common.notSet;
   const profileCompletion = getProfileCompletion(profile);
+
+  const navItems = dashboardNav.map((item) => ({
+    ...item,
+    label:
+      item.href === "/dashboard"
+        ? copy.shell.dashboardEyebrow
+        : item.href === "/dashboard/cases"
+          ? copy.cases.allCasesTitle
+          : copy.actions.manageProfile
+  }));
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-50">
@@ -47,18 +63,23 @@ export function DashboardShell({ user, profile, recentCases, metrics }: Dashboar
               </span>
               <div>
                 <p className="font-semibold">{siteConfig.name}</p>
-                <p className="text-sm text-slate-400">Case workspace</p>
+                <p className="text-sm text-slate-400">{copy.dashboard.sidebarTagline}</p>
               </div>
             </Link>
 
             <div className="mt-8 rounded-[24px] border border-white/10 bg-white/5 p-4">
-              <p className="text-xs uppercase tracking-[0.24em] text-emerald-300">Account</p>
-              <p className="mt-3 text-lg font-semibold">{displayName}</p>
-              <p className="text-sm text-slate-400">{userEmail}</p>
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <p className="text-xs uppercase tracking-[0.24em] text-emerald-300">{copy.common.account}</p>
+                  <p className="mt-3 text-lg font-semibold">{displayName}</p>
+                  <p className="text-sm text-slate-400">{userEmail}</p>
+                </div>
+                <LanguageSwitcher />
+              </div>
             </div>
 
             <nav className="mt-8 space-y-2">
-              {dashboardNav.map((item) => (
+              {navItems.map((item) => (
                 <Link
                   className="flex items-center justify-between rounded-2xl px-4 py-3 text-sm text-slate-200 transition-colors hover:bg-white/10"
                   href={item.href}
@@ -73,9 +94,13 @@ export function DashboardShell({ user, profile, recentCases, metrics }: Dashboar
             <div className="mt-8 rounded-[24px] border border-emerald-400/20 bg-emerald-400/10 p-4">
               <div className="flex items-start justify-between gap-3">
                 <div>
-                  <p className="text-xs uppercase tracking-[0.2em] text-emerald-300">Profile snapshot</p>
+                  <p className="text-xs uppercase tracking-[0.2em] text-emerald-300">{copy.dashboard.profileSnapshot}</p>
                   <p className="mt-2 text-sm text-slate-300">
-                    {profileCompletion.completed} of {profileCompletion.total} core fields saved.
+                    {pickLocale(
+                      locale,
+                      `已保存 ${profileCompletion.completed} / ${profileCompletion.total} 个核心字段。`,
+                      `已儲存 ${profileCompletion.completed} / ${profileCompletion.total} 個核心欄位。`
+                    )}
                   </p>
                 </div>
                 <Badge variant="secondary">
@@ -85,16 +110,16 @@ export function DashboardShell({ user, profile, recentCases, metrics }: Dashboar
 
               <div className="mt-4 space-y-3 text-sm leading-6 text-slate-100">
                 <div>
-                  <p className="text-slate-400">Current status</p>
-                  <p>{formatValue(profile?.current_status)}</p>
+                  <p className="text-slate-400">{copy.dashboard.currentStatus}</p>
+                  <p>{formatValue(profile?.current_status, locale)}</p>
                 </div>
                 <div>
-                  <p className="text-slate-400">Primary goal</p>
-                  <p>{formatValue(profile?.target_goal)}</p>
+                  <p className="text-slate-400">{copy.dashboard.primaryGoal}</p>
+                  <p>{formatValue(profile?.target_goal, locale)}</p>
                 </div>
                 <div>
-                  <p className="text-slate-400">Province focus</p>
-                  <p>{profile?.province_preference || "Not set yet"}</p>
+                  <p className="text-slate-400">{copy.dashboard.provinceFocus}</p>
+                  <p>{profile?.province_preference || copy.common.notSet}</p>
                 </div>
               </div>
 
@@ -105,7 +130,7 @@ export function DashboardShell({ user, profile, recentCases, metrics }: Dashboar
                 )}
                 href="/dashboard/profile"
               >
-                Manage saved profile
+                {copy.actions.manageProfile}
               </Link>
             </div>
           </div>
@@ -116,23 +141,21 @@ export function DashboardShell({ user, profile, recentCases, metrics }: Dashboar
             <CardHeader className="flex flex-col gap-5 xl:flex-row xl:items-end xl:justify-between">
               <div>
                 <Badge variant="secondary" className="mb-4 w-fit">
-                  Case Dashboard
+                  {copy.shell.dashboardEyebrow}
                 </Badge>
-                <CardTitle className="text-3xl">Welcome back, {firstName}.</CardTitle>
-                <CardDescription>
-                  Keep the supported case workflows moving with saved intake answers, materials state, and structured review versions.
-                </CardDescription>
+                <CardTitle className="text-3xl">{`${copy.dashboard.welcome}，${firstName}`}</CardTitle>
+                <CardDescription>{copy.dashboard.description}</CardDescription>
               </div>
 
               <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:justify-end">
                 <Link className={buttonVariants({ size: "sm" })} href="/start-case">
-                  Start a case
+                  {copy.actions.startCase}
                 </Link>
                 <Link className={buttonVariants({ variant: "outline", size: "sm" })} href="/dashboard/cases">
-                  View all cases
+                  {copy.actions.viewAll}
                 </Link>
                 <Link className={buttonVariants({ variant: "outline", size: "sm" })} href="/dashboard/profile">
-                  Manage profile
+                  {copy.actions.manageProfile}
                 </Link>
                 <LogoutButton />
               </div>
@@ -140,37 +163,25 @@ export function DashboardShell({ user, profile, recentCases, metrics }: Dashboar
           </Card>
 
           <div className="grid gap-4 md:grid-cols-3">
-            <MetricCard
-              detail="Cases that still need a resume action, a materials update, or another review pass."
-              label="Active cases"
-              value={metrics.activeCases}
-            />
-            <MetricCard
-              detail="Cases whose latest saved review currently reads as review-ready."
-              label="Review-ready"
-              value={metrics.reviewReadyCases}
-            />
-            <MetricCard
-              detail="Cases where the current state still shows not-ready, needs-attention, or no review yet."
-              label="Needs attention"
-              value={metrics.actionNeededCases}
-            />
+            <MetricCard detail={copy.dashboard.activeCasesDetail} label={copy.dashboard.activeCases} value={metrics.activeCases} />
+            <MetricCard detail={copy.dashboard.reviewReadyDetail} label={copy.dashboard.reviewReady} value={metrics.reviewReadyCases} />
+            <MetricCard detail={copy.dashboard.needsAttentionDetail} label={copy.dashboard.needsAttention} value={metrics.actionNeededCases} />
           </div>
 
           <Card className="border-white/10 bg-white text-slate-950">
             <CardHeader className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
               <div>
-                <CardTitle>Resume cases</CardTitle>
-                <CardDescription>The dashboard should point back to the next real workflow action, not a general tool menu.</CardDescription>
+                <CardTitle>{copy.dashboard.resumeCases}</CardTitle>
+                <CardDescription>{copy.dashboard.resumeCasesDescription}</CardDescription>
               </div>
               <Link className={buttonVariants({ variant: "outline", size: "sm" })} href="/dashboard/cases">
-                View all
+                {copy.actions.viewAll}
               </Link>
             </CardHeader>
             <CardContent>
               {recentCases.length === 0 ? (
                 <div className="rounded-[24px] border border-dashed border-slate-200 bg-slate-50 p-5 text-sm leading-6 text-slate-600">
-                  No saved cases yet. Start with a supported use case and Tideus will keep the intake, materials, and review output together in one record.
+                  {copy.dashboard.noCases}
                 </div>
               ) : (
                 <div className="overflow-hidden rounded-[24px] border border-slate-200 bg-slate-50">
@@ -185,23 +196,23 @@ export function DashboardShell({ user, profile, recentCases, metrics }: Dashboar
                         <div className="max-w-3xl">
                           <div className="flex items-center justify-between gap-3">
                             <span className="text-sm font-semibold text-slate-950">{item.title}</span>
-                            <span className="text-xs uppercase tracking-[0.18em] text-slate-500">{formatDate(item.updated_at)}</span>
+                            <span className="text-xs uppercase tracking-[0.18em] text-slate-500">{formatAppDate(item.updated_at, locale)}</span>
                           </div>
                           <p className="mt-2 text-sm text-slate-500">
-                            {(getUseCaseDefinition(item.use_case_slug)?.shortTitle || item.use_case_slug) +
+                            {(getUseCaseDefinition(item.use_case_slug, locale)?.shortTitle || item.use_case_slug) +
                               " · " +
-                              formatCaseStatus(item.status)}
+                              formatCaseStatus(item.status, locale)}
                           </p>
-                          <p className="mt-3 text-sm leading-6 text-slate-700">
-                            {item.latest_review_summary || "The intake is saved. Continue to the materials step to generate the first review version."}
-                          </p>
+                          <p className="mt-3 text-sm leading-6 text-slate-700">{item.latest_review_summary || copy.dashboard.defaultReviewNote}</p>
                           <p className="mt-3 text-sm font-medium text-emerald-800">
-                            {item.latest_readiness_status ? formatReadinessStatus(item.latest_readiness_status) : "Not reviewed yet"}
+                            {item.latest_readiness_status
+                              ? formatReadinessStatus(item.latest_readiness_status, locale)
+                              : copy.common.noReviewYet}
                           </p>
                         </div>
                         <div className="flex shrink-0 gap-3">
                           <Link className={buttonVariants({ variant: "outline", size: "sm" })} href={`/dashboard/cases/${item.id}`}>
-                            View detail
+                            {copy.actions.viewDetail}
                           </Link>
                           <EventLink
                             caseId={item.id}
@@ -216,7 +227,7 @@ export function DashboardShell({ user, profile, recentCases, metrics }: Dashboar
                               reviewVersion: item.latest_review_version
                             }}
                           >
-                            Resume
+                            {copy.actions.resume}
                           </EventLink>
                         </div>
                       </div>
@@ -248,21 +259,20 @@ function MetricCard({ label, value, detail }: { label: string; value: number; de
   );
 }
 
-function formatValue(value: string | null | undefined) {
+function formatValue(value: string | null | undefined, locale: "zh-CN" | "zh-TW") {
   if (!value) {
-    return "Not set yet";
+    return pickLocale(locale, "尚未设置", "尚未設定");
   }
 
-  return value
-    .split("-")
-    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-    .join(" ");
-}
+  const labels: Record<string, string> = {
+    visitor: pickLocale(locale, "访问者", "訪客"),
+    student: pickLocale(locale, "学生", "學生"),
+    worker: pickLocale(locale, "工作者", "工作者"),
+    "outside-canada": pickLocale(locale, "加拿大境外", "加拿大境外"),
+    other: pickLocale(locale, "其他", "其他"),
+    "visitor-record": pickLocale(locale, "访客记录准备", "訪客紀錄準備"),
+    "study-permit-extension": pickLocale(locale, "学签延期准备", "學簽延期準備")
+  };
 
-function formatDate(value: string) {
-  return new Intl.DateTimeFormat("en-CA", {
-    month: "short",
-    day: "numeric",
-    year: "numeric"
-  }).format(new Date(value));
+  return labels[value] ?? value;
 }

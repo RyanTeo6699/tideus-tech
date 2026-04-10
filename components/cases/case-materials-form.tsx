@@ -11,6 +11,9 @@ import {
   isAllowedCaseFileType
 } from "@/lib/case-files";
 import { formatDocumentStatus } from "@/lib/case-workflows";
+import { useLocaleContext } from "@/lib/i18n/client";
+import { formatAppDateTime } from "@/lib/i18n/format";
+import { getWorkspaceCopy, pickLocale } from "@/lib/i18n/workspace";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -57,6 +60,8 @@ type MaterialImpact = {
 };
 
 export function CaseMaterialsForm({ caseId, caseTitle, useCaseTitle, documents }: CaseMaterialsFormProps) {
+  const { locale, messages } = useLocaleContext();
+  const copy = getWorkspaceCopy(locale);
   const router = useRouter();
   const [values, setValues] = useState<MaterialRow[]>(
     documents.map((item) => ({
@@ -79,7 +84,11 @@ export function CaseMaterialsForm({ caseId, caseTitle, useCaseTitle, documents }
   );
   const [status, setStatus] = useState<"idle" | "loading" | "success" | "error">("idle");
   const [message, setMessage] = useState(
-    "Upload or replace files inline, then save the package state before running the next review."
+    pickLocale(
+      locale,
+      "可直接上传或替换文件，整理完当前材料包状态后，再决定是否重新生成审查。",
+      "可直接上傳或替換檔案，整理完目前材料包狀態後，再決定是否重新生成審查。"
+    )
   );
   const hasUploadingRow = useMemo(() => values.some((item) => item.uploadStatus === "loading"), [values]);
 
@@ -90,7 +99,7 @@ export function CaseMaterialsForm({ caseId, caseTitle, useCaseTitle, documents }
     if (!file) {
       updateRow(index, {
         uploadStatus: "error",
-        uploadMessage: "Choose a file before uploading."
+        uploadMessage: copy.materials.chooseFileFirst
       });
       return;
     }
@@ -98,7 +107,7 @@ export function CaseMaterialsForm({ caseId, caseTitle, useCaseTitle, documents }
     if (file.size > caseFileMaxSizeBytes) {
       updateRow(index, {
         uploadStatus: "error",
-        uploadMessage: `File is too large. Limit: ${formatCaseFileSize(caseFileMaxSizeBytes)}.`
+        uploadMessage: `${copy.materials.fileTooLarge} ${formatCaseFileSize(caseFileMaxSizeBytes)}`
       });
       return;
     }
@@ -106,14 +115,14 @@ export function CaseMaterialsForm({ caseId, caseTitle, useCaseTitle, documents }
     if (!isAllowedCaseFileType(file.type)) {
       updateRow(index, {
         uploadStatus: "error",
-        uploadMessage: `Unsupported file type. Allowed formats: ${formatAllowedCaseFileTypes()}.`
+        uploadMessage: `${copy.materials.unsupportedType} ${formatAllowedCaseFileTypes()}`
       });
       return;
     }
 
     updateRow(index, {
       uploadStatus: "loading",
-      uploadMessage: "Uploading file..."
+      uploadMessage: copy.materials.uploading
     });
 
     try {
@@ -141,7 +150,7 @@ export function CaseMaterialsForm({ caseId, caseTitle, useCaseTitle, documents }
         | null;
 
       if (!response.ok || !data?.document) {
-        throw new Error(data?.message || "Unable to upload the file.");
+        throw new Error(data?.message || copy.materials.uploadFailed);
       }
 
       updateRow(index, {
@@ -154,23 +163,23 @@ export function CaseMaterialsForm({ caseId, caseTitle, useCaseTitle, documents }
         storagePath: data.document.storagePath,
         selectedFile: null,
         uploadStatus: "success",
-        uploadMessage: data.message || "File uploaded."
+        uploadMessage: data.message || messages.common.fileUploaded
       });
       setStatus("success");
-      setMessage("Material file uploaded. Save the full materials state when the package is ready for the next review.");
+      setMessage(copy.materials.uploadSuccess);
     } catch (error) {
       updateRow(index, {
         uploadStatus: "error",
-        uploadMessage: error instanceof Error ? error.message : "Unable to upload the file."
+        uploadMessage: error instanceof Error ? error.message : copy.materials.uploadFailed
       });
       setStatus("error");
-      setMessage(error instanceof Error ? error.message : "Unable to upload the file.");
+      setMessage(error instanceof Error ? error.message : copy.materials.uploadFailed);
     }
   }
 
   async function handleSave(generateReview: boolean) {
     setStatus("loading");
-    setMessage(generateReview ? "Saving materials and generating review..." : "Saving materials...");
+    setMessage(generateReview ? copy.materials.savingAndReview : copy.materials.saving);
 
     try {
       const saveResponse = await fetch(`/api/cases/${caseId}/documents`, {
@@ -196,12 +205,12 @@ export function CaseMaterialsForm({ caseId, caseTitle, useCaseTitle, documents }
         | null;
 
       if (!saveResponse.ok) {
-        throw new Error(saveData?.message || "Unable to save the materials state.");
+        throw new Error(saveData?.message || copy.materials.saveError);
       }
 
       if (!generateReview) {
         setStatus("success");
-        setMessage(buildMaterialImpactMessage(saveData?.message || "Materials saved.", saveData?.materialImpact));
+        setMessage(buildMaterialImpactMessage(saveData?.message || messages.common.saved, saveData?.materialImpact, locale));
         startTransition(() => {
           router.refresh();
         });
@@ -215,7 +224,7 @@ export function CaseMaterialsForm({ caseId, caseTitle, useCaseTitle, documents }
       const reviewData = (await reviewResponse.json().catch(() => null)) as { message?: string } | null;
 
       if (!reviewResponse.ok) {
-        throw new Error(reviewData?.message || "Unable to generate the case review.");
+        throw new Error(reviewData?.message || copy.materials.continueError);
       }
 
       startTransition(() => {
@@ -224,7 +233,7 @@ export function CaseMaterialsForm({ caseId, caseTitle, useCaseTitle, documents }
       });
     } catch (error) {
       setStatus("error");
-      setMessage(error instanceof Error ? error.message : "Unable to continue.");
+      setMessage(error instanceof Error ? error.message : copy.materials.continueError);
     }
   }
 
@@ -232,8 +241,8 @@ export function CaseMaterialsForm({ caseId, caseTitle, useCaseTitle, documents }
     return (
       <Card>
         <CardHeader>
-          <CardTitle>No materials configured</CardTitle>
-          <CardDescription>This case does not have any expected materials yet.</CardDescription>
+          <CardTitle>{pickLocale(locale, "当前没有预设材料", "目前沒有預設材料")}</CardTitle>
+          <CardDescription>{pickLocale(locale, "这个案件还没有生成预期材料列表。", "這個案件還沒有生成預期材料列表。")}</CardDescription>
         </CardHeader>
       </Card>
     );
@@ -244,14 +253,12 @@ export function CaseMaterialsForm({ caseId, caseTitle, useCaseTitle, documents }
       <Card className="border-emerald-200 bg-emerald-50/80 shadow-none">
         <CardHeader>
           <CardTitle>{useCaseTitle}</CardTitle>
-          <CardDescription>
-            Upload the actual package files where you have them, then use statuses and notes to map what is still missing or needs refresh.
-          </CardDescription>
+          <CardDescription>{copy.materials.intro}</CardDescription>
         </CardHeader>
         <CardContent className="space-y-3 text-sm leading-6 text-slate-700">
           <p>{caseTitle}</p>
-          <p>Allowed formats: {formatAllowedCaseFileTypes()}.</p>
-          <p>Maximum size per file: {formatCaseFileSize(caseFileMaxSizeBytes)}.</p>
+          <p>{`${copy.materials.allowedFormats}：${formatAllowedCaseFileTypes()}`}</p>
+          <p>{`${copy.materials.maxFileSize}：${formatCaseFileSize(caseFileMaxSizeBytes)}`}</p>
         </CardContent>
       </Card>
 
@@ -265,25 +272,27 @@ export function CaseMaterialsForm({ caseId, caseTitle, useCaseTitle, documents }
                   <CardDescription>{item.description}</CardDescription>
                 </div>
                 <div className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-slate-600">
-                  {item.required ? "Required" : "Optional"}
+                  {item.required ? copy.common.required : copy.common.optional}
                 </div>
               </div>
             </CardHeader>
             <CardContent className="space-y-5">
               <div className="grid gap-5 lg:grid-cols-[0.95fr_1.05fr]">
                 <div className="space-y-2">
-                  <Label htmlFor={`file-${item.id}`}>Attached file</Label>
+                  <Label htmlFor={`file-${item.id}`}>{copy.materials.attachedFile}</Label>
                   {item.fileName ? (
                     <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm leading-6 text-slate-700">
                       <p className="font-semibold text-slate-900">{item.fileName}</p>
                       <p className="mt-1">
                         {formatCaseFileSize(item.fileSizeBytes)}{item.mimeType ? ` · ${item.mimeType}` : ""}
                       </p>
-                      <p className="mt-1">{item.uploadedAt ? `Uploaded ${formatDateTime(item.uploadedAt)}` : "File uploaded"}</p>
+                      <p className="mt-1">
+                        {item.uploadedAt ? `${copy.materials.uploadedAt} ${formatAppDateTime(item.uploadedAt, locale)}` : messages.common.fileUploaded}
+                      </p>
                     </div>
                   ) : (
                     <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-4 text-sm leading-6 text-slate-600">
-                      No file attached yet. Upload a file or keep using the status and notes fields if the material is still being collected offline.
+                      {copy.materials.noAttachedFile}
                     </div>
                   )}
 
@@ -302,20 +311,22 @@ export function CaseMaterialsForm({ caseId, caseTitle, useCaseTitle, documents }
 
                   {item.selectedFile ? (
                     <p className="text-sm text-slate-600">
-                      Selected: {item.selectedFile.name} · {formatCaseFileSize(item.selectedFile.size)}
+                      {`${copy.materials.selectedPrefix}：${item.selectedFile.name} · ${formatCaseFileSize(item.selectedFile.size)}`}
                     </p>
                   ) : null}
 
-                  <div className="flex flex-wrap gap-3">
-                    <Button
-                      disabled={item.uploadStatus === "loading" || !item.selectedFile}
-                      onClick={() => handleFileUpload(index)}
-                      type="button"
-                      variant="outline"
-                    >
-                      {item.uploadStatus === "loading" ? "Uploading..." : item.fileName ? "Replace file" : "Upload file"}
-                    </Button>
-                  </div>
+                  <Button
+                    disabled={item.uploadStatus === "loading" || !item.selectedFile}
+                    onClick={() => void handleFileUpload(index)}
+                    type="button"
+                    variant="outline"
+                  >
+                    {item.uploadStatus === "loading"
+                      ? copy.materials.uploading
+                      : item.fileName
+                        ? copy.materials.replaceFile
+                        : copy.materials.uploadFile}
+                  </Button>
 
                   {item.uploadMessage ? (
                     <p
@@ -331,36 +342,32 @@ export function CaseMaterialsForm({ caseId, caseTitle, useCaseTitle, documents }
 
                 <div className="grid gap-5 md:grid-cols-2">
                   <div className="space-y-2">
-                    <Label htmlFor={`status-${item.id}`}>Material status</Label>
-                    <Select
-                      id={`status-${item.id}`}
-                      onChange={(event) => updateRow(index, { status: event.target.value })}
-                      value={item.status}
-                    >
+                    <Label htmlFor={`status-${item.id}`}>{copy.materials.materialStatus}</Label>
+                    <Select id={`status-${item.id}`} onChange={(event) => updateRow(index, { status: event.target.value })} value={item.status}>
                       {["missing", "collecting", "needs-refresh", "ready", "not-applicable"].map((value) => (
                         <option key={value} value={value}>
-                          {formatDocumentStatus(value)}
+                          {formatDocumentStatus(value, locale)}
                         </option>
                       ))}
                     </Select>
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor={`reference-${item.id}`}>Material reference</Label>
+                    <Label htmlFor={`reference-${item.id}`}>{copy.materials.materialReference}</Label>
                     <Input
                       id={`reference-${item.id}`}
                       onChange={(event) => updateRow(index, { materialReference: event.target.value })}
-                      placeholder="Example: bank-statements-mar-2026.pdf"
+                      placeholder={copy.materials.referencePlaceholder}
                       value={item.materialReference}
                     />
                   </div>
 
                   <div className="space-y-2 md:col-span-2">
-                    <Label htmlFor={`notes-${item.id}`}>Short note</Label>
+                    <Label htmlFor={`notes-${item.id}`}>{copy.materials.shortNote}</Label>
                     <Input
                       id={`notes-${item.id}`}
                       onChange={(event) => updateRow(index, { notes: event.target.value })}
-                      placeholder="Anything that still needs attention"
+                      placeholder={copy.materials.shortNotePlaceholder}
                       value={item.notes}
                     />
                   </div>
@@ -380,22 +387,22 @@ export function CaseMaterialsForm({ caseId, caseTitle, useCaseTitle, documents }
       >
         <p className="font-semibold uppercase tracking-[0.18em]">
           {status === "idle"
-            ? "Ready"
+            ? messages.common.ready
             : status === "loading"
-              ? "Working"
+              ? messages.common.working
               : status === "success"
-                ? "Saved"
-                : "Error"}
+                ? messages.common.saved
+                : messages.common.error}
         </p>
         <p className="mt-2">{message}</p>
       </div>
 
       <div className="flex flex-col gap-3 sm:flex-row">
         <Button disabled={status === "loading" || hasUploadingRow} onClick={() => void handleSave(false)} type="button" variant="outline">
-          {status === "loading" ? "Saving..." : "Save materials"}
+          {status === "loading" ? copy.materials.savingButton : copy.materials.saveMaterials}
         </Button>
         <Button disabled={status === "loading" || hasUploadingRow} onClick={() => void handleSave(true)} type="button">
-          {status === "loading" ? "Generating review..." : "Save materials and generate review"}
+          {status === "loading" ? copy.materials.generatingButton : copy.materials.saveAndGenerate}
         </Button>
       </div>
     </div>
@@ -406,25 +413,21 @@ export function CaseMaterialsForm({ caseId, caseTitle, useCaseTitle, documents }
   }
 }
 
-function formatDateTime(value: string) {
-  return new Intl.DateTimeFormat("en-CA", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-    hour: "numeric",
-    minute: "2-digit"
-  }).format(new Date(value));
-}
-
-function buildMaterialImpactMessage(baseMessage: string, impact: MaterialImpact | undefined) {
+function buildMaterialImpactMessage(baseMessage: string, impact: MaterialImpact | undefined, locale: "zh-CN" | "zh-TW") {
   if (!impact) {
     return baseMessage;
   }
 
   return [
     baseMessage,
-    `${impact.changedCount} material update${impact.changedCount === 1 ? "" : "s"} detected.`,
-    impact.likelyReadinessImpact,
-    impact.reviewRegenerationRecommended ? impact.suggestedNextAction : "Regenerate review after the next meaningful material change."
+    pickLocale(
+      locale,
+      `检测到 ${impact.changedCount} 处材料更新。`,
+      `偵測到 ${impact.changedCount} 處材料更新。`
+    ),
+    impact.likelyReadinessImpact || pickLocale(locale, "保存后再观察材料影响。", "儲存後再觀察材料影響。"),
+    impact.reviewRegenerationRecommended
+      ? impact.suggestedNextAction
+      : pickLocale(locale, "等下一次有意义的材料变化后再重新生成审查。", "等下一次有意義的材料變化後再重新生成審查。")
   ].join(" ");
 }

@@ -1,4 +1,6 @@
 import type { Json } from "@/lib/database.types";
+import { defaultLocale, type AppLocale } from "@/lib/i18n/config";
+import { pickLocale } from "@/lib/i18n/workspace";
 
 export const caseStatuses = ["draft", "intake-complete", "materials-updated", "reviewed"] as const;
 
@@ -20,13 +22,6 @@ export type CaseEventType = (typeof caseEventTypes)[number];
 export type CaseStatusHistoryEntry = {
   status: CaseStatus;
   at: string;
-};
-
-const caseStatusLabels: Record<CaseStatus, string> = {
-  draft: "Draft",
-  "intake-complete": "Intake complete",
-  "materials-updated": "Materials updated",
-  reviewed: "Reviewed"
 };
 
 const caseTransitionTargets: Record<CaseStatus, readonly CaseStatus[]> = {
@@ -52,7 +47,14 @@ export function normalizeCaseStatus(value: string | null | undefined): CaseStatu
   return value;
 }
 
-export function formatCaseStatus(status: CaseStatus | string) {
+export function formatCaseStatus(status: CaseStatus | string, locale: AppLocale = defaultLocale) {
+  const caseStatusLabels: Record<CaseStatus, string> = {
+    draft: pickLocale(locale, "草稿", "草稿"),
+    "intake-complete": pickLocale(locale, "已完成 intake", "已完成 intake"),
+    "materials-updated": pickLocale(locale, "已更新材料", "已更新材料"),
+    reviewed: pickLocale(locale, "已完成审查", "已完成審查")
+  };
+
   return caseStatusLabels[status as CaseStatus] ?? status;
 }
 

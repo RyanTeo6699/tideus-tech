@@ -4,6 +4,8 @@ import { CaseMaterialsForm } from "@/components/cases/case-materials-form";
 import { WorkspaceShell } from "@/components/dashboard/workspace-shell";
 import { getCaseDetail } from "@/lib/cases";
 import { getUseCaseDefinition } from "@/lib/case-workflows";
+import { getCurrentLocale } from "@/lib/i18n/server";
+import { getWorkspaceCopy } from "@/lib/i18n/workspace";
 
 type UploadMaterialsPageProps = {
   params: Promise<{
@@ -16,6 +18,8 @@ export default async function UploadMaterialsPage({ params }: UploadMaterialsPag
   const detail = await getCaseDetail(caseId, {
     resumeSource: "materials"
   });
+  const locale = await getCurrentLocale();
+  const copy = getWorkspaceCopy(locale);
 
   if (!detail.user) {
     redirect(`/login?next=${encodeURIComponent(`/upload-materials/${caseId}`)}`);
@@ -25,17 +29,17 @@ export default async function UploadMaterialsPage({ params }: UploadMaterialsPag
     notFound();
   }
 
-  const useCase = getUseCaseDefinition(detail.caseRecord.use_case_slug);
+  const useCase = getUseCaseDefinition(detail.caseRecord.use_case_slug, locale);
 
   return (
     <WorkspaceShell
       actions={[
-        { href: "/dashboard/cases", label: "Back to cases", variant: "outline" },
-        { href: `/dashboard/cases/${caseId}`, label: "View case", variant: "outline" }
+        { href: "/dashboard/cases", label: copy.actions.backToCases, variant: "outline" },
+        { href: `/dashboard/cases/${caseId}`, label: copy.actions.viewCase, variant: "outline" }
       ]}
-      description="Organize the expected materials so the system can generate a structured review from an actual package state."
-      eyebrow="Upload Materials"
-      title={useCase?.materialsTitle || "Update case materials"}
+      description={copy.materials.description}
+      eyebrow={copy.shell.materialsEyebrow}
+      title={useCase?.materialsTitle || copy.materials.title}
     >
       <CaseMaterialsForm
         caseId={caseId}

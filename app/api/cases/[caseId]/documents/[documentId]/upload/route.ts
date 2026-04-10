@@ -8,6 +8,8 @@ import {
   formatAllowedCaseFileTypes,
   isAllowedCaseFileType
 } from "@/lib/case-files";
+import { getCurrentLocale } from "@/lib/i18n/server";
+import { pickLocale } from "@/lib/i18n/workspace";
 import { createClient } from "@/lib/supabase/server";
 
 type CaseDocumentUploadRouteProps = {
@@ -19,13 +21,17 @@ type CaseDocumentUploadRouteProps = {
 
 export async function POST(request: Request, { params }: CaseDocumentUploadRouteProps) {
   const { caseId, documentId } = await params;
+  const locale = await getCurrentLocale();
   const supabase = await createClient();
   const {
     data: { user }
   } = await supabase.auth.getUser();
 
   if (!user) {
-    return NextResponse.json({ message: "Sign in to upload materials." }, { status: 401 });
+    return NextResponse.json(
+      { message: pickLocale(locale, "请先登录后再上传材料。", "請先登入後再上傳材料。") },
+      { status: 401 }
+    );
   }
 
   const { data: caseRecord, error: caseError } = await supabase
@@ -40,7 +46,10 @@ export async function POST(request: Request, { params }: CaseDocumentUploadRoute
   }
 
   if (!caseRecord) {
-    return NextResponse.json({ message: "The selected case could not be found." }, { status: 404 });
+    return NextResponse.json(
+      { message: pickLocale(locale, "找不到所选案件。", "找不到所選案件。") },
+      { status: 404 }
+    );
   }
 
   const { data: document, error: documentError } = await supabase
@@ -55,28 +64,44 @@ export async function POST(request: Request, { params }: CaseDocumentUploadRoute
   }
 
   if (!document) {
-    return NextResponse.json({ message: "The selected material row could not be found." }, { status: 404 });
+    return NextResponse.json(
+      { message: pickLocale(locale, "找不到所选材料行。", "找不到所選材料列。") },
+      { status: 404 }
+    );
   }
 
   const formData = await request.formData().catch(() => null);
   const file = formData?.get("file");
 
   if (!(file instanceof File)) {
-    return NextResponse.json({ message: "Choose a file before uploading." }, { status: 400 });
+    return NextResponse.json(
+      { message: pickLocale(locale, "请先选择要上传的文件。", "請先選擇要上傳的檔案。") },
+      { status: 400 }
+    );
   }
 
   if (file.size <= 0) {
-    return NextResponse.json({ message: "The selected file is empty." }, { status: 400 });
+    return NextResponse.json(
+      { message: pickLocale(locale, "所选文件为空。", "所選檔案為空。") },
+      { status: 400 }
+    );
   }
 
   if (file.size > caseFileMaxSizeBytes) {
-    return NextResponse.json({ message: "The selected file is too large." }, { status: 400 });
+    return NextResponse.json(
+      { message: pickLocale(locale, "所选文件过大。", "所選檔案過大。") },
+      { status: 400 }
+    );
   }
 
   if (!isAllowedCaseFileType(file.type)) {
     return NextResponse.json(
       {
-        message: `Unsupported file type. Allowed formats: ${formatAllowedCaseFileTypes()}.`
+        message: pickLocale(
+          locale,
+          `不支持的文件类型。允许格式：${formatAllowedCaseFileTypes()}。`,
+          `不支援的檔案類型。允許格式：${formatAllowedCaseFileTypes()}。`
+        )
       },
       { status: 400 }
     );
@@ -139,7 +164,7 @@ export async function POST(request: Request, { params }: CaseDocumentUploadRoute
   revalidatePath(`/review-results/${caseRecord.id}`);
 
   return NextResponse.json({
-    message: "File uploaded.",
+    message: pickLocale(locale, "文件已上传。", "檔案已上傳。"),
     document: {
       status: nextStatus,
       materialReference: file.name,

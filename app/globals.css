@@ -1,8 +1,10 @@
 @import "tailwindcss";
 
 @theme inline {
-  --font-sans: var(--font-plus-jakarta);
-  --font-serif: var(--font-fraunces);
+  --font-sans: "Noto Sans CJK SC", "Noto Sans SC", "Noto Sans TC", "PingFang SC", "PingFang TC", "Hiragino Sans GB",
+    "Microsoft YaHei", "Microsoft JhengHei", system-ui, sans-serif;
+  --font-serif: "Noto Serif CJK SC", "Noto Serif SC", "Noto Serif TC", "Songti SC", "Songti TC", "STSong", "PMingLiU",
+    serif;
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);

@@ -10,6 +10,8 @@ import {
 import { recordCaseEvent } from "@/lib/case-events";
 import { parseCaseDocumentsInput } from "@/lib/case-review";
 import { appendCaseStatusHistory, getNextCaseStatus, normalizeCaseStatus } from "@/lib/case-state";
+import { getCurrentLocale } from "@/lib/i18n/server";
+import { pickLocale } from "@/lib/i18n/workspace";
 import type { SupportedUseCaseSlug } from "@/lib/case-workflows";
 import { createClient } from "@/lib/supabase/server";
 
@@ -22,7 +24,8 @@ type CaseDocumentsRouteProps = {
 export async function PATCH(request: Request, { params }: CaseDocumentsRouteProps) {
   const { caseId } = await params;
   const body = await request.json().catch(() => null);
-  const parsed = parseCaseDocumentsInput(body);
+  const locale = await getCurrentLocale();
+  const parsed = parseCaseDocumentsInput(body, locale);
 
   if (!parsed.success) {
     return NextResponse.json({ message: parsed.message }, { status: 400 });
@@ -34,7 +37,10 @@ export async function PATCH(request: Request, { params }: CaseDocumentsRouteProp
   } = await supabase.auth.getUser();
 
   if (!user) {
-    return NextResponse.json({ message: "Sign in to update case materials." }, { status: 401 });
+    return NextResponse.json(
+      { message: pickLocale(locale, "请先登录后再更新案件材料。", "請先登入後再更新案件材料。") },
+      { status: 401 }
+    );
   }
 
   const { data: caseRecord, error: caseError } = await supabase
@@ -49,13 +55,19 @@ export async function PATCH(request: Request, { params }: CaseDocumentsRouteProp
   }
 
   if (!caseRecord) {
-    return NextResponse.json({ message: "The selected case could not be found." }, { status: 404 });
+    return NextResponse.json(
+      { message: pickLocale(locale, "找不到所选案件。", "找不到所選案件。") },
+      { status: 404 }
+    );
   }
 
   const currentStatus = normalizeCaseStatus(caseRecord.status);
 
   if (!currentStatus) {
-    return NextResponse.json({ message: "The case status could not be resolved." }, { status: 500 });
+    return NextResponse.json(
+      { message: pickLocale(locale, "暂时无法解析案件状态。", "暫時無法解析案件狀態。") },
+      { status: 500 }
+    );
   }
 
   const { data: existingDocuments, error: existingDocumentsError } = await supabase
@@ -71,7 +83,10 @@ export async function PATCH(request: Request, { params }: CaseDocumentsRouteProp
   const validIds = new Set(existingDocumentMap.keys());
 
   if (parsed.data.documents.some((item) => !validIds.has(item.id))) {
-    return NextResponse.json({ message: "One or more material rows could not be matched to the case." }, { status: 400 });
+    return NextResponse.json(
+      { message: pickLocale(locale, "有一个或多个材料行无法与当前案件匹配。", "有一個或多個材料列無法與目前案件匹配。") },
+      { status: 400 }
+    );
   }
 
   const changedMaterialsCount = parsed.data.documents.filter((item) => {
@@ -152,7 +167,8 @@ export async function PATCH(request: Request, { params }: CaseDocumentsRouteProp
   });
   const materialInterpretation = await interpretCaseMaterialsWithAi(
     caseRecord.use_case_slug as SupportedUseCaseSlug,
-    buildCaseMaterialSnapshots(proposedDocuments)
+    buildCaseMaterialSnapshots(proposedDocuments),
+    locale
   );
   const materialInterpretationSummary = summarizeMaterialInterpretationIssues(materialInterpretation.output);
   const materialPossibleIssueCount = materialInterpretationSummary.possibleIssueCount ?? 0;
@@ -164,6 +180,7 @@ export async function PATCH(request: Request, { params }: CaseDocumentsRouteProp
     materialIssueCount: materialPossibleIssueCount
   });
   const likelyReadinessImpact = buildLikelyReadinessImpact({
+    locale,
     changedMaterialsCount,
     changedRequiredMaterialsCount,
     requiredReadyCount,
@@ -182,8 +199,16 @@ export async function PATCH(request: Request, { params }: CaseDocumentsRouteProp
     reviewRegenerationRecommended,
     likelyReadinessImpact,
     suggestedNextAction: reviewRegenerationRecommended
-      ? "Regenerate the review after saving these material changes so readiness, missing items, and risk flags reflect the current package."
-      : "Materials are saved. Continue collecting unresolved items before regenerating review."
+      ? pickLocale(
+          locale,
+          "保存这些材料变更后请重新生成审查，让就绪度、缺失项和风险标记反映当前包件。",
+          "儲存這些材料變更後請重新生成審查，讓就緒度、缺失項和風險標記反映目前包件。"
+        )
+      : pickLocale(
+          locale,
+          "材料已保存。请继续收集尚未解决的项目，再决定是否重新生成审查。",
+          "材料已儲存。請繼續收集尚未解決的項目，再決定是否重新生成審查。"
+        )
   };
   const nextCaseMetadata = {
     ...readMetadataRecord(caseRecord.metadata),
@@ -249,7 +274,7 @@ export async function PATCH(request: Request, { params }: CaseDocumentsRouteProp
   revalidatePath(`/upload-materials/${caseRecord.id}`);
 
   return NextResponse.json({
-    message: "Materials saved.",
+    message: pickLocale(locale, "材料已保存。", "材料已儲存。"),
     materialImpact
   });
 }
@@ -287,6 +312,7 @@ function shouldRecommendReviewRegeneration({
 }
 
 function buildLikelyReadinessImpact({
+  locale,
   changedMaterialsCount,
   changedRequiredMaterialsCount,
   requiredReadyCount,
@@ -294,6 +320,7 @@ function buildLikelyReadinessImpact({
   requiredActionCount,
   reviewRegenerationRecommended
 }: {
+  locale: "zh-CN" | "zh-TW";
   changedMaterialsCount: number;
   changedRequiredMaterialsCount: number;
   requiredReadyCount: number;
@@ -302,22 +329,42 @@ function buildLikelyReadinessImpact({
   reviewRegenerationRecommended: boolean;
 }) {
   if (changedMaterialsCount === 0) {
-    return "No material changes were detected.";
+    return pickLocale(locale, "当前没有检测到材料变更。", "目前沒有偵測到材料變更。");
   }
 
   if (requiredActionCount === 0) {
-    return "All required materials are marked ready or not applicable; a regenerated review can validate handoff readiness.";
+    return pickLocale(
+      locale,
+      "所有必需材料都已标记为就绪或不适用；重新生成审查可以验证交接就绪度。",
+      "所有必需材料都已標記為就緒或不適用；重新生成審查可以驗證交接就緒度。"
+    );
   }
 
   if (changedRequiredMaterialsCount > 0 && requiredReadyCount > 0) {
-    return `${changedRequiredMaterialsCount} required material update${changedRequiredMaterialsCount === 1 ? "" : "s"} may improve missing-item or risk signals after review regeneration.`;
+    return pickLocale(
+      locale,
+      `${changedRequiredMaterialsCount} 个必需材料更新，可能在重新生成审查后改善缺失项或风险信号。`,
+      `${changedRequiredMaterialsCount} 個必需材料更新，可能在重新生成審查後改善缺失項或風險訊號。`
+    );
   }
 
   if (requiredMissingCount > 0) {
-    return `${requiredMissingCount} required material${requiredMissingCount === 1 ? "" : "s"} remain missing, so readiness is likely still constrained.`;
+    return pickLocale(
+      locale,
+      `仍有 ${requiredMissingCount} 个必需材料缺失，因此就绪度大概率仍受限制。`,
+      `仍有 ${requiredMissingCount} 個必需材料缺失，因此就緒度大概率仍受限制。`
+    );
   }
 
   return reviewRegenerationRecommended
-    ? "Material metadata changed enough that a regenerated review should refresh the case signal."
-    : "Material changes are saved, but more package work is likely needed before review regeneration matters.";
+    ? pickLocale(
+        locale,
+        "材料元数据变化已经足够明显，重新生成审查应能刷新案件信号。",
+        "材料中介資料變化已經足夠明顯，重新生成審查應能刷新案件訊號。"
+      )
+    : pickLocale(
+        locale,
+        "材料变更已保存，但在重新生成审查真正有价值前，包件大概率还需要更多收紧工作。",
+        "材料變更已儲存，但在重新生成審查真正有價值前，包件大概率還需要更多收緊工作。"
+      );
 }

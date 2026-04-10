@@ -2,13 +2,19 @@ import { NextResponse } from "next/server";
 
 import type { Json } from "@/lib/database.types";
 import { isAppEventType, recordAppEvent } from "@/lib/app-events";
+import { getCurrentLocale } from "@/lib/i18n/server";
+import { pickLocale } from "@/lib/i18n/workspace";
 import { createClient } from "@/lib/supabase/server";
 
 export async function POST(request: Request) {
   const body = await request.json().catch(() => null);
+  const locale = await getCurrentLocale();
 
   if (!body || typeof body !== "object" || Array.isArray(body)) {
-    return NextResponse.json({ message: "Invalid event payload." }, { status: 400 });
+    return NextResponse.json(
+      { message: pickLocale(locale, "事件内容无效。", "事件內容無效。") },
+      { status: 400 }
+    );
   }
 
   const eventType = typeof body.eventType === "string" ? body.eventType : "";
@@ -17,7 +23,10 @@ export async function POST(request: Request) {
   const clientMetadata = readJsonRecord(isJsonValue(body.metadata) ? body.metadata : {});
 
   if (!isAppEventType(eventType)) {
-    return NextResponse.json({ message: "Unsupported event type." }, { status: 400 });
+    return NextResponse.json(
+      { message: pickLocale(locale, "不支持的事件类型。", "不支援的事件類型。") },
+      { status: 400 }
+    );
   }
 
   const supabase = await createClient();
@@ -27,7 +36,10 @@ export async function POST(request: Request) {
 
   if (caseId) {
     if (!user) {
-      return NextResponse.json({ message: "Sign in required for case events." }, { status: 401 });
+      return NextResponse.json(
+        { message: pickLocale(locale, "记录案件事件前请先登录。", "記錄案件事件前請先登入。") },
+        { status: 401 }
+      );
     }
 
     const { data: caseRecord, error: caseError } = await supabase
@@ -42,7 +54,10 @@ export async function POST(request: Request) {
     }
 
     if (!caseRecord) {
-      return NextResponse.json({ message: "The selected case could not be found." }, { status: 404 });
+      return NextResponse.json(
+        { message: pickLocale(locale, "找不到所选案件。", "找不到所選案件。") },
+        { status: 404 }
+      );
     }
 
     clientMetadata.useCase = caseRecord.use_case_slug;

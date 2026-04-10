@@ -5,6 +5,7 @@ import { CaseReviewResult } from "@/components/cases/case-review-result";
 import { MaterialWorkspaceActions } from "@/components/cases/material-workspace-actions";
 import { WorkspaceShell } from "@/components/dashboard/workspace-shell";
 import { EventLink } from "@/components/site/event-link";
+import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   buildCaseFacts,
@@ -21,7 +22,9 @@ import {
   getReviewHistoryFacts
 } from "@/lib/cases";
 import { formatReadinessStatus, getUseCaseDefinition, type SupportedUseCaseSlug } from "@/lib/case-workflows";
-import { buttonVariants } from "@/components/ui/button";
+import { formatAppDateTime } from "@/lib/i18n/format";
+import { getCurrentLocale } from "@/lib/i18n/server";
+import { getWorkspaceCopy, pickLocale } from "@/lib/i18n/workspace";
 
 type CaseDetailPageProps = {
   params: Promise<{
@@ -32,6 +35,8 @@ type CaseDetailPageProps = {
 export default async function CaseDetailPage({ params }: CaseDetailPageProps) {
   const { caseId } = await params;
   const detail = await getCaseDetail(caseId);
+  const locale = await getCurrentLocale();
+  const copy = getWorkspaceCopy(locale);
 
   if (!detail.user) {
     redirect(`/login?next=${encodeURIComponent(`/dashboard/cases/${caseId}`)}`);
@@ -41,39 +46,43 @@ export default async function CaseDetailPage({ params }: CaseDetailPageProps) {
     notFound();
   }
 
-  const useCase = getUseCaseDefinition(detail.caseRecord.use_case_slug);
+  const useCase = getUseCaseDefinition(detail.caseRecord.use_case_slug, locale);
   const review = getCaseReviewSnapshot(detail.latestReview);
-  const nextAction = getCaseNextAction(detail.caseRecord, detail.documents);
+  const nextAction = getCaseNextAction(detail.caseRecord, detail.documents, locale);
   const materialCounts = getCaseMaterialStatusCounts(detail.documents);
-  const reviewHistoryFacts = getReviewHistoryFacts(detail.reviewHistory);
-  const reviewDelta = getCaseReviewDeltaSnapshot(detail.latestReview);
-  const materialInterpretation = getCaseMaterialInterpretationSnapshot(detail.caseRecord);
+  const reviewHistoryFacts = getReviewHistoryFacts(detail.reviewHistory, locale);
+  const reviewDelta = getCaseReviewDeltaSnapshot(detail.latestReview, locale);
+  const materialInterpretation = getCaseMaterialInterpretationSnapshot(detail.caseRecord, locale);
   const intakeNormalization = getCaseIntakeNormalizationSnapshot(detail.caseRecord);
   const materialSignals = materialInterpretation?.items.filter((item) => item.possibleIssues.length > 0).slice(0, 4) ?? [];
-  const latestReviewedLabel = detail.caseRecord.latest_reviewed_at ? formatDateTime(detail.caseRecord.latest_reviewed_at) : "Not reviewed yet";
+  const latestReviewedLabel = detail.caseRecord.latest_reviewed_at
+    ? formatAppDateTime(detail.caseRecord.latest_reviewed_at, locale)
+    : copy.common.noReviewYet;
   const latestReadinessLabel = detail.caseRecord.latest_readiness_status
-    ? formatReadinessStatus(detail.caseRecord.latest_readiness_status)
-    : "Not reviewed yet";
+    ? formatReadinessStatus(detail.caseRecord.latest_readiness_status, locale)
+    : copy.common.noReviewYet;
   const latestReviewVersion = detail.latestReview?.version_number ?? detail.caseRecord.latest_review_version;
 
   return (
     <WorkspaceShell
       actions={[
-        { href: "/dashboard/cases", label: "Back to cases", variant: "outline" },
-        { href: buildCaseResumeHref(detail.caseRecord), label: review ? "Resume from review" : "Resume case" }
+        { href: "/dashboard/cases", label: copy.actions.backToCases, variant: "outline" },
+        { href: buildCaseResumeHref(detail.caseRecord), label: review ? copy.actions.resumeFromReview : copy.actions.resumeCase }
       ]}
-      description="Use this page to review the saved intake, the current package state, and the review history."
-      eyebrow="Case Detail"
+      description={pickLocale(locale, "在这里查看已保存的 intake、当前材料包状态与审查历史。", "在這裡查看已儲存的 intake、目前材料包狀態與審查歷史。")}
+      eyebrow={copy.shell.caseDetailEyebrow}
       title={detail.caseRecord.title}
     >
       <div className="space-y-6">
         <Card className="overflow-hidden border-emerald-200 bg-emerald-50/80 shadow-none">
           <CardHeader className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
             <div className="max-w-3xl">
-              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-emerald-800">Next recommended action</p>
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-emerald-800">
+                {pickLocale(locale, "下一条推荐动作", "下一條推薦動作")}
+              </p>
               <CardTitle className="mt-3 text-3xl">{nextAction.label}</CardTitle>
               <CardDescription>
-                This is the highest-leverage path for the current saved case state.
+                {pickLocale(locale, "这是当前保存案件状态下最值得优先处理的路径。", "這是目前儲存案件狀態下最值得優先處理的路徑。")}
               </CardDescription>
             </div>
             <div className="flex flex-col gap-3 sm:flex-row">
@@ -107,39 +116,39 @@ export default async function CaseDetailPage({ params }: CaseDetailPageProps) {
                   reviewVersion: latestReviewVersion
                 }}
               >
-                Resume case
+                {copy.actions.resumeCase}
               </EventLink>
             </div>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="grid gap-3 md:grid-cols-[1.3fr_0.9fr_0.9fr_0.9fr]">
-              <div className="rounded-2xl border border-white/80 bg-white p-4">
-                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Why this action</p>
-                <p className="mt-2 text-sm leading-6 text-slate-900">
-                  {nextAction.description}
-                </p>
-              </div>
-              <div className="rounded-2xl border border-white/80 bg-white p-4">
-                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Latest review</p>
-                <p className="mt-2 text-lg font-semibold text-slate-950">{latestReadinessLabel}</p>
-                <p className="mt-1 text-xs text-slate-500">{latestReviewedLabel}</p>
-              </div>
-              <div className="rounded-2xl border border-white/80 bg-white p-4">
-                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Materials action</p>
-                <p className="mt-2 text-2xl font-semibold text-slate-950">{materialCounts.requiredActionCount}</p>
-                <p className="mt-1 text-xs text-slate-500">required item{materialCounts.requiredActionCount === 1 ? "" : "s"} need work</p>
-              </div>
-              <div className="rounded-2xl border border-white/80 bg-white p-4">
-                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Review history</p>
-                <p className="mt-2 text-2xl font-semibold text-slate-950">{detail.reviewHistory.length}</p>
-                <p className="mt-1 text-xs text-slate-500">saved version{detail.reviewHistory.length === 1 ? "" : "s"}</p>
-              </div>
+              <InfoCard
+                label={pickLocale(locale, "为什么推荐这一步", "為什麼推薦這一步")}
+                value={nextAction.description}
+              />
+              <InfoCard label={pickLocale(locale, "最新审查", "最新審查")} value={`${latestReadinessLabel}\n${latestReviewedLabel}`} />
+              <InfoCard
+                label={pickLocale(locale, "材料待处理", "材料待處理")}
+                value={pickLocale(
+                  locale,
+                  `${materialCounts.requiredActionCount} 个必需项目仍需处理`,
+                  `${materialCounts.requiredActionCount} 個必需項目仍需處理`
+                )}
+              />
+              <InfoCard
+                label={pickLocale(locale, "审查历史", "審查歷史")}
+                value={pickLocale(
+                  locale,
+                  `已保存 ${detail.reviewHistory.length} 个版本`,
+                  `已儲存 ${detail.reviewHistory.length} 個版本`
+                )}
+              />
             </div>
           </CardContent>
         </Card>
 
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-          {buildCaseFacts(detail.caseRecord, detail.documents).map((fact) => (
+          {buildCaseFacts(detail.caseRecord, detail.documents, locale).map((fact) => (
             <Card className="border-slate-200 bg-slate-50 shadow-none" key={`${fact.label}-${fact.value}`}>
               <CardHeader>
                 <CardDescription>{fact.label}</CardDescription>
@@ -152,48 +161,43 @@ export default async function CaseDetailPage({ params }: CaseDetailPageProps) {
         <div className="grid gap-6 xl:grid-cols-[1.05fr_0.95fr]">
           <Card>
             <CardHeader>
-              <CardTitle>Latest review snapshot</CardTitle>
+              <CardTitle>{pickLocale(locale, "最新审查快照", "最新審查快照")}</CardTitle>
               <CardDescription>
-                Keep the latest review signal visible so the case can be resumed without rereading the entire file.
+                {pickLocale(locale, "让最新审查信号始终可见，恢复案件时无需重新读完整个文件。", "讓最新審查訊號始終可見，恢復案件時無需重新讀完整個檔案。")}
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="rounded-2xl border border-slate-200 bg-slate-50 p-5 text-sm leading-7 text-slate-700">
                 {detail.caseRecord.latest_review_summary ||
-                  "No saved review version yet. The intake is in place, but the package still needs a first review pass."}
+                  pickLocale(locale, "还没有保存的审查版本。intake 已就位，但材料包仍需要完成第一轮审查。", "還沒有儲存的審查版本。intake 已就位，但材料包仍需要完成第一輪審查。")}
               </div>
               <div className="grid gap-4 md:grid-cols-2">
-                <div className="rounded-2xl border border-slate-200 bg-white p-4">
-                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Review versions</p>
-                  <p className="mt-2 text-sm leading-6 text-slate-900">
-                    {detail.reviewHistory.length > 0 ? `${detail.reviewHistory.length} saved version${detail.reviewHistory.length === 1 ? "" : "s"}` : "No versions yet"}
-                  </p>
-                </div>
-                <div className="rounded-2xl border border-slate-200 bg-white p-4">
-                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Resume path</p>
-                  <p className="mt-2 text-sm leading-6 text-slate-900">
-                    {review ? "Return to materials if the package changed, or export the latest summary if it is ready." : "Continue to the materials step to generate the first review."}
-                  </p>
-                </div>
-                <div className="rounded-2xl border border-slate-200 bg-white p-4">
-                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Latest review timestamp</p>
-                  <p className="mt-2 text-sm leading-6 text-slate-900">
-                    {latestReviewedLabel}
-                  </p>
-                </div>
-                <div className="rounded-2xl border border-slate-200 bg-white p-4">
-                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Readiness state</p>
-                  <p className="mt-2 text-sm leading-6 text-slate-900">
-                    {latestReadinessLabel}
-                  </p>
-                </div>
+                <InfoCard
+                  label={pickLocale(locale, "审查版本数", "審查版本數")}
+                  value={
+                    detail.reviewHistory.length > 0
+                      ? pickLocale(locale, `已保存 ${detail.reviewHistory.length} 个版本`, `已儲存 ${detail.reviewHistory.length} 個版本`)
+                      : copy.common.noVersionYet
+                  }
+                />
+                <InfoCard
+                  label={pickLocale(locale, "继续路径", "繼續路徑")}
+                  value={
+                    review
+                      ? pickLocale(locale, "如果材料包已变化，返回材料页；如果当前版本已足够清晰，则直接导出摘要。", "如果材料包已變化，返回材料頁；如果目前版本已足夠清晰，則直接匯出摘要。")
+                      : pickLocale(locale, "先完成材料页，再生成第一版结构化审查。", "先完成材料頁，再生成第一版結構化審查。")
+                  }
+                />
+                <InfoCard label={copy.review.latestReviewTimestamp} value={latestReviewedLabel} />
+                <InfoCard label={pickLocale(locale, "就绪状态", "就緒狀態")} value={latestReadinessLabel} />
               </div>
+
               {reviewHistoryFacts.length > 0 ? (
                 <div className="space-y-3">
                   <div className="flex flex-col gap-1">
-                    <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Recent review versions</p>
+                    <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">{pickLocale(locale, "最近审查版本", "最近審查版本")}</p>
                     <p className="text-sm leading-6 text-slate-600">
-                      Latest saved version is listed first. Use this history to compare whether the package is improving between review passes.
+                      {pickLocale(locale, "最新保存的版本排在最前，可用来快速比较案件是否在持续改善。", "最新儲存的版本排在最前，可用來快速比較案件是否在持續改善。")}
                     </p>
                   </div>
                   <div className="grid gap-3 md:grid-cols-3">
@@ -206,15 +210,16 @@ export default async function CaseDetailPage({ params }: CaseDetailPageProps) {
                   </div>
                 </div>
               ) : null}
+
               {reviewDelta ? (
                 <div className="space-y-3">
-                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Review delta</p>
+                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">{pickLocale(locale, "审查变化对比", "審查變化對比")}</p>
                   <div className="grid gap-3 md:grid-cols-2">
-                    <DeltaBlock title="Improved areas" items={reviewDelta.improvedAreas} />
-                    <DeltaBlock title="Remaining gaps" items={reviewDelta.remainingGaps} />
-                    <DeltaBlock title="New risks" items={reviewDelta.newRisks} />
-                    <DeltaBlock title="Removed risks" items={reviewDelta.removedRisks} />
-                    <DeltaBlock title="Priority actions" items={reviewDelta.priorityActions} />
+                    <DeltaBlock locale={locale} items={reviewDelta.improvedAreas} title={pickLocale(locale, "改善点", "改善點")} />
+                    <DeltaBlock locale={locale} items={reviewDelta.remainingGaps} title={pickLocale(locale, "仍存缺口", "仍存缺口")} />
+                    <DeltaBlock locale={locale} items={reviewDelta.newRisks} title={pickLocale(locale, "新增风险", "新增風險")} />
+                    <DeltaBlock locale={locale} items={reviewDelta.removedRisks} title={pickLocale(locale, "已消失风险", "已消失風險")} />
+                    <DeltaBlock locale={locale} items={reviewDelta.priorityActions} title={pickLocale(locale, "优先动作", "優先動作")} />
                   </div>
                 </div>
               ) : null}
@@ -223,61 +228,48 @@ export default async function CaseDetailPage({ params }: CaseDetailPageProps) {
 
           <Card>
             <CardHeader>
-              <CardTitle>Materials state</CardTitle>
+              <CardTitle>{pickLocale(locale, "材料状态", "材料狀態")}</CardTitle>
               <CardDescription>
-                Scan the package state quickly before deciding whether the file needs another materials pass or a fresh review.
+                {pickLocale(locale, "快速扫描材料包状态，再决定是否需要回到材料页或重新生成审查。", "快速掃描材料包狀態，再決定是否需要回到材料頁或重新生成審查。")}
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="rounded-2xl border border-slate-200 bg-slate-950 p-5 text-slate-50">
-                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-300">Package state</p>
+                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-300">{pickLocale(locale, "材料包状态", "材料包狀態")}</p>
                 <p className="mt-2 text-sm leading-6 text-slate-300">
-                  {materialCounts.requiredReady} of {materialCounts.requiredTotal} required items are ready or not applicable.
+                  {pickLocale(
+                    locale,
+                    `${materialCounts.requiredReady} / ${materialCounts.requiredTotal} 个必需项目已就绪或不适用。`,
+                    `${materialCounts.requiredReady} / ${materialCounts.requiredTotal} 個必需項目已就緒或不適用。`
+                  )}{" "}
                   {materialCounts.requiredActionCount > 0
-                    ? ` ${materialCounts.requiredActionCount} required item${materialCounts.requiredActionCount === 1 ? "" : "s"} still need action before the next clean handoff.`
-                    : " No required material gaps are visible in the current state."}
+                    ? pickLocale(
+                        locale,
+                        `仍有 ${materialCounts.requiredActionCount} 个必需项目需要处理后，才能进入下一次干净交接。`,
+                        `仍有 ${materialCounts.requiredActionCount} 個必需項目需要處理後，才能進入下一次乾淨交接。`
+                      )
+                    : pickLocale(locale, "当前没有明显的必需材料缺口。", "目前沒有明顯的必需材料缺口。")}
                 </p>
               </div>
               <div className="grid gap-3 sm:grid-cols-2">
-                <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Required ready</p>
-                  <p className="mt-2 text-2xl font-semibold text-slate-950">
-                    {materialCounts.requiredReady}/{materialCounts.requiredTotal}
-                  </p>
-                </div>
-                <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Needs action</p>
-                  <p className="mt-2 text-2xl font-semibold text-slate-950">{materialCounts.requiredActionCount}</p>
-                </div>
-                <div className="rounded-2xl border border-slate-200 bg-white p-4">
-                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Collecting</p>
-                  <p className="mt-2 text-lg font-semibold text-slate-950">{materialCounts.collecting}</p>
-                </div>
-                <div className="rounded-2xl border border-slate-200 bg-white p-4">
-                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Needs refresh</p>
-                  <p className="mt-2 text-lg font-semibold text-slate-950">{materialCounts.needsRefresh}</p>
-                </div>
-                <div className="rounded-2xl border border-slate-200 bg-white p-4">
-                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Missing</p>
-                  <p className="mt-2 text-lg font-semibold text-slate-950">{materialCounts.missing}</p>
-                </div>
-                <div className="rounded-2xl border border-slate-200 bg-white p-4">
-                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Ready or n/a</p>
-                  <p className="mt-2 text-lg font-semibold text-slate-950">
-                    {materialCounts.ready + materialCounts.notApplicable}
-                  </p>
-                </div>
+                <InfoCard label={pickLocale(locale, "必需项已就绪", "必需項已就緒")} value={`${materialCounts.requiredReady}/${materialCounts.requiredTotal}`} />
+                <InfoCard label={pickLocale(locale, "仍需处理", "仍需處理")} value={materialCounts.requiredActionCount.toString()} />
+                <InfoCard label={pickLocale(locale, "收集中", "收集中")} value={materialCounts.collecting.toString()} />
+                <InfoCard label={pickLocale(locale, "需刷新", "需更新")} value={materialCounts.needsRefresh.toString()} />
+                <InfoCard label={pickLocale(locale, "缺失", "缺失")} value={materialCounts.missing.toString()} />
+                <InfoCard label={pickLocale(locale, "已就绪或不适用", "已就緒或不適用")} value={(materialCounts.ready + materialCounts.notApplicable).toString()} />
               </div>
+
               {materialSignals.length > 0 ? (
                 <div className="space-y-3">
-                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Material interpretation signals</p>
+                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">{pickLocale(locale, "材料解释信号", "材料解讀訊號")}</p>
                   <div className="space-y-3">
                     {materialSignals.map((item) => (
                       <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-slate-900" key={item.documentId}>
                         <p className="font-semibold">{item.label}</p>
                         <p className="mt-2">{item.interpretationNote}</p>
                         <p className="mt-2 text-xs font-semibold uppercase tracking-[0.18em] text-amber-800">
-                          {item.possibleIssues.join(", ")}
+                          {item.possibleIssues.join("，")}
                         </p>
                         <p className="mt-2 text-sm leading-6 text-slate-700">{item.suggestedNextAction}</p>
                       </div>
@@ -325,8 +317,8 @@ export default async function CaseDetailPage({ params }: CaseDetailPageProps) {
         ) : (
           <Card>
             <CardHeader>
-              <CardTitle>No review version yet</CardTitle>
-              <CardDescription>Complete the materials step to generate the first review output.</CardDescription>
+              <CardTitle>{copy.common.noReviewYet}</CardTitle>
+              <CardDescription>{pickLocale(locale, "完成材料页后即可生成第一版审查输出。", "完成材料頁後即可生成第一版審查輸出。")}</CardDescription>
             </CardHeader>
           </Card>
         )}
@@ -334,11 +326,11 @@ export default async function CaseDetailPage({ params }: CaseDetailPageProps) {
         <div className="grid gap-6 xl:grid-cols-[1fr_0.9fr]">
           <Card>
             <CardHeader>
-              <CardTitle>Intake snapshot</CardTitle>
-              <CardDescription>The saved intake facts stay visible here so the case can be reviewed in context.</CardDescription>
+              <CardTitle>{pickLocale(locale, "Intake 快照", "Intake 快照")}</CardTitle>
+              <CardDescription>{pickLocale(locale, "保存的 intake 事实会一直显示在这里，方便在完整脉络中审阅案件。", "儲存的 intake 事實會一直顯示在這裡，方便在完整脈絡中審閱案件。")}</CardDescription>
             </CardHeader>
             <CardContent className="grid gap-4 md:grid-cols-2">
-              {buildCaseSnapshotFacts(detail.caseRecord).map((fact) => (
+              {buildCaseSnapshotFacts(detail.caseRecord, locale).map((fact) => (
                 <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4" key={`${fact.label}-${fact.value}`}>
                   <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">{fact.label}</p>
                   <p className="mt-2 text-sm leading-6 text-slate-900">{fact.value}</p>
@@ -349,16 +341,16 @@ export default async function CaseDetailPage({ params }: CaseDetailPageProps) {
 
           <Card>
             <CardHeader>
-              <CardTitle>Case notes</CardTitle>
-              <CardDescription>These notes were saved from the intake and travel with the case record.</CardDescription>
+              <CardTitle>{pickLocale(locale, "案件备注", "案件備註")}</CardTitle>
+              <CardDescription>{pickLocale(locale, "这些备注来自 intake，并会随案件记录一起保留。", "這些備註來自 intake，並會隨案件記錄一起保留。")}</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="rounded-2xl border border-slate-200 bg-slate-50 p-5 text-sm leading-7 text-slate-700">
-                {buildCaseNotes(detail.caseRecord)}
+                {buildCaseNotes(detail.caseRecord, locale)}
               </div>
               {intakeNormalization && intakeNormalization.reviewNotes.length > 0 ? (
                 <div className="mt-4 space-y-3">
-                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Structured intake signals</p>
+                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">{pickLocale(locale, "结构化 intake 信号", "結構化 intake 訊號")}</p>
                   {intakeNormalization.reviewNotes.slice(0, 3).map((item) => (
                     <div className="rounded-2xl border border-slate-200 bg-white p-4 text-sm leading-6 text-slate-700" key={item}>
                       {item}
@@ -374,27 +366,33 @@ export default async function CaseDetailPage({ params }: CaseDetailPageProps) {
   );
 }
 
-function DeltaBlock({ title, items }: { title: string; items: string[] }) {
+function DeltaBlock({ title, items, locale }: { title: string; items: string[]; locale: "zh-CN" | "zh-TW" }) {
   return (
     <div className="rounded-2xl border border-slate-200 bg-white p-4">
       <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">{title}</p>
       <div className="mt-3 space-y-2">
-        {items.map((item) => (
-          <p className="text-sm leading-6 text-slate-900" key={item}>
-            {item}
-          </p>
-        ))}
+        {items.length > 0 ? (
+          items.map((item) => (
+            <p className="text-sm leading-6 text-slate-900" key={item}>
+              {item}
+            </p>
+          ))
+        ) : (
+          <p className="text-sm leading-6 text-slate-600">{pickLocale(locale, "当前没有可显示的变化。", "目前沒有可顯示的變化。")}</p>
+        )}
       </div>
     </div>
   );
 }
 
-function formatDateTime(value: string) {
-  return new Intl.DateTimeFormat("en-CA", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-    hour: "numeric",
-    minute: "2-digit"
-  }).format(new Date(value));
+function InfoCard({ label, value }: { label: string; value: string }) {
+  const [primary, secondary] = value.split("\n");
+
+  return (
+    <div className="rounded-2xl border border-slate-200 bg-white p-4">
+      <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">{label}</p>
+      <p className="mt-2 text-sm leading-6 text-slate-900">{primary}</p>
+      {secondary ? <p className="mt-1 text-xs text-slate-500">{secondary}</p> : null}
+    </div>
+  );
 }

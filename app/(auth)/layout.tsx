@@ -1,11 +1,16 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
 
-import { siteConfig } from "@/lib/site";
+import { LanguageSwitcher } from "@/components/site/language-switcher";
 import { SectionContainer } from "@/components/site/section-container";
 import { buttonVariants } from "@/components/ui/button";
+import { getLocaleContext } from "@/lib/i18n/server";
+import { getSiteConfig } from "@/lib/site";
 
-export default function AuthLayout({ children }: { children: ReactNode }) {
+export default async function AuthLayout({ children }: { children: ReactNode }) {
+  const { locale, messages } = await getLocaleContext();
+  const siteConfig = getSiteConfig(locale);
+
   return (
     <div className="relative min-h-screen overflow-hidden bg-slate-950 text-slate-50">
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,_rgba(16,185,129,0.22),_transparent_30%),radial-gradient(circle_at_bottom_right,_rgba(59,130,246,0.2),_transparent_26%)]" />
@@ -17,19 +22,22 @@ export default function AuthLayout({ children }: { children: ReactNode }) {
             </span>
             <div>
               <p className="font-semibold">{siteConfig.name}</p>
-              <p className="text-sm text-slate-400">Secure account access</p>
+              <p className="text-sm text-slate-400">{messages.authLayout.secureAccess}</p>
             </div>
           </Link>
-          <Link
-            className={buttonVariants({
-              variant: "outline",
-              size: "sm",
-              className: "border-white/15 bg-white/5 text-white hover:bg-white/10"
-            })}
-            href="/"
-          >
-            Back home
-          </Link>
+          <div className="flex items-center gap-3">
+            <LanguageSwitcher compact />
+            <Link
+              className={buttonVariants({
+                variant: "outline",
+                size: "sm",
+                className: "border-white/15 bg-white/5 text-white hover:bg-white/10"
+              })}
+              href="/"
+            >
+              {messages.authLayout.backHome}
+            </Link>
+          </div>
         </header>
         <div className="flex flex-1 items-center py-10">{children}</div>
       </SectionContainer>

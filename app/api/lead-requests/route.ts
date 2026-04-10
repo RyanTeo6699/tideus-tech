@@ -1,12 +1,15 @@
 import { NextResponse } from "next/server";
 
 import { recordAppEvent } from "@/lib/app-events";
+import { getCurrentLocale } from "@/lib/i18n/server";
+import { pickLocale } from "@/lib/i18n/workspace";
 import { getLeadRequestFlags, parseLeadRequestInput } from "@/lib/lead-requests";
 import { createClient } from "@/lib/supabase/server";
 
 export async function POST(request: Request) {
   const body = await request.json().catch(() => null);
-  const parsed = parseLeadRequestInput(body);
+  const locale = await getCurrentLocale();
+  const parsed = parseLeadRequestInput(body, locale);
 
   if (!parsed.success) {
     return NextResponse.json({ message: parsed.message }, { status: 400 });
@@ -41,7 +44,10 @@ export async function POST(request: Request) {
     .single();
 
   if (insertError || !leadRequest) {
-    return NextResponse.json({ message: insertError?.message || "Unable to save the request." }, { status: 500 });
+    return NextResponse.json(
+      { message: insertError?.message || pickLocale(locale, "暂时无法保存请求。", "暫時無法儲存請求。") },
+      { status: 500 }
+    );
   }
 
   if (requestFlags.wantsEarlyAccess) {
@@ -70,6 +76,10 @@ export async function POST(request: Request) {
   }
 
   return NextResponse.json({
-    message: "Request received. Tideus will use this to prioritize launch conversations for the supported workflows."
+    message: pickLocale(
+      locale,
+      "请求已收到。Tideus 会据此优先安排受支持工作流的早期沟通。",
+      "請求已收到。Tideus 會據此優先安排受支援工作流程的早期溝通。"
+    )
   });
 }

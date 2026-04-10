@@ -13,6 +13,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { useLocaleContext } from "@/lib/i18n/client";
 import { cn } from "@/lib/utils";
 
 type CaseQuestionEntryProps = {
@@ -27,13 +28,14 @@ type AskStatus = "idle" | "loading" | "success" | "error";
 type SaveStatus = "idle" | "loading" | "success" | "error";
 
 export function CaseQuestionEntry({ useCases }: CaseQuestionEntryProps) {
+  const { messages } = useLocaleContext();
   const router = useRouter();
   const [useCase, setUseCase] = useState<SupportedUseCaseSlug>(useCases[0]?.slug ?? "visitor-record");
   const [question, setQuestion] = useState("");
   const [answer, setAnswer] = useState<CaseQuestionAnswer | null>(null);
   const [askStatus, setAskStatus] = useState<AskStatus>("idle");
   const [saveStatus, setSaveStatus] = useState<SaveStatus>("idle");
-  const [message, setMessage] = useState("Ask a question tied to one supported Tideus scenario.");
+  const [message, setMessage] = useState(messages.caseQuestionEntry.initialMessage);
   const [saveMessage, setSaveMessage] = useState("");
   const [nextHref, setNextHref] = useState<string | null>(null);
   const [loginHref, setLoginHref] = useState<string | null>(null);
@@ -56,12 +58,12 @@ export function CaseQuestionEntry({ useCases }: CaseQuestionEntryProps) {
 
     if (question.trim().length < 8) {
       setAskStatus("error");
-      setMessage("Ask a more specific case-prep question.");
+      setMessage(messages.caseQuestionEntry.tooShortQuestion);
       return;
     }
 
     setAskStatus("loading");
-    setMessage("Generating structured answer...");
+    setMessage(messages.caseQuestionEntry.generating);
 
     try {
       const response = await fetch("/api/case-question", {
@@ -82,27 +84,27 @@ export function CaseQuestionEntry({ useCases }: CaseQuestionEntryProps) {
         | null;
 
       if (!response.ok || !data?.answer) {
-        throw new Error(data?.message || "Unable to answer this question.");
+        throw new Error(data?.message || messages.caseQuestionEntry.generateError);
       }
 
       setAnswer(data.answer);
       setAskStatus("success");
-      setMessage("Structured answer ready. Save it if this should become case work.");
+      setMessage(messages.caseQuestionEntry.answerReady);
     } catch (error) {
       setAskStatus("error");
-      setMessage(error instanceof Error ? error.message : "Unable to answer this question.");
+      setMessage(error instanceof Error ? error.message : messages.caseQuestionEntry.generateError);
     }
   }
 
   async function handleSave(action: CaseQuestionSaveAction) {
     if (!answer) {
       setSaveStatus("error");
-      setSaveMessage("Generate a structured answer before saving it.");
+      setSaveMessage(messages.caseQuestionEntry.saveBeforeGenerate);
       return;
     }
 
     setSaveStatus("loading");
-    setSaveMessage("Creating workspace context...");
+    setSaveMessage(messages.caseQuestionEntry.creatingWorkspace);
     setLoginHref(null);
 
     try {
@@ -128,18 +130,18 @@ export function CaseQuestionEntry({ useCases }: CaseQuestionEntryProps) {
 
       if (response.status === 401) {
         setLoginHref(`/login?next=${encodeURIComponent("/case-question")}`);
-        throw new Error(data?.message || "Sign in to save this answer.");
+        throw new Error(data?.message || messages.caseQuestionEntry.signInToSave);
       }
 
       if (!response.ok || !data?.caseId || typeof data.nextHref !== "string") {
-        throw new Error(data?.message || "Unable to save this answer.");
+        throw new Error(data?.message || messages.caseQuestionEntry.saveError);
       }
 
       const savedNextHref = data.nextHref;
 
       setNextHref(savedNextHref);
       setSaveStatus("success");
-      setSaveMessage("Saved as a case workspace with seeded materials and tracker actions.");
+      setSaveMessage(messages.caseQuestionEntry.savedWorkspace);
 
       if (action === "continue-in-case-workspace") {
         startTransition(() => {
@@ -149,7 +151,7 @@ export function CaseQuestionEntry({ useCases }: CaseQuestionEntryProps) {
       }
     } catch (error) {
       setSaveStatus("error");
-      setSaveMessage(error instanceof Error ? error.message : "Unable to save this answer.");
+      setSaveMessage(error instanceof Error ? error.message : messages.caseQuestionEntry.saveError);
     }
   }
 
@@ -158,17 +160,15 @@ export function CaseQuestionEntry({ useCases }: CaseQuestionEntryProps) {
       <Card className="h-fit">
         <CardHeader>
           <Badge variant="secondary" className="w-fit">
-            Task-oriented entry
+            {messages.caseQuestionEntry.taskBadge}
           </Badge>
-          <CardTitle className="text-3xl">Ask a workflow question</CardTitle>
-          <CardDescription>
-            The answer stays structured so it can become checklist work, tracker actions, or a saved case workspace.
-          </CardDescription>
+          <CardTitle className="text-3xl">{messages.caseQuestionEntry.title}</CardTitle>
+          <CardDescription>{messages.caseQuestionEntry.description}</CardDescription>
         </CardHeader>
         <CardContent>
           <form className="space-y-5" onSubmit={handleAsk}>
             <div className="space-y-2">
-              <Label htmlFor="case-question-use-case">Scenario</Label>
+              <Label htmlFor="case-question-use-case">{messages.caseQuestionEntry.scenarioLabel}</Label>
               <Select
                 id="case-question-use-case"
                 onChange={(event) => {
@@ -189,7 +189,7 @@ export function CaseQuestionEntry({ useCases }: CaseQuestionEntryProps) {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="case-question">Question</Label>
+              <Label htmlFor="case-question">{messages.caseQuestionEntry.questionLabel}</Label>
               <Textarea
                 id="case-question"
                 onChange={(event) => {
@@ -198,13 +198,11 @@ export function CaseQuestionEntry({ useCases }: CaseQuestionEntryProps) {
                     resetSavedAnswer();
                   }
                 }}
-                placeholder="Example: I have proof of funds but my passport expires soon. What should I track next?"
+                placeholder={messages.caseQuestionEntry.questionPlaceholder}
                 rows={7}
                 value={question}
               />
-              <p className="text-sm leading-6 text-muted-foreground">
-                Keep it tied to the selected scenario, materials, risks, timeline, or next-step planning.
-              </p>
+              <p className="text-sm leading-6 text-muted-foreground">{messages.caseQuestionEntry.questionHelper}</p>
             </div>
 
             <div
@@ -215,13 +213,19 @@ export function CaseQuestionEntry({ useCases }: CaseQuestionEntryProps) {
               })}
             >
               <p className="font-semibold uppercase tracking-[0.18em]">
-                {askStatus === "loading" ? "Working" : askStatus === "error" ? "Error" : askStatus === "success" ? "Ready" : "Case question"}
+                {askStatus === "loading"
+                  ? messages.common.working
+                  : askStatus === "error"
+                    ? messages.common.error
+                    : askStatus === "success"
+                      ? messages.common.ready
+                      : messages.caseQuestionEntry.caseQuestionLabel}
               </p>
               <p className="mt-2">{message}</p>
             </div>
 
             <Button disabled={askStatus === "loading"} type="submit">
-              {askStatus === "loading" ? "Structuring answer..." : "Generate structured answer"}
+              {askStatus === "loading" ? messages.caseQuestionEntry.generatingButton : messages.caseQuestionEntry.generateButton}
             </Button>
           </form>
         </CardContent>
@@ -234,15 +238,13 @@ export function CaseQuestionEntry({ useCases }: CaseQuestionEntryProps) {
 
             <Card className="border-emerald-200 bg-emerald-50/80 shadow-none">
               <CardHeader>
-                <CardTitle>Turn answer into workspace action</CardTitle>
-                <CardDescription>
-                  Save the structured answer into a draft case so the tracker work is attached to a reusable case record.
-                </CardDescription>
+                <CardTitle>{messages.caseQuestionEntry.workspaceTitle}</CardTitle>
+                <CardDescription>{messages.caseQuestionEntry.workspaceDescription}</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="grid gap-3 sm:grid-cols-2">
                   <Button disabled={saveStatus === "loading"} onClick={() => void handleSave("save-to-workspace")} type="button">
-                    Save to workspace
+                    {messages.caseQuestionEntry.saveToWorkspace}
                   </Button>
                   <Button
                     disabled={saveStatus === "loading"}
@@ -250,7 +252,7 @@ export function CaseQuestionEntry({ useCases }: CaseQuestionEntryProps) {
                     type="button"
                     variant="outline"
                   >
-                    Generate checklist
+                    {messages.caseQuestionEntry.generateChecklist}
                   </Button>
                   <Button
                     disabled={saveStatus === "loading"}
@@ -258,7 +260,7 @@ export function CaseQuestionEntry({ useCases }: CaseQuestionEntryProps) {
                     type="button"
                     variant="outline"
                   >
-                    Start tracking
+                    {messages.caseQuestionEntry.startTracking}
                   </Button>
                   <Button
                     disabled={saveStatus === "loading"}
@@ -266,7 +268,7 @@ export function CaseQuestionEntry({ useCases }: CaseQuestionEntryProps) {
                     type="button"
                     variant="outline"
                   >
-                    Continue in case workspace
+                    {messages.caseQuestionEntry.continueInWorkspace}
                   </Button>
                 </div>
 
@@ -279,17 +281,21 @@ export function CaseQuestionEntry({ useCases }: CaseQuestionEntryProps) {
                     })}
                   >
                     <p className="font-semibold uppercase tracking-[0.18em]">
-                      {saveStatus === "loading" ? "Working" : saveStatus === "success" ? "Saved" : "Action needed"}
+                      {saveStatus === "loading"
+                        ? messages.common.working
+                        : saveStatus === "success"
+                          ? messages.common.saved
+                          : messages.common.actionNeeded}
                     </p>
                     <p className="mt-2">{saveMessage}</p>
                     {loginHref ? (
                       <Link className="mt-3 inline-flex text-sm font-semibold text-slate-950 underline" href={loginHref}>
-                        Sign in to save
+                        {messages.caseQuestionEntry.signInToSave}
                       </Link>
                     ) : null}
                     {nextHref ? (
                       <Link className="mt-3 inline-flex text-sm font-semibold text-slate-950 underline" href={nextHref}>
-                        Open saved workspace
+                        {messages.caseQuestionEntry.openSavedWorkspace}
                       </Link>
                     ) : null}
                   </div>
@@ -300,10 +306,8 @@ export function CaseQuestionEntry({ useCases }: CaseQuestionEntryProps) {
         ) : (
           <Card className="border-slate-200 bg-slate-50 shadow-none">
             <CardHeader>
-              <CardTitle>Structured output, not chat history</CardTitle>
-              <CardDescription>
-                Tideus will return a summary, why it matters, context notes, scenario warnings, next steps, and tracker actions.
-              </CardDescription>
+              <CardTitle>{messages.caseQuestionEntry.emptyTitle}</CardTitle>
+              <CardDescription>{messages.caseQuestionEntry.emptyDescription}</CardDescription>
             </CardHeader>
           </Card>
         )}
@@ -313,28 +317,30 @@ export function CaseQuestionEntry({ useCases }: CaseQuestionEntryProps) {
 }
 
 function StructuredAnswer({ answer }: { answer: CaseQuestionAnswer }) {
+  const { messages } = useLocaleContext();
+
   return (
     <div className="space-y-6">
       <Card>
         <CardHeader>
-          <CardTitle>Structured answer</CardTitle>
+          <CardTitle>{messages.caseQuestionEntry.structuredAnswerTitle}</CardTitle>
           <CardDescription>{answer.summary}</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm leading-7 text-slate-700">
-            <p className="font-semibold uppercase tracking-[0.18em] text-slate-500">Why this matters</p>
+            <p className="font-semibold uppercase tracking-[0.18em] text-slate-500">{messages.caseQuestionEntry.whyMattersTitle}</p>
             <p className="mt-2">{answer.whyThisMatters}</p>
           </div>
         </CardContent>
       </Card>
 
       <div className="grid gap-6 xl:grid-cols-2">
-        <AnswerList title="Supporting context" items={answer.supportingContextNotes} empty="No additional context notes were needed." />
-        <AnswerList title="Scenario warnings" items={answer.scenarioSpecificWarnings} empty="No scenario-specific warnings were surfaced." />
-        <AnswerList title="Next steps" items={answer.nextSteps} empty="No next steps were generated." />
+        <AnswerList title={messages.caseQuestionEntry.contextTitle} items={answer.supportingContextNotes} empty={messages.caseQuestionEntry.emptyItems} />
+        <AnswerList title={messages.caseQuestionEntry.warningsTitle} items={answer.scenarioSpecificWarnings} empty={messages.caseQuestionEntry.emptyWarnings} />
+        <AnswerList title={messages.caseQuestionEntry.nextStepsTitle} items={answer.nextSteps} empty={messages.caseQuestionEntry.emptyItems} />
         <Card>
           <CardHeader>
-            <CardTitle>Tracker actions</CardTitle>
+            <CardTitle>{messages.caseQuestionEntry.trackerActionsTitle}</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
             {answer.trackerActions.map((item) => (

@@ -7,9 +7,12 @@ import { PageHero } from "@/components/site/page-hero";
 import { SectionContainer } from "@/components/site/section-container";
 import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { getLocaleContext } from "@/lib/i18n/server";
 
 export default async function StartCasePage() {
   const { user } = await getCurrentProfileContext();
+  const { locale, messages } = await getLocaleContext();
+  const supportedUseCases = getSupportedUseCases(locale);
 
   return (
     <>
@@ -24,16 +27,16 @@ export default async function StartCasePage() {
                 sourceSurface: "start-case-page-hero"
               }}
             >
-              Book demo
+              {messages.startCase.bookDemo}
             </EventLink>
             <Link className={buttonVariants({ variant: "outline", size: "lg" })} href={user ? "/dashboard" : "/login?next=/dashboard"}>
-              {user ? "Open case workspace" : "Log in to save cases"}
+              {user ? messages.startCase.openWorkspace : messages.startCase.loginToSave}
             </Link>
           </>
         }
-        description="Choose a supported case type, move into the intake, and start building a saved case record you can resume later."
-        eyebrow="Start A Case"
-        title="Pick the workflow that matches the case you need to prepare."
+        description={messages.startCase.description}
+        eyebrow={messages.startCase.eyebrow}
+        title={messages.startCase.title}
       />
 
       <SectionContainer className="pb-24">
@@ -62,10 +65,10 @@ export default async function StartCasePage() {
                       useCase: item.slug
                     }}
                   >
-                    Start {item.shortTitle}
+                    {`${messages.startCase.startUseCase} ${item.shortTitle}`}
                   </EventLink>
                   <Link className={buttonVariants({ variant: "outline", size: "sm" })} href={`/use-cases/${item.slug}`}>
-                    View workflow detail
+                    {messages.startCase.viewWorkflowDetail}
                   </Link>
                 </div>
               </CardContent>

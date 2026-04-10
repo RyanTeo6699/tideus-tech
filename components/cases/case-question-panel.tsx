@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { useLocaleContext } from "@/lib/i18n/client";
 import { cn } from "@/lib/utils";
 
 type CaseQuestionPanelProps = {
@@ -19,13 +20,6 @@ type CaseQuestionPanelProps = {
   latestReviewSummary?: string | null;
 };
 
-const presetQuestions = [
-  "What am I still missing?",
-  "Why is this a risk?",
-  "What changed since the last review?",
-  "What should I do next?"
-];
-
 export function CaseQuestionPanel({
   caseId,
   caseTitle,
@@ -33,22 +27,24 @@ export function CaseQuestionPanel({
   useCaseTitle,
   latestReviewSummary = null
 }: CaseQuestionPanelProps) {
+  const { messages } = useLocaleContext();
+  const presetQuestions = messages.caseQuestionPanel.presetQuestions;
   const [question, setQuestion] = useState(presetQuestions[0]);
   const [answer, setAnswer] = useState<CaseQuestionAnswer | null>(null);
   const [status, setStatus] = useState<"idle" | "loading" | "success" | "error">("idle");
-  const [message, setMessage] = useState("Ask a structured question about this saved case.");
+  const [message, setMessage] = useState(messages.caseQuestionPanel.initialMessage);
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
     if (question.trim().length < 8) {
       setStatus("error");
-      setMessage("Ask a more specific question about this case.");
+      setMessage(messages.caseQuestionPanel.tooShortQuestion);
       return;
     }
 
     setStatus("loading");
-    setMessage("Reading case context and generating a structured answer...");
+    setMessage(messages.caseQuestionPanel.loading);
 
     try {
       const response = await fetch(`/api/cases/${caseId}/question`, {
@@ -69,15 +65,15 @@ export function CaseQuestionPanel({
         | null;
 
       if (!response.ok || !data?.answer) {
-        throw new Error(data?.message || "Unable to answer this case question.");
+        throw new Error(data?.message || messages.caseQuestionPanel.error);
       }
 
       setAnswer(data.answer);
       setStatus("success");
-      setMessage("Structured answer saved to this case trace.");
+      setMessage(messages.caseQuestionPanel.success);
     } catch (error) {
       setStatus("error");
-      setMessage(error instanceof Error ? error.message : "Unable to answer this case question.");
+      setMessage(error instanceof Error ? error.message : messages.caseQuestionPanel.error);
     }
   }
 
@@ -85,11 +81,11 @@ export function CaseQuestionPanel({
     <Card className="border-slate-200 bg-white shadow-none">
       <CardHeader>
         <Badge variant="secondary" className="w-fit">
-          Case-context question
+          {messages.caseQuestionPanel.badge}
         </Badge>
-        <CardTitle>Ask about this case</CardTitle>
+        <CardTitle>{messages.caseQuestionPanel.title}</CardTitle>
         <CardDescription>
-          This is grounded in {caseTitle}, the latest {useCaseTitle} review, materials state, and internal knowledge context.
+          {messages.caseQuestionPanel.descriptionTemplate.replace("{caseTitle}", caseTitle).replace("{useCaseTitle}", useCaseTitle)}
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-5">
@@ -102,7 +98,7 @@ export function CaseQuestionPanel({
                   setQuestion(item);
                   setAnswer(null);
                   setStatus("idle");
-                  setMessage("Ask a structured question about this saved case.");
+                  setMessage(messages.caseQuestionPanel.initialMessage);
                 }}
                 size="sm"
                 type="button"
@@ -114,7 +110,7 @@ export function CaseQuestionPanel({
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="workspace-case-question">Question</Label>
+            <Label htmlFor="workspace-case-question">{messages.caseQuestionPanel.questionLabel}</Label>
             <Textarea
               id="workspace-case-question"
               onChange={(event) => {
@@ -122,7 +118,7 @@ export function CaseQuestionPanel({
                 if (answer) {
                   setAnswer(null);
                   setStatus("idle");
-                  setMessage("Ask a structured question about this saved case.");
+                  setMessage(messages.caseQuestionPanel.initialMessage);
                 }
               }}
               rows={4}
@@ -132,7 +128,7 @@ export function CaseQuestionPanel({
 
           {latestReviewSummary ? (
             <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm leading-6 text-slate-700">
-              <p className="font-semibold uppercase tracking-[0.18em] text-slate-500">Latest review context</p>
+              <p className="font-semibold uppercase tracking-[0.18em] text-slate-500">{messages.caseQuestionPanel.latestReviewContext}</p>
               <p className="mt-2">{latestReviewSummary}</p>
             </div>
           ) : null}
@@ -145,27 +141,33 @@ export function CaseQuestionPanel({
             })}
           >
             <p className="font-semibold uppercase tracking-[0.18em]">
-              {status === "loading" ? "Working" : status === "success" ? "Saved" : status === "error" ? "Error" : "Ready"}
+              {status === "loading"
+                ? messages.common.working
+                : status === "success"
+                  ? messages.common.saved
+                  : status === "error"
+                    ? messages.common.error
+                    : messages.common.ready}
             </p>
             <p className="mt-2">{message}</p>
           </div>
 
           <Button disabled={status === "loading"} type="submit">
-            {status === "loading" ? "Answering..." : "Answer from case context"}
+            {status === "loading" ? messages.caseQuestionPanel.answeringButton : messages.caseQuestionPanel.answerButton}
           </Button>
         </form>
 
         {answer ? (
           <div className="space-y-4 border-t border-slate-200 pt-5">
             <div>
-              <p className="text-sm font-semibold uppercase tracking-[0.18em] text-slate-500">Summary</p>
+              <p className="text-sm font-semibold uppercase tracking-[0.18em] text-slate-500">{messages.caseQuestionPanel.summaryTitle}</p>
               <p className="mt-2 text-sm leading-7 text-slate-700">{answer.summary}</p>
             </div>
-            <PanelList title="Why this matters" items={[answer.whyThisMatters]} />
-            <PanelList title="Next steps" items={answer.nextSteps} />
-            <PanelList title="Warnings" items={answer.scenarioSpecificWarnings} empty="No scenario warning was surfaced." />
+            <PanelList title={messages.caseQuestionPanel.whyTitle} items={[answer.whyThisMatters]} />
+            <PanelList title={messages.caseQuestionPanel.nextStepsTitle} items={answer.nextSteps} />
+            <PanelList title={messages.caseQuestionPanel.warningsTitle} items={answer.scenarioSpecificWarnings} empty={messages.caseQuestionPanel.emptyWarning} />
             <PanelList
-              title="Tracker actions"
+              title={messages.caseQuestionPanel.trackerActionsTitle}
               items={answer.trackerActions.map((item) => `${item.label}: ${item.detail}`)}
             />
           </div>
@@ -175,7 +177,9 @@ export function CaseQuestionPanel({
   );
 }
 
-function PanelList({ title, items, empty = "No items surfaced." }: { title: string; items: string[]; empty?: string }) {
+function PanelList({ title, items, empty }: { title: string; items: string[]; empty?: string }) {
+  const { messages } = useLocaleContext();
+
   return (
     <div>
       <p className="text-sm font-semibold uppercase tracking-[0.18em] text-slate-500">{title}</p>
@@ -188,7 +192,7 @@ function PanelList({ title, items, empty = "No items surfaced." }: { title: stri
           ))
         ) : (
           <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3 text-sm leading-6 text-slate-700">
-            {empty}
+            {empty || messages.caseQuestionPanel.emptyItems}
           </div>
         )}
       </div>

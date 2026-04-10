@@ -1,11 +1,15 @@
-import { siteConfig } from "@/lib/site";
+import { getCurrentLocale } from "@/lib/i18n/server";
+import { getAppMessages } from "@/lib/i18n/messages";
 import { EventLink } from "@/components/site/event-link";
 import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { SectionContainer } from "@/components/site/section-container";
 
-export function HeroSection() {
+export async function HeroSection() {
+  const locale = await getCurrentLocale();
+  const messages = getAppMessages(locale);
+
   return (
     <div className="relative overflow-hidden pb-20 pt-10 sm:pb-24 sm:pt-16">
       <div className="absolute inset-x-0 top-0 -z-10 h-[34rem] bg-[radial-gradient(circle_at_top_left,_rgba(52,211,153,0.18),_transparent_42%),radial-gradient(circle_at_top_right,_rgba(59,130,246,0.14),_transparent_34%),linear-gradient(180deg,_rgba(255,255,255,0.9),_rgba(245,247,251,0.4))]" />
@@ -13,14 +17,10 @@ export function HeroSection() {
         <div className="grid gap-10 lg:grid-cols-[1.05fr_0.95fr] lg:items-center">
           <div className="max-w-3xl">
             <Badge variant="secondary" className="mb-6">
-              Workflow-first case prep
+              {messages.hero.badge}
             </Badge>
-            <h1 className="max-w-3xl font-serif text-5xl leading-tight text-foreground sm:text-6xl">
-              Prepare the case before the review starts costing time.
-            </h1>
-            <p className="mt-6 max-w-2xl text-lg leading-8 text-muted-foreground">
-              {siteConfig.name} is being repositioned as an AI-powered case workspace for high-frequency, document-heavy application and extension prep. Phase 1 stays intentionally narrow: supported scenarios, structured review outputs, and a saved case dashboard.
-            </p>
+            <h1 className="max-w-3xl font-serif text-5xl leading-tight text-foreground sm:text-6xl">{messages.hero.title}</h1>
+            <p className="mt-6 max-w-2xl text-lg leading-8 text-muted-foreground">{messages.hero.description}</p>
             <div className="mt-8 flex flex-col gap-3 sm:flex-row">
               <EventLink
                 className={buttonVariants({ size: "lg" })}
@@ -31,7 +31,7 @@ export function HeroSection() {
                   cta: "start-case"
                 }}
               >
-                Start a case
+                {messages.hero.startCase}
               </EventLink>
               <EventLink
                 className={buttonVariants({ variant: "outline", size: "lg" })}
@@ -42,24 +42,16 @@ export function HeroSection() {
                   cta: "book-demo"
                 }}
               >
-                Book demo
+                {messages.hero.bookDemo}
               </EventLink>
             </div>
             <div className="mt-10 grid gap-6 border-t border-border pt-8 sm:grid-cols-3">
-              <div>
-                <p className="font-serif text-3xl text-foreground">2</p>
-                <p className="mt-2 text-sm text-muted-foreground">Supported wedge workflows in the first release window.</p>
-              </div>
-              <div>
-                <p className="font-serif text-3xl text-foreground">8</p>
-                <p className="mt-2 text-sm text-muted-foreground">
-                  Structured review blocks: readiness, checklist, missing items, risks, timeline, next steps, context, references.
-                </p>
-              </div>
-              <div>
-                <p className="font-serif text-3xl text-foreground">1</p>
-                <p className="mt-2 text-sm text-muted-foreground">Saved case workspace that keeps intake, materials, and review versions together.</p>
-              </div>
+              {messages.hero.stats.map((item) => (
+                <div key={`${item.value}-${item.label}`}>
+                  <p className="font-serif text-3xl text-foreground">{item.value}</p>
+                  <p className="mt-2 text-sm text-muted-foreground">{item.label}</p>
+                </div>
+              ))}
             </div>
           </div>
 
@@ -67,36 +59,34 @@ export function HeroSection() {
             <Card className="overflow-hidden border-white/70 bg-white/80">
               <CardHeader>
                 <Badge variant="secondary" className="w-fit">
-                  Review output example
+                  {messages.hero.exampleBadge}
                 </Badge>
-                <CardTitle className="text-2xl">What a focused case workspace should feel like</CardTitle>
-                <CardDescription>
-                  Clear readiness signals, visible document gaps, and next actions that move the package forward.
-                </CardDescription>
+                <CardTitle className="text-2xl">{messages.hero.exampleTitle}</CardTitle>
+                <CardDescription>{messages.hero.exampleDescription}</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="rounded-[24px] bg-slate-950 p-5 text-slate-50 shadow-panel">
-                  <p className="text-xs uppercase tracking-[0.24em] text-emerald-300">Study Permit Extension review</p>
-                  <p className="mt-3 text-lg font-semibold">Needs attention: the package is close, but enrolment and tuition evidence still need a cleaner version.</p>
+                  <p className="text-xs uppercase tracking-[0.24em] text-emerald-300">{messages.hero.exampleReviewTitle}</p>
+                  <p className="mt-3 text-lg font-semibold">{messages.hero.exampleReviewSummary}</p>
                   <div className="mt-4 grid gap-3 sm:grid-cols-2">
                     <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
-                      <p className="text-xs uppercase tracking-[0.2em] text-slate-400">Missing items</p>
-                      <p className="mt-2 text-sm">Updated enrolment letter and final tuition proof.</p>
+                      <p className="text-xs uppercase tracking-[0.2em] text-slate-400">{messages.hero.exampleMissingLabel}</p>
+                      <p className="mt-2 text-sm">{messages.hero.exampleMissingValue}</p>
                     </div>
                     <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
-                      <p className="text-xs uppercase tracking-[0.2em] text-slate-400">Next step</p>
-                      <p className="mt-2 text-sm">Tighten the explanation letter and refresh the evidence list before review.</p>
+                      <p className="text-xs uppercase tracking-[0.2em] text-slate-400">{messages.hero.exampleNextStepLabel}</p>
+                      <p className="mt-2 text-sm">{messages.hero.exampleNextStepValue}</p>
                     </div>
                   </div>
                 </div>
                 <div className="grid gap-4 sm:grid-cols-2">
                   <div className="rounded-[24px] border border-border bg-background p-5">
-                    <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">Materials tracking</p>
-                    <p className="mt-2 text-sm leading-6 text-foreground">Expected documents stay visible so the case can move from intake to package review without guesswork.</p>
+                    <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">{messages.hero.materialsLabel}</p>
+                    <p className="mt-2 text-sm leading-6 text-foreground">{messages.hero.materialsDescription}</p>
                   </div>
                   <div className="rounded-[24px] border border-border bg-background p-5">
-                    <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">Review versions</p>
-                    <p className="mt-2 text-sm leading-6 text-foreground">Each pass produces a saved readiness snapshot with risks and next steps, not a disposable AI thread.</p>
+                    <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">{messages.hero.reviewHistoryLabel}</p>
+                    <p className="mt-2 text-sm leading-6 text-foreground">{messages.hero.reviewHistoryDescription}</p>
                   </div>
                 </div>
               </CardContent>

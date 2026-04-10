@@ -7,7 +7,8 @@ import { SectionContainer } from "@/components/site/section-container";
 import { FeatureCard } from "@/components/site/feature-card";
 import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { getCaseStartHref, getUseCaseDefinition, supportedUseCases } from "@/lib/case-workflows";
+import { getCaseStartHref, getSupportedUseCases, getUseCaseDefinition } from "@/lib/case-workflows";
+import { getLocaleContext } from "@/lib/i18n/server";
 
 type UseCaseDetailPageProps = {
   params: Promise<{
@@ -16,14 +17,15 @@ type UseCaseDetailPageProps = {
 };
 
 export function generateStaticParams() {
-  return supportedUseCases.map((item) => ({
+  return getSupportedUseCases().map((item) => ({
     slug: item.slug
   }));
 }
 
 export default async function UseCaseDetailPage({ params }: UseCaseDetailPageProps) {
   const { slug } = await params;
-  const useCase = getUseCaseDefinition(slug);
+  const { locale, messages } = await getLocaleContext();
+  const useCase = getUseCaseDefinition(slug, locale);
 
   if (!useCase) {
     notFound();
@@ -44,7 +46,7 @@ export default async function UseCaseDetailPage({ params }: UseCaseDetailPagePro
                 useCase: useCase.slug
               }}
             >
-              Start this case
+              {messages.useCaseDetail.startThisCase}
             </EventLink>
             <EventLink
               className={buttonVariants({ variant: "outline", size: "lg" })}
@@ -55,7 +57,7 @@ export default async function UseCaseDetailPage({ params }: UseCaseDetailPagePro
                 useCase: useCase.slug
               }}
             >
-              Book demo
+              {messages.useCaseDetail.bookDemo}
             </EventLink>
           </>
         }
@@ -68,7 +70,7 @@ export default async function UseCaseDetailPage({ params }: UseCaseDetailPagePro
         <div className="grid gap-6 lg:grid-cols-[1.05fr_0.95fr]">
           <Card>
             <CardHeader>
-              <CardTitle>What this workflow is designed to do</CardTitle>
+              <CardTitle>{messages.useCaseDetail.designedTitle}</CardTitle>
               <CardDescription>{useCase.outcomeSummary}</CardDescription>
             </CardHeader>
             <CardContent className="space-y-3">
@@ -82,8 +84,8 @@ export default async function UseCaseDetailPage({ params }: UseCaseDetailPagePro
 
           <Card>
             <CardHeader>
-              <CardTitle>Good fit for this wedge</CardTitle>
-              <CardDescription>These are the signs that this workflow is the right starting point.</CardDescription>
+              <CardTitle>{messages.useCaseDetail.goodFitTitle}</CardTitle>
+              <CardDescription>{messages.useCaseDetail.goodFitDescription}</CardDescription>
             </CardHeader>
             <CardContent className="space-y-3">
               {useCase.fitSignals.map((item) => (
@@ -100,14 +102,14 @@ export default async function UseCaseDetailPage({ params }: UseCaseDetailPagePro
         <div className="grid gap-6 md:grid-cols-2">
           <FeatureCard
             bullets={useCase.expectedDocuments.map((item) => item.label)}
-            description="These are the expected document types the case workspace will track for this workflow."
-            eyebrow="Materials"
+            description={messages.useCaseDetail.materialsDescription}
+            eyebrow={messages.useCaseDetail.materialsEyebrow}
             title={useCase.materialsTitle}
           />
           <FeatureCard
-            bullets={["Readiness status", "Checklist", "Missing items", "Risk flags", "Timeline note", "Next steps"]}
-            description="The review result is structured to support a real case handoff or final quality pass."
-            eyebrow="Review"
+            bullets={messages.useCaseDetail.reviewBullets}
+            description={messages.useCaseDetail.reviewDescription}
+            eyebrow={messages.useCaseDetail.reviewEyebrow}
             title={useCase.reviewTitle}
           />
         </div>
@@ -116,10 +118,8 @@ export default async function UseCaseDetailPage({ params }: UseCaseDetailPagePro
       <SectionContainer className="pb-24">
         <Card>
           <CardHeader>
-            <CardTitle>Not for this workflow</CardTitle>
-            <CardDescription>
-              These cases should not be treated as routine wedge-workflow prep just because the labels sound related.
-            </CardDescription>
+            <CardTitle>{messages.useCaseDetail.notForTitle}</CardTitle>
+            <CardDescription>{messages.useCaseDetail.notForDescription}</CardDescription>
           </CardHeader>
           <CardContent className="grid gap-4 md:grid-cols-3">
             {useCase.notFor.map((item) => (

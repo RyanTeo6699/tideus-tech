@@ -2,8 +2,11 @@ import OpenAI from "openai";
 
 import type { Json, Tables } from "@/lib/database.types";
 import type { CaseReviewResult, CaseRiskFlag } from "@/lib/case-review";
+import { defaultLocale, type AppLocale } from "@/lib/i18n/config";
+import { pickLocale } from "@/lib/i18n/workspace";
 import type { CaseKnowledgeContext } from "@/lib/knowledge/types";
 import {
+  formatReadinessStatus,
   getCaseIntakeFields,
   getUseCaseDefinition,
   type CaseDocumentStatus,
@@ -119,6 +122,7 @@ export type CaseQuestionAnswer = {
 };
 
 export type CaseReviewAiInput = {
+  language: AppLocale;
   useCaseSlug: SupportedUseCaseSlug;
   intake: CaseIntakeValues;
   documents: CaseMaterialSnapshot[];
@@ -129,6 +133,7 @@ export type CaseReviewAiInput = {
 };
 
 export type CaseMaterialWorkspaceActionInput = {
+  language: AppLocale;
   useCaseSlug: SupportedUseCaseSlug;
   actionType: CaseMaterialWorkspaceActionType;
   document: CaseMaterialSnapshot;
@@ -152,12 +157,14 @@ export type CaseMaterialSnapshot = {
 };
 
 export type CaseReviewDeltaInput = {
+  language: AppLocale;
   useCaseSlug: SupportedUseCaseSlug;
   previousReview: CaseReviewResult;
   latestReview: CaseReviewResult;
 };
 
 export type CaseHandoffIntelligenceInput = {
+  language: AppLocale;
   useCaseSlug: SupportedUseCaseSlug;
   caseTitle: string;
   reviewVersion: number;
@@ -166,6 +173,7 @@ export type CaseHandoffIntelligenceInput = {
 };
 
 export type CaseQuestionAiInput = {
+  language: AppLocale;
   useCaseSlug: SupportedUseCaseSlug;
   question: string;
   knowledgeContext: CaseKnowledgeContext | null;
@@ -650,15 +658,16 @@ let cachedClient: OpenAI | null | undefined;
 
 export async function normalizeCaseIntakeWithAi(
   useCaseSlug: SupportedUseCaseSlug,
-  intake: CaseIntakeValues
+  intake: CaseIntakeValues,
+  language: AppLocale = defaultLocale
 ): Promise<CaseAiEnvelope<CaseIntakeNormalizationOutput>> {
-  const inputSnapshot = buildIntakeNormalizationSnapshot(useCaseSlug, intake);
+  const inputSnapshot = buildIntakeNormalizationSnapshot(useCaseSlug, intake, language);
   const fallback = (reason: string) =>
     buildEnvelope({
       source: "deterministic-fallback",
       promptVersion: caseAiPromptVersions.intakeNormalization,
       inputSnapshot,
-      output: buildDeterministicIntakeNormalization(useCaseSlug, intake),
+      output: buildDeterministicIntakeNormalization(useCaseSlug, intake, language),
       fallbackReason: reason
     });
 
@@ -679,7 +688,7 @@ export async function normalizeCaseIntakeWithAi(
       client.responses.create({
         model,
         store: false,
-        input: buildIntakeNormalizationPrompt(useCaseSlug, intake),
+        input: buildIntakeNormalizationPrompt(useCaseSlug, intake, language),
         text: {
           format: intakeNormalizationResponseFormat
         }
@@ -710,15 +719,16 @@ export async function normalizeCaseIntakeWithAi(
 
 export async function interpretCaseMaterialsWithAi(
   useCaseSlug: SupportedUseCaseSlug,
-  documents: CaseMaterialSnapshot[]
+  documents: CaseMaterialSnapshot[],
+  language: AppLocale = defaultLocale
 ): Promise<CaseAiEnvelope<CaseMaterialInterpretationOutput>> {
-  const inputSnapshot = buildMaterialInterpretationSnapshot(useCaseSlug, documents);
+  const inputSnapshot = buildMaterialInterpretationSnapshot(useCaseSlug, documents, language);
   const fallback = (reason: string) =>
     buildEnvelope({
       source: "deterministic-fallback",
       promptVersion: caseAiPromptVersions.materialInterpretation,
       inputSnapshot,
-      output: buildDeterministicMaterialInterpretation(documents),
+      output: buildDeterministicMaterialInterpretation(documents, language),
       fallbackReason: reason
     });
 
@@ -741,7 +751,7 @@ export async function interpretCaseMaterialsWithAi(
       client.responses.create({
         model,
         store: false,
-        input: buildMaterialInterpretationPrompt(useCaseSlug, documents),
+        input: buildMaterialInterpretationPrompt(useCaseSlug, documents, language),
         text: {
           format: materialInterpretationResponseFormat
         }
@@ -751,7 +761,7 @@ export async function interpretCaseMaterialsWithAi(
       output_text?: string | null;
     };
     const parsed = safeParseJson(response.output_text);
-    const output = parseMaterialInterpretationOutput(parsed, documents);
+    const output = parseMaterialInterpretationOutput(parsed, documents, language);
 
     if (!output) {
       return fallback("OpenAI material interpretation response did not match the required schema.");
@@ -889,7 +899,7 @@ export async function enrichCaseReviewWithAi(input: CaseReviewAiInput): Promise<
 
 export async function buildCaseReviewDeltaWithAi(input: CaseReviewDeltaInput): Promise<CaseAiEnvelope<CaseReviewDelta>> {
   const inputSnapshot = buildReviewDeltaSnapshot(input);
-  const baselineDelta = buildDeterministicReviewDelta(input.previousReview, input.latestReview);
+  const baselineDelta = buildDeterministicReviewDelta(input.previousReview, input.latestReview, input.language);
   const fallback = (reason: string) =>
     buildEnvelope({
       source: "deterministic-fallback",
@@ -921,7 +931,7 @@ export async function buildCaseReviewDeltaWithAi(input: CaseReviewDeltaInput): P
       output_text?: string | null;
     };
     const parsed = safeParseJson(response.output_text);
-    const aiDelta = parseReviewDeltaOutput(parsed);
+    const aiDelta = parseReviewDeltaOutput(parsed, input.language);
 
     if (!aiDelta) {
       return fallback("OpenAI review delta response did not match the required schema.");
@@ -1053,14 +1063,20 @@ export function parseStoredIntakeNormalization(metadata: Json | null | undefined
   return parseIntakeNormalizationOutput(output, null);
 }
 
-export function parseStoredMaterialInterpretation(metadata: Json | null | undefined) {
+export function parseStoredMaterialInterpretation(
+  metadata: Json | null | undefined,
+  language: AppLocale = defaultLocale
+) {
   const output = readStoredAiOutput(metadata, "materialInterpretation");
-  return parseMaterialInterpretationOutput(output, null);
+  return parseMaterialInterpretationOutput(output, null, language);
 }
 
-export function parseStoredReviewDelta(metadata: Json | null | undefined) {
+export function parseStoredReviewDelta(
+  metadata: Json | null | undefined,
+  language: AppLocale = defaultLocale
+) {
   const output = readStoredAiOutput(metadata, "reviewDelta");
-  return parseReviewDeltaOutput(output);
+  return parseReviewDeltaOutput(output, language);
 }
 
 export function parseStoredHandoffIntelligence(metadata: Json | null | undefined) {
@@ -1112,12 +1128,17 @@ function getOpenAIModel() {
   return process.env.OPENAI_MODEL?.trim() || DEFAULT_OPENAI_MODEL;
 }
 
-function buildIntakeNormalizationPrompt(useCaseSlug: SupportedUseCaseSlug, intake: CaseIntakeValues) {
-  const useCase = getUseCaseDefinition(useCaseSlug);
+function getAiLanguageLabel(language: AppLocale) {
+  return language === "zh-TW" ? "Traditional Chinese (zh-TW)" : "Simplified Chinese (zh-CN)";
+}
+
+function buildIntakeNormalizationPrompt(useCaseSlug: SupportedUseCaseSlug, intake: CaseIntakeValues, language: AppLocale) {
+  const useCase = getUseCaseDefinition(useCaseSlug, language);
   const allowedFieldValues = getAllowedIntakeValues(useCaseSlug);
 
   return [
     "You normalize case intake notes for Tideus, a narrow Canada temporary resident case-prep workflow workspace.",
+    `Return every user-facing string in ${getAiLanguageLabel(language)}.`,
     "Return only structured fields that can improve the case workflow. Do not provide legal advice.",
     "Use only the user's intake values and freeform notes. If a field cannot be inferred, return an empty string for that field.",
     "Only use allowed enum values for inferred fields.",
@@ -1131,11 +1152,16 @@ function buildIntakeNormalizationPrompt(useCaseSlug: SupportedUseCaseSlug, intak
   ].join("\n");
 }
 
-function buildMaterialInterpretationPrompt(useCaseSlug: SupportedUseCaseSlug, documents: CaseMaterialSnapshot[]) {
-  const useCase = getUseCaseDefinition(useCaseSlug);
+function buildMaterialInterpretationPrompt(
+  useCaseSlug: SupportedUseCaseSlug,
+  documents: CaseMaterialSnapshot[],
+  language: AppLocale
+) {
+  const useCase = getUseCaseDefinition(useCaseSlug, language);
 
   return [
     "You interpret lightweight material metadata for Tideus case workflow quality.",
+    `Return every user-facing string in ${getAiLanguageLabel(language)}.`,
     "Do not perform OCR or claim to read uploaded file contents. Use only labels, file names, material references, statuses, and user notes.",
     "Return workflow-oriented classification signals only: likely document type, possible issues, likely supporting documents, recommended status, confidence, next action, and a short reasoning summary.",
     "Do not change the user's case. Do not provide legal advice.",
@@ -1150,10 +1176,11 @@ function buildMaterialWorkspaceActionPrompt(
   input: CaseMaterialWorkspaceActionInput,
   baselineAction: CaseMaterialWorkspaceActionOutput
 ) {
-  const useCase = getUseCaseDefinition(input.useCaseSlug);
+  const useCase = getUseCaseDefinition(input.useCaseSlug, input.language);
 
   return [
     "You support a Tideus case workspace material action.",
+    `Return every user-facing string in ${getAiLanguageLabel(input.language)}.`,
     "This is not chat, OCR, a public portal, or legal advice. Return only the structured schema.",
     "Use only the selected material metadata, current checklist state, latest review signals, and internal knowledge context.",
     "Keep the output concise and task-oriented so the user can decide whether to update materials or regenerate review.",
@@ -1170,10 +1197,11 @@ function buildMaterialWorkspaceActionPrompt(
 }
 
 function buildReviewEnrichmentPrompt(input: CaseReviewAiInput) {
-  const useCase = getUseCaseDefinition(input.useCaseSlug);
+  const useCase = getUseCaseDefinition(input.useCaseSlug, input.language);
 
   return [
     "You improve a structured Tideus case review from deterministic workflow output.",
+    `Return every user-facing string in ${getAiLanguageLabel(input.language)}.`,
     "You must keep the output structured. Do not write an essay or chat response.",
     "The deterministic review is the baseline. You may tighten language, add workflow-specific gaps, and add risk/next-step detail.",
     "The optional knowledgeContext is internal workflow intelligence. Use it only to sharpen scenario warnings, processing-time reminders, materials guidance, and official-reference labels.",
@@ -1188,10 +1216,11 @@ function buildReviewEnrichmentPrompt(input: CaseReviewAiInput) {
 }
 
 function buildReviewDeltaPrompt(input: CaseReviewDeltaInput, baselineDelta: CaseReviewDelta) {
-  const useCase = getUseCaseDefinition(input.useCaseSlug);
+  const useCase = getUseCaseDefinition(input.useCaseSlug, input.language);
 
   return [
     "You summarize the delta between two saved Tideus case review versions.",
+    `Return every user-facing string in ${getAiLanguageLabel(input.language)}.`,
     "Return only structured, workflow-oriented differences. Do not write a chat response.",
     "Use the deterministic delta as the baseline and tighten wording where helpful.",
     "Do not invent facts that are not visible in the two review versions.",
@@ -1207,10 +1236,11 @@ function buildReviewDeltaPrompt(input: CaseReviewDeltaInput, baselineDelta: Case
 }
 
 function buildCaseQuestionPrompt(input: CaseQuestionAiInput, baselineAnswer: CaseQuestionAnswer) {
-  const useCase = getUseCaseDefinition(input.useCaseSlug);
+  const useCase = getUseCaseDefinition(input.useCaseSlug, input.language);
 
   return [
     "You answer a Tideus case-prep question inside a narrow workflow engine.",
+    `Return every user-facing string in ${getAiLanguageLabel(input.language)}.`,
     "This is not generic chat, broad immigration planning, public data search, or legal advice.",
     "Return only the structured fields requested by the schema.",
     "Ground the answer in the supported scenario, current case state when present, deterministic review signals, and internal knowledgeContext.",
@@ -1234,10 +1264,11 @@ function buildHandoffIntelligencePrompt(
   input: CaseHandoffIntelligenceInput,
   baselineHandoff: CaseHandoffIntelligence
 ) {
-  const useCase = getUseCaseDefinition(input.useCaseSlug);
+  const useCase = getUseCaseDefinition(input.useCaseSlug, input.language);
 
   return [
     "You strengthen a Tideus export packet for self-review or external professional review.",
+    `Return every user-facing string in ${getAiLanguageLabel(input.language)}.`,
     "Return only structured handoff fields. Do not write a chat response, policy essay, or legal advice.",
     "Use the deterministic baseline as the floor. You may tighten language, but do not hide risks, missing items, or escalation triggers.",
     "Keep the output practical for a reviewer who needs to scan the case quickly.",
@@ -1253,31 +1284,32 @@ function buildHandoffIntelligencePrompt(
 
 function buildDeterministicIntakeNormalization(
   useCaseSlug: SupportedUseCaseSlug,
-  intake: CaseIntakeValues
+  intake: CaseIntakeValues,
+  language: AppLocale = defaultLocale
 ): CaseIntakeNormalizationOutput {
   const notes = intake.notes.toLowerCase();
   const inferredFields: CaseIntakeNormalizationOutput["inferredFields"] = {};
 
-  if (!intake.refusalOrComplianceIssues && notesContain(notes, ["refusal", "refused", "overstay", "compliance"])) {
+  if (!intake.refusalOrComplianceIssues && notesContain(notes, ["refusal", "refused", "overstay", "compliance", "拒签", "拒簽", "逾期", "合规", "合規"])) {
     inferredFields.refusalOrComplianceIssues = "yes";
   }
 
-  if (!intake.proofOfFundsStatus && notesContain(notes, ["bank", "fund", "money", "tuition", "support"])) {
+  if (!intake.proofOfFundsStatus && notesContain(notes, ["bank", "fund", "money", "tuition", "support", "银行", "銀行", "资金", "資金", "学费", "學費", "支持"])) {
     inferredFields.proofOfFundsStatus = "partial";
   }
 
-  if (!intake.supportEvidenceStatus && notesContain(notes, ["host", "invitation", "accommodation", "school", "enrolment", "letter"])) {
+  if (!intake.supportEvidenceStatus && notesContain(notes, ["host", "invitation", "accommodation", "school", "enrolment", "letter", "接待", "邀请", "邀請", "住宿", "学校", "學校", "在学", "在學", "证明", "證明", "说明信", "說明信"])) {
     inferredFields.supportEvidenceStatus = "partial";
   }
 
-  if (useCaseSlug === "visitor-record" && !intake.scenarioProgressStatus && notesContain(notes, ["temporary", "leave", "return", "visit"])) {
+  if (useCaseSlug === "visitor-record" && !intake.scenarioProgressStatus && notesContain(notes, ["temporary", "leave", "return", "visit", "临时", "臨時", "离开", "離開", "返回", "回国", "回國", "探亲", "探親", "访问", "訪問"])) {
     inferredFields.scenarioProgressStatus = "partial";
   }
 
   if (
     useCaseSlug === "study-permit-extension" &&
     !intake.scenarioProgressStatus &&
-    notesContain(notes, ["tuition", "grades", "standing", "transcript", "registration"])
+    notesContain(notes, ["tuition", "grades", "standing", "transcript", "registration", "学费", "學費", "成绩", "成績", "在学", "在學", "注册", "註冊"])
   ) {
     inferredFields.scenarioProgressStatus = "needs-explanation";
   }
@@ -1285,41 +1317,36 @@ function buildDeterministicIntakeNormalization(
   return {
     inferredFields,
     explanationSignals: {
-      timelinePressure: intake.urgency === "under-30" || notesContain(notes, ["urgent", "soon", "expire", "deadline"]),
+      timelinePressure: intake.urgency === "under-30" || notesContain(notes, ["urgent", "soon", "expire", "deadline", "紧急", "緊急", "很快", "到期", "截止"]),
       fundingConcern:
         intake.proofOfFundsStatus === "missing" ||
         intake.proofOfFundsStatus === "partial" ||
-        notesContain(notes, ["fund", "money", "budget", "tuition", "bank"]),
-      supportDependency: Boolean(intake.supportEntityName.trim()) || notesContain(notes, ["host", "family", "school", "employer", "support"]),
-      priorIssueMentioned: intake.refusalOrComplianceIssues === "yes" || notesContain(notes, ["refusal", "refused", "overstay", "compliance"]),
+        notesContain(notes, ["fund", "money", "budget", "tuition", "bank", "资金", "資金", "预算", "預算", "学费", "學費", "银行", "銀行"]),
+      supportDependency: Boolean(intake.supportEntityName.trim()) || notesContain(notes, ["host", "family", "school", "employer", "support", "接待", "家人", "学校", "學校", "雇主", "支持"]),
+      priorIssueMentioned: intake.refusalOrComplianceIssues === "yes" || notesContain(notes, ["refusal", "refused", "overstay", "compliance", "拒签", "拒簽", "逾期", "合规", "合規"]),
       schoolProgressConcern:
         useCaseSlug === "study-permit-extension" &&
         (intake.scenarioProgressStatus === "at-risk" ||
-          notesContain(notes, ["grades", "failed", "probation", "tuition", "registration", "standing"])),
+          notesContain(notes, ["grades", "failed", "probation", "tuition", "registration", "standing", "成绩", "成績", "挂科", "停学", "停學", "学费", "學費", "注册", "註冊"])),
       temporaryIntentConcern:
         useCaseSlug === "visitor-record" &&
-        (intake.scenarioProgressStatus === "weak" || notesContain(notes, ["temporary intent", "return", "leave canada", "ties"]))
+        (intake.scenarioProgressStatus === "weak" || notesContain(notes, ["temporary intent", "return", "leave canada", "ties", "临时意图", "臨時意圖", "回国", "回國", "离开加拿大", "離開加拿大", "约束", "約束"]))
     },
-    extractedFacts: buildDeterministicExtractedFacts(intake),
-    reviewNotes: buildDeterministicReviewNotes(useCaseSlug, intake)
+    extractedFacts: buildDeterministicExtractedFacts(intake, language),
+    reviewNotes: buildDeterministicReviewNotes(useCaseSlug, intake, language)
   };
 }
 
-function buildDeterministicMaterialInterpretation(documents: CaseMaterialSnapshot[]): CaseMaterialInterpretationOutput {
+function buildDeterministicMaterialInterpretation(
+  documents: CaseMaterialSnapshot[],
+  language: AppLocale = defaultLocale
+): CaseMaterialInterpretationOutput {
   const items = documents.map((item) => {
-    const noteText = `${item.materialReference ?? ""} ${item.notes ?? ""} ${item.fileName ?? ""}`.toLowerCase();
-    const possibleIssues = dedupeStrings(
-      [
-        item.status === "missing" && item.required ? "required-material-missing" : "",
-        item.status === "needs-refresh" ? "refresh-needed" : "",
-        item.status === "collecting" ? "still-being-collected" : "",
-        notesContain(noteText, ["expired", "old", "outdated"]) ? "possibly-stale" : "",
-        notesContain(noteText, ["unclear", "incomplete", "missing"]) ? "note-indicates-gap" : ""
-      ].filter(Boolean)
-    );
-    const likelySupportingDocsNeeded = buildLikelySupportingDocuments(item, possibleIssues);
-    const recommendedMaterialStatus = chooseRecommendedMaterialStatus(item, possibleIssues);
-    const suggestedNextAction = buildMaterialSuggestedNextAction(item, possibleIssues, likelySupportingDocsNeeded);
+    const issueFlags = buildMaterialIssueFlags(item);
+    const possibleIssues = issueFlags.map((flag) => formatMaterialIssueFlag(flag, language));
+    const likelySupportingDocsNeeded = buildLikelySupportingDocuments(item, issueFlags, language);
+    const recommendedMaterialStatus = chooseRecommendedMaterialStatus(item, issueFlags);
+    const suggestedNextAction = buildMaterialSuggestedNextAction(item, issueFlags, likelySupportingDocsNeeded, language);
 
     return {
       documentId: item.id,
@@ -1327,44 +1354,72 @@ function buildDeterministicMaterialInterpretation(documents: CaseMaterialSnapsho
       label: item.label,
       likelyDocumentType: item.label,
       suggestedStatus: recommendedMaterialStatus,
-      issueFlags: possibleIssues,
+      issueFlags,
       possibleIssues,
       likelySupportingDocsNeeded,
       recommendedMaterialStatus,
-      confidence: possibleIssues.length > 0 ? 0.68 : 0.55,
+      confidence: issueFlags.length > 0 ? 0.68 : 0.55,
       interpretationNote:
-        possibleIssues.length > 0
-          ? `${item.label} has workflow signals that should stay visible in the next review pass.`
-          : `${item.label} is classified from the expected checklist label and current material metadata.`,
+        issueFlags.length > 0
+          ? pickLocale(
+              language,
+              `${item.label} 存在应在下一轮结构化审查中继续保持可见的工作流信号。`,
+              `${item.label} 存在應在下一輪結構化審查中持續保留的工作流程訊號。`
+            )
+          : pickLocale(
+              language,
+              `${item.label} 已根据预期清单标签与当前材料元数据完成轻量分类。`,
+              `${item.label} 已根據預期清單標籤與目前材料中介資料完成輕量分類。`
+            ),
       suggestedNextAction,
       reasoningSummary:
-        possibleIssues.length > 0
-          ? "The current status, file metadata, or note suggests this material still needs case-work attention."
-          : "No obvious metadata issue is visible; keep this item tied to the next structured review."
+        issueFlags.length > 0
+          ? pickLocale(
+              language,
+              "当前状态、文件元数据或备注显示，这份材料仍需要继续作为案件工作项处理。",
+              "目前狀態、檔案中介資料或備註顯示，這份材料仍需要繼續作為案件工作項處理。"
+            )
+          : pickLocale(
+              language,
+              "当前没有明显的元数据异常；请让这份材料继续留在下一轮结构化审查脉络中。",
+              "目前沒有明顯的中介資料異常；請讓這份材料繼續留在下一輪結構化審查脈絡中。"
+            )
     };
   });
 
   return {
     summary:
-      items.some((item) => item.possibleIssues.length > 0)
-        ? "Material metadata includes issue signals that should inform the next structured review."
-        : "Material metadata was classified against the expected checklist without additional issue signals.",
+      items.some((item) => item.issueFlags.length > 0)
+        ? pickLocale(
+            language,
+            "材料元数据中存在会影响下一轮结构化审查的问题信号。",
+            "材料中介資料中存在會影響下一輪結構化審查的問題訊號。"
+          )
+        : pickLocale(
+            language,
+            "材料元数据已与预期清单对齐，目前没有额外的问题信号。",
+            "材料中介資料已與預期清單對齊，目前沒有額外的問題訊號。"
+          ),
     items
   };
 }
 
 function buildDeterministicMaterialWorkspaceAction(input: CaseMaterialWorkspaceActionInput): CaseMaterialWorkspaceActionOutput {
   const interpretedItem = input.materialInterpretation?.items.find((item) => item.documentId === input.document.id) ?? null;
+  const issueFlags =
+    interpretedItem?.issueFlags.length
+      ? interpretedItem.issueFlags
+      : buildMaterialIssueFlags(input.document);
   const possibleIssues =
     interpretedItem?.possibleIssues.length
       ? interpretedItem.possibleIssues
-      : buildMaterialPossibleIssues(input.document);
+      : issueFlags.map((flag) => formatMaterialIssueFlag(flag, input.language));
   const likelySupportingDocsNeeded =
     interpretedItem?.likelySupportingDocsNeeded.length
       ? interpretedItem.likelySupportingDocsNeeded
-      : buildLikelySupportingDocuments(input.document, possibleIssues);
+      : buildLikelySupportingDocuments(input.document, issueFlags, input.language);
   const recommendedMaterialStatus =
-    interpretedItem?.recommendedMaterialStatus ?? chooseRecommendedMaterialStatus(input.document, possibleIssues);
+    interpretedItem?.recommendedMaterialStatus ?? chooseRecommendedMaterialStatus(input.document, issueFlags);
   const latestMissingMatch = input.latestReview?.missingItems.some((item) =>
     item.toLowerCase().includes(input.document.label.toLowerCase())
   ) ?? false;
@@ -1374,7 +1429,7 @@ function buildDeterministicMaterialWorkspaceAction(input: CaseMaterialWorkspaceA
   const regenerateReviewRecommendation = chooseRegenerateReviewRecommendation({
     document: input.document,
     recommendedMaterialStatus,
-    possibleIssues,
+    issueFlags,
     latestMissingMatch,
     latestRiskMatch
   });
@@ -1384,20 +1439,34 @@ function buildDeterministicMaterialWorkspaceAction(input: CaseMaterialWorkspaceA
     documentKey: input.document.documentKey,
     label: input.document.label,
     likelyDocumentType: interpretedItem?.likelyDocumentType ?? input.document.label,
-    confidence: interpretedItem?.confidence ?? (possibleIssues.length > 0 ? 0.68 : 0.55),
+    confidence: interpretedItem?.confidence ?? (issueFlags.length > 0 ? 0.68 : 0.55),
     possibleIssues,
     likelySupportingDocsNeeded,
     recommendedMaterialStatus,
     suggestedNextAction:
       interpretedItem?.suggestedNextAction ||
-      buildWorkspaceSuggestedNextAction(input.actionType, input.document, possibleIssues, likelySupportingDocsNeeded, regenerateReviewRecommendation),
+      buildWorkspaceSuggestedNextAction(
+        input.actionType,
+        input.document,
+        issueFlags,
+        likelySupportingDocsNeeded,
+        regenerateReviewRecommendation,
+        input.language
+      ),
     reasoningSummary:
       interpretedItem?.reasoningSummary ||
-      buildWorkspaceReasoningSummary(input.actionType, input.document, latestMissingMatch, latestRiskMatch, possibleIssues),
+      buildWorkspaceReasoningSummary(
+        input.actionType,
+        input.document,
+        latestMissingMatch,
+        latestRiskMatch,
+        issueFlags,
+        input.language
+      ),
     regenerateReviewRecommendation,
     readinessImpact: chooseReadinessImpact({
       document: input.document,
-      possibleIssues,
+      issueFlags,
       latestMissingMatch,
       latestRiskMatch,
       regenerateReviewRecommendation
@@ -1405,7 +1474,7 @@ function buildDeterministicMaterialWorkspaceAction(input: CaseMaterialWorkspaceA
   };
 }
 
-function buildMaterialPossibleIssues(item: CaseMaterialSnapshot) {
+function buildMaterialIssueFlags(item: CaseMaterialSnapshot) {
   const noteText = `${item.materialReference ?? ""} ${item.notes ?? ""} ${item.fileName ?? ""}`.toLowerCase();
 
   return dedupeStrings(
@@ -1414,53 +1483,57 @@ function buildMaterialPossibleIssues(item: CaseMaterialSnapshot) {
       item.status === "needs-refresh" ? "refresh-needed-before-handoff" : "",
       item.status === "collecting" ? "collection-not-finished" : "",
       item.status === "ready" && !item.fileName && !item.materialReference ? "ready-status-without-reference" : "",
-      notesContain(noteText, ["expired", "old", "outdated"]) ? "possible-stale-document" : "",
-      notesContain(noteText, ["unclear", "incomplete", "missing"]) ? "note-suggests-completeness-gap" : ""
+      notesContain(noteText, ["expired", "old", "outdated", "过期", "過期", "旧", "舊"]) ? "possible-stale-document" : "",
+      notesContain(noteText, ["unclear", "incomplete", "missing", "不清楚", "不完整", "缺失", "缺少"]) ? "note-suggests-completeness-gap" : ""
     ].filter(Boolean)
   ).slice(0, 5);
 }
 
-function buildLikelySupportingDocuments(item: CaseMaterialSnapshot, possibleIssues: string[]) {
+function buildLikelySupportingDocuments(
+  item: CaseMaterialSnapshot,
+  issueFlags: string[],
+  language: AppLocale
+) {
   const lowerLabel = item.label.toLowerCase();
   const support: string[] = [];
 
   if (lowerLabel.includes("fund")) {
-    support.push("Recent bank statements or financial support evidence");
+    support.push(pickLocale(language, "近期银行流水或资金支持证明", "近期銀行流水或資金支持證明"));
   }
 
   if (lowerLabel.includes("passport")) {
-    support.push("Current passport bio page and any renewed passport details");
+    support.push(pickLocale(language, "当前护照身份页与续签后的护照信息", "目前護照身分頁與更新後的護照資訊"));
   }
 
   if (lowerLabel.includes("explanation") || lowerLabel.includes("intent") || lowerLabel.includes("reason")) {
-    support.push("Short explanation note aligned to the current scenario");
+    support.push(pickLocale(language, "与当前案件情境一致的简短说明", "與目前案件情境一致的簡短說明"));
   }
 
   if (lowerLabel.includes("enrolment") || lowerLabel.includes("school") || lowerLabel.includes("study")) {
-    support.push("Current enrolment confirmation or school letter");
+    support.push(pickLocale(language, "当前在学证明或学校说明信", "目前在學證明或學校說明信"));
   }
 
   if (lowerLabel.includes("transcript") || lowerLabel.includes("progress")) {
-    support.push("Recent transcript, progress letter, or registration proof");
+    support.push(pickLocale(language, "最新成绩单、学习进度说明或注册证明", "最新成績單、學習進度說明或註冊證明"));
   }
 
   if (lowerLabel.includes("host") || lowerLabel.includes("accommodation")) {
-    support.push("Host letter, accommodation confirmation, or supporting relationship context");
+    support.push(pickLocale(language, "接待方说明、住宿确认或关系支持说明", "接待方說明、住宿確認或關係支持說明"));
   }
 
-  if (possibleIssues.some((item) => item.includes("stale") || item.includes("refresh"))) {
-    support.push("Updated version of the same material");
+  if (issueFlags.some((item) => item.includes("stale") || item.includes("refresh"))) {
+    support.push(pickLocale(language, "同一材料的更新版本", "同一材料的更新版本"));
   }
 
   return dedupeStrings(support).slice(0, 5);
 }
 
-function chooseRecommendedMaterialStatus(item: CaseMaterialSnapshot, possibleIssues: string[]): CaseDocumentStatus {
+function chooseRecommendedMaterialStatus(item: CaseMaterialSnapshot, issueFlags: string[]): CaseDocumentStatus {
   if (item.status === "not-applicable") {
     return "not-applicable";
   }
 
-  if (possibleIssues.some((issue) => issue.includes("stale") || issue.includes("refresh") || issue.includes("completeness"))) {
+  if (issueFlags.some((issue) => issue.includes("stale") || issue.includes("refresh") || issue.includes("completeness"))) {
     return "needs-refresh";
   }
 
@@ -1473,48 +1546,86 @@ function chooseRecommendedMaterialStatus(item: CaseMaterialSnapshot, possibleIss
 
 function buildMaterialSuggestedNextAction(
   item: CaseMaterialSnapshot,
-  possibleIssues: string[],
-  likelySupportingDocsNeeded: string[]
+  issueFlags: string[],
+  likelySupportingDocsNeeded: string[],
+  language: AppLocale
 ) {
   if (item.status === "missing") {
-    return `Collect or attach ${item.label}, then update the material status before regenerating the review.`;
+    return pickLocale(
+      language,
+      `先收集或附加 ${item.label}，再更新材料状态并重新生成审查。`,
+      `先收集或附加 ${item.label}，再更新材料狀態並重新生成審查。`
+    );
   }
 
-  if (possibleIssues.some((issue) => issue.includes("stale") || issue.includes("refresh"))) {
-    return `Refresh ${item.label} or add a note explaining why the current version is still usable.`;
+  if (issueFlags.some((issue) => issue.includes("stale") || issue.includes("refresh"))) {
+    return pickLocale(
+      language,
+      `请刷新 ${item.label}，或补充备注解释为什么当前版本仍可使用。`,
+      `請更新 ${item.label}，或補充備註說明為什麼目前版本仍可使用。`
+    );
   }
 
   if (likelySupportingDocsNeeded.length > 0 && item.status !== "ready") {
-    return `Add supporting context for ${item.label}: ${likelySupportingDocsNeeded[0]}.`;
+    return pickLocale(
+      language,
+      `请为 ${item.label} 补充支持材料或背景：${likelySupportingDocsNeeded[0]}。`,
+      `請為 ${item.label} 補充支持材料或背景：${likelySupportingDocsNeeded[0]}。`
+    );
   }
 
-  return `Keep ${item.label} visible in the package and regenerate review after material changes are saved.`;
+  return pickLocale(
+    language,
+    `请让 ${item.label} 继续留在材料包中，并在保存有意义的材料变更后重新生成审查。`,
+    `請讓 ${item.label} 繼續留在材料包中，並在儲存有意義的材料變更後重新生成審查。`
+  );
 }
 
 function buildWorkspaceSuggestedNextAction(
   actionType: CaseMaterialWorkspaceActionType,
   item: CaseMaterialSnapshot,
-  possibleIssues: string[],
+  issueFlags: string[],
   likelySupportingDocsNeeded: string[],
-  regenerateReviewRecommendation: CaseMaterialWorkspaceActionOutput["regenerateReviewRecommendation"]
+  regenerateReviewRecommendation: CaseMaterialWorkspaceActionOutput["regenerateReviewRecommendation"],
+  language: AppLocale
 ) {
   if (actionType === "suggest-supporting-docs" && likelySupportingDocsNeeded.length > 0) {
-    return `Add or verify: ${likelySupportingDocsNeeded.join("; ")}.`;
+    return pickLocale(
+      language,
+      `优先补充或核对：${likelySupportingDocsNeeded.join("；")}。`,
+      `優先補充或核對：${likelySupportingDocsNeeded.join("；")}。`
+    );
   }
 
   if (actionType === "suggest-regenerate-review" || regenerateReviewRecommendation === "recommended-now") {
-    return "Regenerate the review after saving this material state so readiness, missing items, and risk flags reflect the current package.";
+    return pickLocale(
+      language,
+      "保存这份材料状态后请重新生成审查，让就绪度、缺失项与风险标记反映当前包件。",
+      "儲存這份材料狀態後請重新生成審查，讓就緒度、缺失項與風險標記反映目前包件。"
+    );
   }
 
   if (actionType === "explain-missing" || item.status === "missing") {
-    return `Treat ${item.label} as the next collection task unless it is not applicable to this case.`;
+    return pickLocale(
+      language,
+      `除非这项材料对本案不适用，否则请把 ${item.label} 视为下一条优先收集任务。`,
+      `除非這項材料對本案不適用，否則請把 ${item.label} 視為下一條優先收集任務。`
+    );
   }
 
-  if (possibleIssues.length > 0) {
-    return `Resolve the visible issue first: ${possibleIssues[0]}.`;
+  if (issueFlags.length > 0) {
+    return pickLocale(
+      language,
+      `先处理当前最明显的问题：${formatMaterialIssueFlag(issueFlags[0], language)}。`,
+      `先處理目前最明顯的問題：${formatMaterialIssueFlag(issueFlags[0], language)}。`
+    );
   }
 
-  return `Confirm ${item.label} is correctly marked, then continue with the next incomplete required material.`;
+  return pickLocale(
+    language,
+    `先确认 ${item.label} 的状态标记无误，再继续推进下一个尚未完成的必需材料。`,
+    `先確認 ${item.label} 的狀態標記無誤，再繼續推進下一個尚未完成的必需材料。`
+  );
 }
 
 function buildWorkspaceReasoningSummary(
@@ -1522,37 +1633,58 @@ function buildWorkspaceReasoningSummary(
   item: CaseMaterialSnapshot,
   latestMissingMatch: boolean,
   latestRiskMatch: boolean,
-  possibleIssues: string[]
+  issueFlags: string[],
+  language: AppLocale
 ) {
   if (latestMissingMatch) {
-    return "The latest saved review still treats this material area as missing, so the next useful action is to close or explain that gap.";
+    return pickLocale(
+      language,
+      "最新保存的审查仍把这项材料相关区域视为缺口，因此最有价值的动作是先关闭或解释这个缺口。",
+      "最新儲存的審查仍把這項材料相關區域視為缺口，因此最有價值的動作是先關閉或解釋這個缺口。"
+    );
   }
 
   if (latestRiskMatch) {
-    return "The latest saved review still has a risk signal connected to this material area, so the item should remain visible before handoff.";
+    return pickLocale(
+      language,
+      "最新保存的审查仍把这项材料与风险信号关联，因此在交接前应继续保持可见。",
+      "最新儲存的審查仍把這項材料與風險訊號關聯，因此在交接前應繼續保持可見。"
+    );
   }
 
-  if (possibleIssues.length > 0) {
-    return "The material metadata has workflow issue signals that should be addressed before relying on the item in a clean review.";
+  if (issueFlags.length > 0) {
+    return pickLocale(
+      language,
+      "这份材料的元数据中存在工作流问题信号，在把它当作干净材料依赖之前应先处理。",
+      "這份材料的中介資料中存在工作流程問題訊號，在把它當作乾淨材料依賴之前應先處理。"
+    );
   }
 
   if (actionType === "suggest-regenerate-review") {
-    return "Review regeneration is most useful after saved material statuses, notes, or attached files change.";
+    return pickLocale(
+      language,
+      "当材料状态、备注或附件发生保存后的变化时，重新生成审查最有价值。",
+      "當材料狀態、備註或附件發生儲存後的變化時，重新生成審查最有價值。"
+    );
   }
 
-  return "The recommendation is based on the selected checklist item, saved material metadata, and current review context.";
+  return pickLocale(
+    language,
+    "这项建议基于所选清单项、已保存的材料元数据以及当前审查脉络给出。",
+    "這項建議是根據所選清單項、已儲存的材料中介資料以及目前審查脈絡給出的。"
+  );
 }
 
 function chooseRegenerateReviewRecommendation({
   document,
   recommendedMaterialStatus,
-  possibleIssues,
+  issueFlags,
   latestMissingMatch,
   latestRiskMatch
 }: {
   document: CaseMaterialSnapshot;
   recommendedMaterialStatus: CaseDocumentStatus;
-  possibleIssues: string[];
+  issueFlags: string[];
   latestMissingMatch: boolean;
   latestRiskMatch: boolean;
 }): CaseMaterialWorkspaceActionOutput["regenerateReviewRecommendation"] {
@@ -1560,12 +1692,12 @@ function chooseRegenerateReviewRecommendation({
     document.status !== recommendedMaterialStatus ||
     latestMissingMatch ||
     latestRiskMatch ||
-    (document.required && document.status === "ready" && possibleIssues.length === 0)
+    (document.required && document.status === "ready" && issueFlags.length === 0)
   ) {
     return "recommended-now";
   }
 
-  if (possibleIssues.length > 0 || document.status === "collecting" || document.status === "needs-refresh") {
+  if (issueFlags.length > 0 || document.status === "collecting" || document.status === "needs-refresh") {
     return "consider-after-material-update";
   }
 
@@ -1574,13 +1706,13 @@ function chooseRegenerateReviewRecommendation({
 
 function chooseReadinessImpact({
   document,
-  possibleIssues,
+  issueFlags,
   latestMissingMatch,
   latestRiskMatch,
   regenerateReviewRecommendation
 }: {
   document: CaseMaterialSnapshot;
-  possibleIssues: string[];
+  issueFlags: string[];
   latestMissingMatch: boolean;
   latestRiskMatch: boolean;
   regenerateReviewRecommendation: CaseMaterialWorkspaceActionOutput["regenerateReviewRecommendation"];
@@ -1593,7 +1725,7 @@ function chooseReadinessImpact({
     return "may-reduce-missing-items";
   }
 
-  if (possibleIssues.length > 0) {
+  if (issueFlags.length > 0) {
     return "needs-review-before-impact";
   }
 
@@ -1604,7 +1736,36 @@ function chooseReadinessImpact({
   return "no-visible-impact";
 }
 
-function buildDeterministicReviewDelta(previousReview: CaseReviewResult, latestReview: CaseReviewResult): CaseReviewDelta {
+function formatMaterialIssueFlag(flag: string, language: AppLocale) {
+  const labels: Record<string, string> = {
+    "required-material-missing": pickLocale(language, "必需材料仍缺失。", "必需材料仍缺失。"),
+    "refresh-needed-before-handoff": pickLocale(language, "材料需要在交接前更新。", "材料需要在交接前更新。"),
+    "collection-not-finished": pickLocale(language, "材料仍在收集中。", "材料仍在收集中。"),
+    "ready-status-without-reference": pickLocale(language, "材料被标记为已就绪，但缺少明确引用或附件。", "材料被標記為已就緒，但缺少明確引用或附件。"),
+    "possible-stale-document": pickLocale(language, "文件可能已经过期或版本过旧。", "文件可能已經過期或版本過舊。"),
+    "note-suggests-completeness-gap": pickLocale(language, "备注显示材料可能仍不完整或不清晰。", "備註顯示材料可能仍不完整或不清晰。")
+  };
+
+  return labels[flag] ?? flag;
+}
+
+function formatRiskSeverityPhrase(severity: CaseRiskFlag["severity"], language: AppLocale) {
+  if (severity === "high") {
+    return pickLocale(language, "高风险", "高風險");
+  }
+
+  if (severity === "medium") {
+    return pickLocale(language, "中风险", "中風險");
+  }
+
+  return pickLocale(language, "低风险", "低風險");
+}
+
+function buildDeterministicReviewDelta(
+  previousReview: CaseReviewResult,
+  latestReview: CaseReviewResult,
+  language: AppLocale = defaultLocale
+): CaseReviewDelta {
   const previousMissing = new Set(previousReview.missingItems);
   const latestMissing = new Set(latestReview.missingItems);
   const previousRisks = new Set(previousReview.riskFlags.map((item) => item.label));
@@ -1617,23 +1778,55 @@ function buildDeterministicReviewDelta(previousReview: CaseReviewResult, latestR
   const improvedAreas = dedupeStrings(
     [
       readinessRank[latestReview.readinessStatus] > readinessRank[previousReview.readinessStatus]
-        ? `Readiness moved from ${previousReview.readinessStatus} to ${latestReview.readinessStatus}.`
+        ? pickLocale(
+            language,
+            `就绪度已从 ${formatReadinessStatus(previousReview.readinessStatus, language)} 提升到 ${formatReadinessStatus(latestReview.readinessStatus, language)}。`,
+            `就緒度已從 ${formatReadinessStatus(previousReview.readinessStatus, language)} 提升到 ${formatReadinessStatus(latestReview.readinessStatus, language)}。`
+          )
         : "",
-      latestReady > previousReady ? `${latestReady - previousReady} additional checklist item${latestReady - previousReady === 1 ? "" : "s"} moved to ready or not applicable.` : "",
-      ...removedMissing.map((item) => `${item} is no longer listed as missing.`),
-      ...removedRisks.map((item) => `${item} is no longer visible as a risk flag.`)
+      latestReady > previousReady
+        ? pickLocale(
+            language,
+            `新增 ${latestReady - previousReady} 个清单项目变为已就绪或不适用。`,
+            `新增 ${latestReady - previousReady} 個清單項目變為已就緒或不適用。`
+          )
+        : "",
+      ...removedMissing.map((item) =>
+        pickLocale(language, `${item} 已不再被标记为缺失。`, `${item} 已不再被標記為缺失。`)
+      ),
+      ...removedRisks.map((item) =>
+        pickLocale(language, `${item} 已不再显示为风险标记。`, `${item} 已不再顯示為風險標記。`)
+      )
     ].filter(Boolean)
   ).slice(0, 5);
   const remainingGaps = dedupeStrings([
-    ...latestReview.missingItems.map((item) => `Missing item: ${item}`),
-    ...latestReview.riskFlags.map((item) => `${item.severity} risk: ${item.label}`)
+    ...latestReview.missingItems.map((item) =>
+      pickLocale(language, `仍缺：${item}`, `仍缺：${item}`)
+    ),
+    ...latestReview.riskFlags.map((item) =>
+      pickLocale(language, `${formatRiskSeverityPhrase(item.severity, language)}：${item.label}`, `${formatRiskSeverityPhrase(item.severity, language)}：${item.label}`)
+    )
   ]).slice(0, 5);
 
   return {
-    improvedAreas: improvedAreas.length > 0 ? improvedAreas : ["No material improvement is visible between the two saved review versions."],
-    remainingGaps: remainingGaps.length > 0 ? remainingGaps : ["No major remaining gaps are visible in the latest saved review."],
-    newRisks: newRisks.length > 0 ? newRisks : ["No new risk flags were introduced in the latest saved review."],
-    removedRisks: removedRisks.length > 0 ? removedRisks.map((item) => `${item} is no longer visible as a risk flag.`) : ["No prior risk flags were removed in this review version."],
+    improvedAreas:
+      improvedAreas.length > 0
+        ? improvedAreas
+        : [pickLocale(language, "两次已保存的审查版本之间暂未看到明确改善。", "兩次已儲存的審查版本之間暫未看到明確改善。")],
+    remainingGaps:
+      remainingGaps.length > 0
+        ? remainingGaps
+        : [pickLocale(language, "最新审查版本中没有明显的主要缺口。", "最新審查版本中沒有明顯的主要缺口。")],
+    newRisks:
+      newRisks.length > 0
+        ? newRisks
+        : [pickLocale(language, "最新审查版本中没有新增风险标记。", "最新審查版本中沒有新增風險標記。")],
+    removedRisks:
+      removedRisks.length > 0
+        ? removedRisks.map((item) =>
+            pickLocale(language, `${item} 已不再显示为风险标记。`, `${item} 已不再顯示為風險標記。`)
+          )
+        : [pickLocale(language, "这个版本没有移除既有风险标记。", "這個版本沒有移除既有風險標記。")],
     priorityActions: latestReview.nextSteps.slice(0, 5)
   };
 }
@@ -1642,15 +1835,37 @@ function buildDeterministicHandoffIntelligence(input: CaseHandoffIntelligenceInp
   const { latestReview } = input;
   const highRiskFlags = latestReview.riskFlags.filter((item) => item.severity === "high");
   const humanReviewIssues = dedupeStrings([
-    ...latestReview.missingItems.map((item) => `Missing item needing review: ${item}`),
+    ...latestReview.missingItems.map((item) =>
+      pickLocale(input.language, `需要人工确认的缺失项：${item}`, `需要人工確認的缺失項：${item}`)
+    ),
     ...latestReview.riskFlags
       .filter((item) => item.severity === "high" || item.severity === "medium")
-      .map((item) => `${item.severity} risk: ${item.label}. ${item.detail}`)
+      .map((item) =>
+        pickLocale(
+          input.language,
+          `${formatRiskSeverityPhrase(item.severity, input.language)}：${item.label}。${item.detail}`,
+          `${formatRiskSeverityPhrase(item.severity, input.language)}：${item.label}。${item.detail}`
+        )
+      )
   ]).slice(0, 8);
   const escalationTriggers = dedupeStrings([
-    latestReview.readinessStatus === "not-ready" ? "Readiness is not-ready." : "",
-    highRiskFlags.length > 0 ? `${highRiskFlags.length} high-risk flag${highRiskFlags.length === 1 ? "" : "s"} remain visible.` : "",
-    latestReview.missingItems.length > 0 ? `${latestReview.missingItems.length} missing item${latestReview.missingItems.length === 1 ? "" : "s"} remain unresolved.` : "",
+    latestReview.readinessStatus === "not-ready"
+      ? pickLocale(input.language, "当前就绪状态仍为未就绪。", "目前就緒狀態仍為未就緒。")
+      : "",
+    highRiskFlags.length > 0
+      ? pickLocale(
+          input.language,
+          `当前仍有 ${highRiskFlags.length} 个高风险标记保持可见。`,
+          `目前仍有 ${highRiskFlags.length} 個高風險標記保持可見。`
+        )
+      : "",
+    latestReview.missingItems.length > 0
+      ? pickLocale(
+          input.language,
+          `当前仍有 ${latestReview.missingItems.length} 个缺失项未关闭。`,
+          `目前仍有 ${latestReview.missingItems.length} 個缺失項未關閉。`
+        )
+      : "",
     ...latestReview.riskFlags
       .filter((item) => item.severity === "high")
       .map((item) => item.label)
@@ -1658,37 +1873,46 @@ function buildDeterministicHandoffIntelligence(input: CaseHandoffIntelligenceInp
 
   return {
     externalSummary:
-      `${input.caseTitle} is a ${getUseCaseDefinition(input.useCaseSlug)?.shortTitle ?? input.useCaseSlug} workspace export from review version ${input.reviewVersion}. ${latestReview.summary}`,
+      pickLocale(
+        input.language,
+        `${input.caseTitle} 是 ${getUseCaseDefinition(input.useCaseSlug, input.language)?.shortTitle ?? input.useCaseSlug} 的工作台导出摘要，来源于第 ${input.reviewVersion} 个审查版本。${latestReview.summary}`,
+        `${input.caseTitle} 是 ${getUseCaseDefinition(input.useCaseSlug, input.language)?.shortTitle ?? input.useCaseSlug} 的工作台匯出摘要，來源於第 ${input.reviewVersion} 個審查版本。${latestReview.summary}`
+      ),
     reviewReadyStatus: latestReview.readinessStatus,
-    issuesNeedingHumanReview: humanReviewIssues.length > 0
-      ? humanReviewIssues
-      : ["No major missing items or medium/high risk flags are visible in this saved review version."],
+    issuesNeedingHumanReview:
+      humanReviewIssues.length > 0
+        ? humanReviewIssues
+        : [pickLocale(input.language, "当前保存版本中没有明显的中高风险或主要缺失项。", "目前儲存版本中沒有明顯的中高風險或主要缺失項。")],
     supportingNotes: dedupeStrings([
       latestReview.readinessSummary,
       latestReview.timelineNote,
       ...latestReview.supportingContextNotes,
-      ...latestReview.officialReferenceLabels.map((item) => `Reference label: ${item}`)
+      ...latestReview.officialReferenceLabels.map((item) =>
+        pickLocale(input.language, `参考标签：${item}`, `參考標籤：${item}`)
+      )
     ]).slice(0, 8),
-    escalationTriggers: escalationTriggers.length > 0
-      ? escalationTriggers
-      : ["No automatic escalation trigger is visible in this saved review version."]
+    escalationTriggers:
+      escalationTriggers.length > 0
+        ? escalationTriggers
+        : [pickLocale(input.language, "当前保存版本中没有触发自动升级的明显信号。", "目前儲存版本中沒有觸發自動升級的明顯訊號。")]
   };
 }
 
 function buildDeterministicCaseQuestionAnswer(input: CaseQuestionAiInput): CaseQuestionAnswer {
-  const useCase = getUseCaseDefinition(input.useCaseSlug);
+  const useCase = getUseCaseDefinition(input.useCaseSlug, input.language);
   const latestReview = input.caseContext?.latestReview ?? null;
   const previousReview = input.caseContext?.previousReview ?? null;
   const reviewDelta = input.caseContext?.reviewDelta ?? null;
   const question = input.question.toLowerCase();
   const missingItems = latestReview?.missingItems ?? [];
   const riskFlags = latestReview?.riskFlags ?? [];
-  const priorityNextSteps = latestReview?.nextSteps ?? buildDefaultScenarioNextSteps(input.useCaseSlug);
-  const askedAboutMissing = notesContain(question, ["missing", "need", "still", "gap", "document"]);
-  const askedAboutRisk = notesContain(question, ["risk", "problem", "concern", "weak", "refusal"]);
-  const askedAboutChange = notesContain(question, ["changed", "change", "delta", "since", "previous", "last review"]);
-  const askedAboutNext = notesContain(question, ["next", "do now", "action", "priority"]);
+  const priorityNextSteps = latestReview?.nextSteps ?? buildDefaultScenarioNextSteps(input.useCaseSlug, input.language);
+  const askedAboutMissing = notesContain(question, ["missing", "need", "still", "gap", "document", "缺", "缺失", "缺少", "还缺", "還缺", "材料"]);
+  const askedAboutRisk = notesContain(question, ["risk", "problem", "concern", "weak", "refusal", "风险", "風險", "问题", "問題", "担心", "擔心", "拒签", "拒簽"]);
+  const askedAboutChange = notesContain(question, ["changed", "change", "delta", "since", "previous", "last review", "变化", "變化", "改变", "改變", "上次", "上一版", "差异", "差異"]);
+  const askedAboutNext = notesContain(question, ["next", "do now", "action", "priority", "下一步", "现在", "現在", "动作", "動作", "优先", "優先"]);
   const summary = buildDeterministicQuestionSummary({
+    language: input.language,
     useCaseTitle: useCase?.shortTitle ?? input.useCaseSlug,
     hasCaseContext: Boolean(input.caseContext?.caseId || input.caseContext?.caseTitle),
     askedAboutMissing,
@@ -1705,22 +1929,52 @@ function buildDeterministicCaseQuestionAnswer(input: CaseQuestionAiInput): CaseQ
   ]).slice(0, 6);
   const scenarioSpecificWarnings = dedupeStrings([
     ...(input.knowledgeContext?.scenarioSpecificWarnings ?? []),
-    ...riskFlags.slice(0, 3).map((item) => `${item.severity} risk: ${item.label}. ${item.detail}`)
+    ...riskFlags.slice(0, 3).map((item) =>
+      pickLocale(
+        input.language,
+        `${formatRiskSeverityPhrase(item.severity, input.language)}：${item.label}。${item.detail}`,
+        `${formatRiskSeverityPhrase(item.severity, input.language)}：${item.label}。${item.detail}`
+      )
+    )
   ]).slice(0, 6);
   const nextSteps = dedupeStrings([
     ...(askedAboutChange && reviewDelta ? reviewDelta.priorityActions : []),
-    ...(askedAboutMissing ? missingItems.map((item) => `Confirm or collect ${item}.`) : []),
-    ...(askedAboutRisk ? riskFlags.slice(0, 3).map((item) => `Address the ${item.label.toLowerCase()} risk before treating the package as handoff-ready.`) : []),
+    ...(askedAboutMissing
+      ? missingItems.map((item) =>
+          pickLocale(input.language, `请确认或补齐 ${item}。`, `請確認或補齊 ${item}。`)
+        )
+      : []),
+    ...(askedAboutRisk
+      ? riskFlags.slice(0, 3).map((item) =>
+          pickLocale(
+            input.language,
+            `在把包件视为可交接前，请先处理 ${item.label} 风险。`,
+            `在把包件視為可交接前，請先處理 ${item.label} 風險。`
+          )
+        )
+      : []),
     ...(askedAboutNext ? priorityNextSteps : []),
     ...priorityNextSteps,
-    "Save this question to the workspace if it should become part of the case tracker."
+    pickLocale(
+      input.language,
+      "如果这条问题应该变成案件追踪动作，请把它保存到工作台。",
+      "如果這條問題應該變成案件追蹤動作，請把它儲存到工作台。"
+    )
   ]).slice(0, 6);
 
   return {
     summary,
     whyThisMatters: latestReview
-      ? "This matters because the saved case review is driven by readiness, materials state, risks, and next steps. Keeping the answer structured lets the workspace turn it into package work instead of a one-off chat note."
-      : "This matters because a question only becomes useful in Tideus when it turns into intake facts, expected materials, checklist work, or a saved case review path.",
+      ? pickLocale(
+          input.language,
+          "这很重要，因为已保存的案件审查是围绕就绪度、材料状态、风险与下一步动作运转的。保持结构化，工作台才能把答案变成真实案件工作，而不是一次性的聊天记录。",
+          "這很重要，因為已儲存的案件審查是圍繞就緒度、材料狀態、風險與下一步動作運轉的。保持結構化，工作台才能把答案變成真實案件工作，而不是一次性的聊天紀錄。"
+        )
+      : pickLocale(
+          input.language,
+          "这很重要，因为在 Tideus 里，只有当问题转化为 intake 事实、预期材料、清单动作或可保存的审查路径时，它才真正有价值。",
+          "這很重要，因為在 Tideus 裡，只有當問題轉化為 intake 事實、預期材料、清單動作或可儲存的審查路徑時，它才真正有價值。"
+        ),
     supportingContextNotes,
     scenarioSpecificWarnings,
     nextSteps,
@@ -1729,6 +1983,7 @@ function buildDeterministicCaseQuestionAnswer(input: CaseQuestionAiInput): CaseQ
 }
 
 function buildDeterministicQuestionSummary({
+  language,
   useCaseTitle,
   hasCaseContext,
   askedAboutMissing,
@@ -1738,6 +1993,7 @@ function buildDeterministicQuestionSummary({
   riskFlags,
   reviewDelta
 }: {
+  language: AppLocale;
   useCaseTitle: string;
   hasCaseContext: boolean;
   askedAboutMissing: boolean;
@@ -1748,39 +2004,67 @@ function buildDeterministicQuestionSummary({
   reviewDelta: CaseReviewDelta | null;
 }) {
   if (askedAboutChange && reviewDelta) {
-    return `The latest ${useCaseTitle} review should be read against the previous version through improved areas, remaining gaps, new risks, and priority actions.`;
+    return pickLocale(
+      language,
+      `最新的 ${useCaseTitle} 审查应结合上一个版本一起看，重点观察改善点、剩余缺口、新增风险与优先动作。`,
+      `最新的 ${useCaseTitle} 審查應結合上一個版本一起看，重點觀察改善點、剩餘缺口、新增風險與優先動作。`
+    );
   }
 
   if (askedAboutMissing) {
     return missingItems.length > 0
-      ? `The current ${useCaseTitle} workspace still shows ${missingItems.length} missing item${missingItems.length === 1 ? "" : "s"} that should drive the next work block.`
-      : `The current ${useCaseTitle} workspace does not show required items marked missing, so the next pass should focus on freshness, risk, and explanation quality.`;
+      ? pickLocale(
+          language,
+          `当前 ${useCaseTitle} 工作台仍显示 ${missingItems.length} 个缺失项，这些项目应直接驱动下一轮工作。`,
+          `目前 ${useCaseTitle} 工作台仍顯示 ${missingItems.length} 個缺失項，這些項目應直接驅動下一輪工作。`
+        )
+      : pickLocale(
+          language,
+          `当前 ${useCaseTitle} 工作台没有把必需项目标记为缺失，因此下一轮应转向材料新鲜度、风险与说明质量。`,
+          `目前 ${useCaseTitle} 工作台沒有把必需項目標記為缺失，因此下一輪應轉向材料新鮮度、風險與說明品質。`
+        );
   }
 
   if (askedAboutRisk) {
     return riskFlags.length > 0
-      ? `The current ${useCaseTitle} workspace shows ${riskFlags.length} risk flag${riskFlags.length === 1 ? "" : "s"} that should stay visible before handoff.`
-      : `The current ${useCaseTitle} workspace does not show major risk flags, but the case still needs a structured final review before filing decisions.`;
+      ? pickLocale(
+          language,
+          `当前 ${useCaseTitle} 工作台显示 ${riskFlags.length} 个风险标记，在交接前应继续保持可见。`,
+          `目前 ${useCaseTitle} 工作台顯示 ${riskFlags.length} 個風險標記，在交接前應繼續保持可見。`
+        )
+      : pickLocale(
+          language,
+          `当前 ${useCaseTitle} 工作台没有明显的主要风险标记，但在做递交决策前仍需要一次结构化最终审查。`,
+          `目前 ${useCaseTitle} 工作台沒有明顯的主要風險標記，但在做遞交決策前仍需要一次結構化最終審查。`
+        );
   }
 
   return hasCaseContext
-    ? `This ${useCaseTitle} answer is grounded in the current case workspace and should be handled as structured case work, not a separate chat thread.`
-    : `This ${useCaseTitle} answer should be converted into a saved workspace if the question affects materials, checklist work, timeline, or handoff quality.`;
+    ? pickLocale(
+        language,
+        `这条 ${useCaseTitle} 答案已经锚定在当前案件工作台上，应作为结构化案件工作处理，而不是单独聊天记录。`,
+        `這條 ${useCaseTitle} 答案已經錨定在目前案件工作台上，應作為結構化案件工作處理，而不是單獨聊天紀錄。`
+      )
+    : pickLocale(
+        language,
+        `如果这个问题会影响材料、清单动作、时间线或交接质量，就应把这条 ${useCaseTitle} 答案转成已保存工作台。`,
+        `如果這個問題會影響材料、清單動作、時間線或交接品質，就應把這條 ${useCaseTitle} 答案轉成已儲存工作台。`
+      );
 }
 
-function buildDefaultScenarioNextSteps(useCaseSlug: SupportedUseCaseSlug) {
+function buildDefaultScenarioNextSteps(useCaseSlug: SupportedUseCaseSlug, language: AppLocale = defaultLocale) {
   if (useCaseSlug === "visitor-record") {
     return [
-      "Capture the current status expiry date and passport validity before relying on the answer.",
-      "Check the extension explanation, funding proof, and temporary-intent support together.",
-      "Create a workspace checklist if the question affects evidence or handoff readiness."
+      pickLocale(language, "先确认当前身份到期日与护照有效期，再依赖这条答案推进。", "先確認目前身分到期日與護照效期，再依賴這條答案推進。"),
+      pickLocale(language, "把延期说明、资金证明与临时居留意图支持材料放在一起核对。", "把延期說明、資金證明與臨時居留意圖支持材料放在一起核對。"),
+      pickLocale(language, "如果这个问题会影响证据或交接就绪度，请把它转成工作台清单动作。", "如果這個問題會影響證據或交接就緒度，請把它轉成工作台清單動作。")
     ];
   }
 
   return [
-    "Capture the current study permit expiry date and school context before relying on the answer.",
-    "Check enrolment proof, progress evidence, funding proof, and the extension explanation together.",
-    "Create a workspace checklist if the question affects evidence or handoff readiness."
+    pickLocale(language, "先确认当前学签到期日与学校脉络，再依赖这条答案推进。", "先確認目前學簽到期日與學校脈絡，再依賴這條答案推進。"),
+    pickLocale(language, "把在学证明、学习进度、资金证明与延期说明一起核对。", "把在學證明、學習進度、資金證明與延期說明一起核對。"),
+    pickLocale(language, "如果这个问题会影响证据或交接就绪度，请把它转成工作台清单动作。", "如果這個問題會影響證據或交接就緒度，請把它轉成工作台清單動作。")
   ];
 }
 
@@ -1791,14 +2075,18 @@ function buildDeterministicTrackerActions(
   nextSteps: string[]
 ): CaseQuestionTrackerAction[] {
   const missingActions = missingItems.slice(0, 3).map((item) => ({
-    label: `Collect ${item}`,
-    detail: `Add or mark the ${item} material in the workspace so the next review can use it.`,
+    label: pickLocale(input.language, `收集 ${item}`, `收集 ${item}`),
+    detail: pickLocale(
+      input.language,
+      `把 ${item} 补充到工作台或正确标记，让下一轮审查可以直接使用。`,
+      `把 ${item} 補充到工作台或正確標記，讓下一輪審查可以直接使用。`
+    ),
     priority: "high" as const,
     actionType: "collect-material" as const,
     documentKey: findDocumentKeyByLabel(input.caseContext?.documents ?? [], item)
   }));
   const riskActions = riskFlags.slice(0, 2).map((item) => ({
-    label: `Review ${item.label}`,
+    label: pickLocale(input.language, `处理 ${item.label}`, `處理 ${item.label}`),
     detail: item.detail,
     priority: item.severity,
     actionType: "review-risk" as const,
@@ -1806,15 +2094,25 @@ function buildDeterministicTrackerActions(
   }));
   const defaultActions: CaseQuestionTrackerAction[] = [
     {
-      label: "Generate or refresh checklist",
-      detail: "Turn this question into a case workspace checklist so materials and next steps stay attached to the case.",
+      label: pickLocale(input.language, "生成或刷新清单", "生成或刷新清單"),
+      detail: pickLocale(
+        input.language,
+        "把这个问题转成案件工作台清单，让材料与下一步动作持续挂在案件上。",
+        "把這個問題轉成案件工作台清單，讓材料與下一步動作持續掛在案件上。"
+      ),
       priority: "medium",
       actionType: "generate-checklist",
       documentKey: ""
     },
     {
-      label: "Continue in workspace",
-      detail: nextSteps[0] ?? "Open the case workspace and make the next evidence step visible.",
+      label: pickLocale(input.language, "继续在工作台处理", "繼續在工作台處理"),
+      detail:
+        nextSteps[0] ??
+        pickLocale(
+          input.language,
+          "打开案件工作台，并把下一条证据动作明确显示出来。",
+          "打開案件工作台，並把下一條證據動作明確顯示出來。"
+        ),
       priority: "medium",
       actionType: "continue-workspace",
       documentKey: ""
@@ -1894,7 +2192,8 @@ function parseIntakeNormalizationOutput(value: unknown, useCaseSlug: SupportedUs
 
 function parseMaterialInterpretationOutput(
   value: unknown,
-  documents: CaseMaterialSnapshot[] | null
+  documents: CaseMaterialSnapshot[] | null,
+  language: AppLocale = defaultLocale
 ): CaseMaterialInterpretationOutput | null {
   if (!isRecord(value)) {
     return null;
@@ -1913,21 +2212,30 @@ function parseMaterialInterpretationOutput(
       const recommendedMaterialStatus =
         typeof item.recommendedMaterialStatus === "string" && isDocumentStatus(item.recommendedMaterialStatus)
           ? item.recommendedMaterialStatus
-          : suggestedStatus;
+          : matchedDocument
+            ? chooseRecommendedMaterialStatus(matchedDocument, readStringArray(item.issueFlags))
+            : suggestedStatus;
       const interpretationNote = readTrimmedString(item.interpretationNote);
-      const possibleIssues = dedupeStrings([
-        ...readStringArray(item.possibleIssues),
-        ...readStringArray(item.issueFlags)
-      ]).slice(0, 5);
+      const issueFlags = dedupeStrings(readStringArray(item.issueFlags)).slice(0, 4);
+      const possibleIssues =
+        dedupeStrings(readStringArray(item.possibleIssues)).slice(0, 5).length > 0
+          ? dedupeStrings(readStringArray(item.possibleIssues)).slice(0, 5)
+          : issueFlags.map((flag) => formatMaterialIssueFlag(flag, language)).slice(0, 5);
       const likelySupportingDocsNeeded = readStringArray(item.likelySupportingDocsNeeded).slice(0, 5);
       const suggestedNextAction =
         readTrimmedString(item.suggestedNextAction) ||
-        (label ? `Review ${label} against the saved material status and regenerate review after meaningful changes.` : null);
+        (label
+          ? pickLocale(
+              language,
+              `请对照已保存的材料状态复核 ${label}，并在发生有意义变更后重新生成审查。`,
+              `請對照已儲存的材料狀態複核 ${label}，並在發生有意義變更後重新生成審查。`
+            )
+          : null);
       const reasoningSummary =
         readTrimmedString(item.reasoningSummary) ||
         (possibleIssues.length > 0
-          ? "The material metadata includes workflow issue signals."
-          : "The material metadata was classified against the checklist item.");
+          ? pickLocale(language, "材料元数据中存在工作流问题信号。", "材料中介資料中存在工作流程問題訊號。")
+          : pickLocale(language, "材料元数据已按清单项完成分类。", "材料中介資料已按清單項完成分類。"));
 
       if (
         !documentId ||
@@ -1951,7 +2259,7 @@ function parseMaterialInterpretationOutput(
           label,
           likelyDocumentType,
           suggestedStatus,
-          issueFlags: possibleIssues.slice(0, 4),
+          issueFlags,
           possibleIssues,
           likelySupportingDocsNeeded,
           recommendedMaterialStatus,
@@ -2133,7 +2441,7 @@ function parseMaterialWorkspaceActionOutput(
   };
 }
 
-function parseReviewDeltaOutput(value: unknown): CaseReviewDelta | null {
+function parseReviewDeltaOutput(value: unknown, language: AppLocale = defaultLocale): CaseReviewDelta | null {
   if (!isRecord(value)) {
     return null;
   }
@@ -2143,7 +2451,9 @@ function parseReviewDeltaOutput(value: unknown): CaseReviewDelta | null {
   const newRisks = readStringArray(value.newRisks).slice(0, 5);
   const removedRisks = readStringArray(value.removedRisks).slice(0, 5);
   const normalizedRemovedRisks =
-    removedRisks.length > 0 ? removedRisks : ["No removed risk data is available for this review delta."];
+    removedRisks.length > 0
+      ? removedRisks
+      : [pickLocale(language, "这个审查变化中没有可用的已移除风险数据。", "這個審查變化中沒有可用的已移除風險資料。")];
   const priorityActions = readStringArray(value.priorityActions).slice(0, 5);
 
   if (improvedAreas.length === 0 || remainingGaps.length === 0 || newRisks.length === 0 || priorityActions.length === 0) {
@@ -2300,15 +2610,25 @@ function mergeHandoffIntelligenceOutputs(
   };
 }
 
-function buildIntakeNormalizationSnapshot(useCaseSlug: SupportedUseCaseSlug, intake: CaseIntakeValues): Json {
+function buildIntakeNormalizationSnapshot(
+  useCaseSlug: SupportedUseCaseSlug,
+  intake: CaseIntakeValues,
+  language: AppLocale
+): Json {
   return {
+    language,
     useCaseSlug,
     intake
   };
 }
 
-function buildMaterialInterpretationSnapshot(useCaseSlug: SupportedUseCaseSlug, documents: CaseMaterialSnapshot[]): Json {
+function buildMaterialInterpretationSnapshot(
+  useCaseSlug: SupportedUseCaseSlug,
+  documents: CaseMaterialSnapshot[],
+  language: AppLocale
+): Json {
   return {
+    language,
     useCaseSlug,
     documents: documents.map((item) => ({
       id: item.id,
@@ -2327,6 +2647,7 @@ function buildMaterialInterpretationSnapshot(useCaseSlug: SupportedUseCaseSlug, 
 
 function buildMaterialWorkspaceActionSnapshot(input: CaseMaterialWorkspaceActionInput): Json {
   return {
+    language: input.language,
     useCaseSlug: input.useCaseSlug,
     actionType: input.actionType,
     selectedDocument: {
@@ -2373,6 +2694,7 @@ function buildMaterialWorkspaceActionSnapshot(input: CaseMaterialWorkspaceAction
 
 function buildReviewEnrichmentSnapshot(input: CaseReviewAiInput): Json {
   return {
+    language: input.language,
     useCaseSlug: input.useCaseSlug,
     intake: input.intake,
     documents: input.documents.map((item) => ({
@@ -2393,6 +2715,7 @@ function buildReviewEnrichmentSnapshot(input: CaseReviewAiInput): Json {
 
 function buildReviewDeltaSnapshot(input: CaseReviewDeltaInput): Json {
   return {
+    language: input.language,
     useCaseSlug: input.useCaseSlug,
     previousReview: summarizeReviewForPrompt(input.previousReview),
     latestReview: summarizeReviewForPrompt(input.latestReview)
@@ -2401,6 +2724,7 @@ function buildReviewDeltaSnapshot(input: CaseReviewDeltaInput): Json {
 
 function buildHandoffIntelligenceSnapshot(input: CaseHandoffIntelligenceInput): Json {
   return {
+    language: input.language,
     useCaseSlug: input.useCaseSlug,
     scenarioTag: input.knowledgeContext?.scenarioTag ?? input.useCaseSlug,
     caseTitle: input.caseTitle,
@@ -2421,6 +2745,7 @@ function buildHandoffIntelligenceSnapshot(input: CaseHandoffIntelligenceInput): 
 
 function buildCaseQuestionSnapshot(input: CaseQuestionAiInput): Json {
   return {
+    language: input.language,
     useCaseSlug: input.useCaseSlug,
     question: input.question,
     knowledgeContext: input.knowledgeContext,
@@ -2464,25 +2789,25 @@ function summarizeReviewForPrompt(review: CaseReviewResult): Json {
   };
 }
 
-function buildDeterministicExtractedFacts(intake: CaseIntakeValues) {
+function buildDeterministicExtractedFacts(intake: CaseIntakeValues, language: AppLocale = defaultLocale) {
   return [
     intake.currentPermitExpiry
       ? {
-          label: "Current status expiry",
+          label: pickLocale(language, "当前身份到期日", "目前身分到期日"),
           value: intake.currentPermitExpiry,
           confidence: 1
         }
       : null,
     intake.supportEntityName.trim()
       ? {
-          label: "Support entity",
+          label: pickLocale(language, "支持主体", "支援主體"),
           value: intake.supportEntityName.trim(),
           confidence: 0.9
         }
       : null,
     intake.applicationReason
       ? {
-          label: "Application reason",
+          label: pickLocale(language, "申请原因", "申請原因"),
           value: intake.applicationReason,
           confidence: 0.85
         }
@@ -2490,15 +2815,25 @@ function buildDeterministicExtractedFacts(intake: CaseIntakeValues) {
   ].flatMap((item) => (item ? [item] : []));
 }
 
-function buildDeterministicReviewNotes(useCaseSlug: SupportedUseCaseSlug, intake: CaseIntakeValues) {
+function buildDeterministicReviewNotes(
+  useCaseSlug: SupportedUseCaseSlug,
+  intake: CaseIntakeValues,
+  language: AppLocale = defaultLocale
+) {
   const notes = intake.notes.trim();
   const items = [
-    notes ? `Freeform note preserved for review: ${notes.slice(0, 220)}${notes.length > 220 ? "..." : ""}` : "",
+    notes
+      ? pickLocale(
+          language,
+          `已保留自由备注供后续审查使用：${notes.slice(0, 220)}${notes.length > 220 ? "..." : ""}`,
+          `已保留自由備註供後續審查使用：${notes.slice(0, 220)}${notes.length > 220 ? "..." : ""}`
+        )
+      : "",
     useCaseSlug === "visitor-record" && intake.scenarioProgressStatus === "weak"
-      ? "Temporary intent explanation should be reviewed closely."
+      ? pickLocale(language, "临时居留意图说明需要重点复核。", "臨時居留意圖說明需要重點複核。")
       : "",
     useCaseSlug === "study-permit-extension" && intake.scenarioProgressStatus === "at-risk"
-      ? "Academic or tuition issue should be reviewed closely."
+      ? pickLocale(language, "学业或学费相关问题需要重点复核。", "學業或學費相關問題需要重點複核。")
       : ""
   ];
 
@@ -2735,12 +3070,14 @@ export function summarizeMaterialInterpretationIssues(output: CaseMaterialInterp
   if (!output) {
     return {
       issueFlagCount: 0,
+      possibleIssueCount: 0,
+      likelySupportingDocSuggestionCount: 0,
       suggestedStatusChangesCount: 0
     };
   }
 
   return {
-    issueFlagCount: output.items.reduce((total, item) => total + item.possibleIssues.length, 0),
+    issueFlagCount: output.items.reduce((total, item) => total + item.issueFlags.length, 0),
     possibleIssueCount: output.items.reduce((total, item) => total + item.possibleIssues.length, 0),
     likelySupportingDocSuggestionCount: output.items.reduce(
       (total, item) => total + item.likelySupportingDocsNeeded.length,

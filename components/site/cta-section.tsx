@@ -2,8 +2,13 @@ import { EventLink } from "@/components/site/event-link";
 import { buttonVariants } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { SectionContainer } from "@/components/site/section-container";
+import { getCurrentLocale } from "@/lib/i18n/server";
+import { getAppMessages } from "@/lib/i18n/messages";
 
-export function CTASection() {
+export async function CTASection() {
+  const locale = await getCurrentLocale();
+  const messages = getAppMessages(locale);
+
   return (
     <SectionContainer className="pb-24">
       <div className="relative overflow-hidden rounded-[36px] border border-border/80 bg-slate-950 px-6 py-12 text-slate-50 shadow-panel sm:px-10 sm:py-16">
@@ -11,12 +16,10 @@ export function CTASection() {
         <div className="relative flex flex-col gap-8 lg:flex-row lg:items-end lg:justify-between">
           <div className="max-w-2xl">
             <Badge variant="inverse" className="mb-5">
-              Narrow and review-ready
+              {messages.ctaSection.badge}
             </Badge>
-            <h2 className="font-serif text-4xl leading-tight sm:text-5xl">Start with a supported case type and build a cleaner package from there.</h2>
-            <p className="mt-5 text-base leading-7 text-slate-300">
-              Tideus is focused on structured case prep: intake, materials tracking, review output, and a saved dashboard that helps the next professional conversation start with context.
-            </p>
+            <h2 className="font-serif text-4xl leading-tight sm:text-5xl">{messages.ctaSection.title}</h2>
+            <p className="mt-5 text-base leading-7 text-slate-300">{messages.ctaSection.description}</p>
           </div>
           <div className="flex flex-col gap-3 sm:flex-row">
             <EventLink
@@ -28,7 +31,7 @@ export function CTASection() {
                 cta: "start-case"
               }}
             >
-              Start a case
+              {messages.ctaSection.startCase}
             </EventLink>
             <EventLink
               className={buttonVariants({
@@ -43,7 +46,7 @@ export function CTASection() {
                 cta: "book-demo"
               }}
             >
-              Book demo
+              {messages.ctaSection.bookDemo}
             </EventLink>
           </div>
         </div>

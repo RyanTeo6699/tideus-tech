@@ -5,9 +5,14 @@ import { FeatureCard } from "@/components/site/feature-card";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { buttonVariants } from "@/components/ui/button";
-import { trustBoundaryPoints, workflowSteps } from "@/lib/site";
+import { getLocaleContext } from "@/lib/i18n/server";
+import { getTrustBoundaryPoints, getWorkflowSteps } from "@/lib/site";
 
-export default function HowItWorksPage() {
+export default async function HowItWorksPage() {
+  const { locale, messages } = await getLocaleContext();
+  const workflowSteps = getWorkflowSteps(locale);
+  const trustBoundaryPoints = getTrustBoundaryPoints(locale);
+
   return (
     <>
       <PageHero
@@ -22,7 +27,7 @@ export default function HowItWorksPage() {
                 cta: "start-case"
               }}
             >
-              Start a case
+              {messages.howItWorks.startCase}
             </EventLink>
             <EventLink
               className={buttonVariants({ variant: "outline", size: "lg" })}
@@ -33,13 +38,13 @@ export default function HowItWorksPage() {
                 cta: "book-demo"
               }}
             >
-              Book demo
+              {messages.howItWorks.bookDemo}
             </EventLink>
           </>
         }
-        description="Tideus is designed to move one narrow case through a clean workflow: intake, materials, structured review, and saved follow-up."
-        eyebrow="How It Works"
-        title="The product is built to clean up a case package before the real review starts."
+        description={messages.howItWorks.description}
+        eyebrow={messages.howItWorks.eyebrow}
+        title={messages.howItWorks.title}
       />
 
       <SectionContainer className="pb-16">
@@ -53,18 +58,18 @@ export default function HowItWorksPage() {
       <SectionContainer className="pb-16">
         <div className="grid gap-6 lg:grid-cols-[0.9fr_1.1fr]">
           <div className="max-w-md">
-            <p className="text-sm font-semibold uppercase tracking-[0.24em] text-muted-foreground">Structured output</p>
-            <h2 className="mt-4 font-serif text-4xl text-foreground">The result is meant to look like a case review block, not a conversation log.</h2>
+            <p className="text-sm font-semibold uppercase tracking-[0.24em] text-muted-foreground">{messages.howItWorks.structuredOutputEyebrow}</p>
+            <h2 className="mt-4 font-serif text-4xl text-foreground">{messages.howItWorks.structuredOutputTitle}</h2>
           </div>
           <Card className="border-emerald-200 bg-emerald-50/80">
             <CardHeader>
               <Badge variant="secondary" className="w-fit">
-                Review block
+                {messages.howItWorks.reviewBlockBadge}
               </Badge>
-              <CardTitle className="text-3xl">Every case review is centered on the same six signals.</CardTitle>
+              <CardTitle className="text-3xl">{messages.howItWorks.reviewBlockTitle}</CardTitle>
             </CardHeader>
             <CardContent className="grid gap-4 md:grid-cols-2">
-              {["Readiness status", "Checklist", "Missing items", "Risk flags", "Timeline note", "Next steps"].map((item) => (
+              {messages.howItWorks.reviewBlockItems.map((item) => (
                 <div className="rounded-2xl border border-emerald-200 bg-white p-4 text-sm font-medium text-slate-900" key={item}>
                   {item}
                 </div>
@@ -77,14 +82,14 @@ export default function HowItWorksPage() {
       <SectionContainer className="pb-24">
         <div className="grid gap-6 lg:grid-cols-[0.85fr_1.15fr]">
           <div className="max-w-md">
-            <p className="text-sm font-semibold uppercase tracking-[0.24em] text-muted-foreground">Trust</p>
-            <h2 className="mt-4 font-serif text-4xl text-foreground">The workflow stays useful because the boundaries are explicit.</h2>
+            <p className="text-sm font-semibold uppercase tracking-[0.24em] text-muted-foreground">{messages.howItWorks.trustEyebrow}</p>
+            <h2 className="mt-4 font-serif text-4xl text-foreground">{messages.howItWorks.trustTitle}</h2>
           </div>
           <div className="space-y-4">
             {trustBoundaryPoints.map((item) => (
               <Card key={item}>
                 <CardHeader>
-                  <CardTitle className="text-xl">Boundary</CardTitle>
+                  <CardTitle className="text-xl">{messages.howItWorks.trustCardTitle}</CardTitle>
                   <CardDescription>{item}</CardDescription>
                 </CardHeader>
               </Card>

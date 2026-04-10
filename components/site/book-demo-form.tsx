@@ -1,12 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 
-import {
-  leadRequestTypeOptions,
-  leadStageOptions,
-  leadUseCaseOptions
-} from "@/lib/lead-requests";
+import { getLeadRequestTypeOptions, getLeadStageOptions, getLeadUseCaseOptions } from "@/lib/lead-requests";
+import { useLocaleContext } from "@/lib/i18n/client";
+import { pickLocale } from "@/lib/i18n/workspace";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -20,6 +18,10 @@ type BookDemoFormProps = {
 };
 
 export function BookDemoForm({ initialEmail = "" }: BookDemoFormProps) {
+  const { locale, messages } = useLocaleContext();
+  const useCaseOptions = useMemo(() => getLeadUseCaseOptions(locale), [locale]);
+  const stageOptions = useMemo(() => getLeadStageOptions(locale), [locale]);
+  const requestTypeOptions = useMemo(() => getLeadRequestTypeOptions(locale), [locale]);
   const [values, setValues] = useState({
     email: initialEmail,
     useCaseInterest: "",
@@ -30,26 +32,30 @@ export function BookDemoForm({ initialEmail = "" }: BookDemoFormProps) {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [status, setStatus] = useState<"idle" | "loading" | "error" | "success">("idle");
   const [message, setMessage] = useState(
-    "Use this form to request a walkthrough, signal early-access interest, or both."
+    pickLocale(
+      locale,
+      "使用此表单预约演示、登记早期体验意向，或同时完成这两件事。",
+      "使用此表單預約演示、登記早期體驗意向，或同時完成這兩件事。"
+    )
   );
 
   function validate() {
     const nextErrors: Record<string, string> = {};
 
     if (!/^\S+@\S+\.\S+$/.test(values.email.trim())) {
-      nextErrors.email = "Enter a valid email address.";
+      nextErrors.email = pickLocale(locale, "请输入有效邮箱地址。", "請輸入有效電子郵件地址。");
     }
 
     if (!values.useCaseInterest) {
-      nextErrors.useCaseInterest = "Select a use case.";
+      nextErrors.useCaseInterest = pickLocale(locale, "请选择场景。", "請選擇場景。");
     }
 
     if (!values.currentStage) {
-      nextErrors.currentStage = "Select the current stage.";
+      nextErrors.currentStage = pickLocale(locale, "请选择当前阶段。", "請選擇目前階段。");
     }
 
     if (!values.requestType) {
-      nextErrors.requestType = "Select a request type.";
+      nextErrors.requestType = pickLocale(locale, "请选择请求类型。", "請選擇請求類型。");
     }
 
     setErrors(nextErrors);
@@ -61,12 +67,12 @@ export function BookDemoForm({ initialEmail = "" }: BookDemoFormProps) {
 
     if (!validate()) {
       setStatus("error");
-      setMessage("Fix the highlighted fields before sending the request.");
+      setMessage(pickLocale(locale, "请先修正高亮字段，再发送请求。", "請先修正高亮欄位，再送出請求。"));
       return;
     }
 
     setStatus("loading");
-    setMessage("Sending request...");
+    setMessage(pickLocale(locale, "正在发送请求...", "正在送出請求..."));
 
     try {
       const response = await fetch("/api/lead-requests", {
@@ -80,38 +86,39 @@ export function BookDemoForm({ initialEmail = "" }: BookDemoFormProps) {
       const data = (await response.json().catch(() => null)) as { message?: string } | null;
 
       if (!response.ok) {
-        throw new Error(data?.message || "Unable to send the request.");
+        throw new Error(data?.message || pickLocale(locale, "暂时无法发送请求。", "暫時無法送出請求。"));
       }
 
       setStatus("success");
-      setMessage(data?.message || "Request received.");
+      setMessage(data?.message || pickLocale(locale, "已收到请求。", "已收到請求。"));
       setValues((current) => ({
         ...current,
         note: "",
-        requestType: current.requestType,
-        useCaseInterest: current.useCaseInterest,
-        currentStage: current.currentStage,
         email: current.email.trim()
       }));
     } catch (error) {
       setStatus("error");
-      setMessage(error instanceof Error ? error.message : "Unable to send the request.");
+      setMessage(error instanceof Error ? error.message : pickLocale(locale, "暂时无法发送请求。", "暫時無法送出請求。"));
     }
   }
 
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Book a demo or request early access</CardTitle>
+        <CardTitle>{pickLocale(locale, "预约演示或申请早期体验", "預約演示或申請早期體驗")}</CardTitle>
         <CardDescription>
-          Tideus is still intentionally narrow. This form helps route launch conversations toward the supported workflows only.
+          {pickLocale(
+            locale,
+            "Tideus 仍保持聚焦。这个表单会把启动沟通限制在当前支持的案件工作流内。",
+            "Tideus 仍保持聚焦。這個表單會把啟動溝通限制在目前支援的案件工作流內。"
+          )}
         </CardDescription>
       </CardHeader>
       <CardContent>
         <form className="space-y-5" noValidate onSubmit={handleSubmit}>
           <div className="grid gap-5 md:grid-cols-2">
             <div className="space-y-2">
-              <Label htmlFor="lead-email">Email</Label>
+              <Label htmlFor="lead-email">{pickLocale(locale, "邮箱", "電子郵件")}</Label>
               <Input
                 aria-invalid={Boolean(errors.email)}
                 id="lead-email"
@@ -124,15 +131,15 @@ export function BookDemoForm({ initialEmail = "" }: BookDemoFormProps) {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="lead-use-case">Use case of interest</Label>
+              <Label htmlFor="lead-use-case">{pickLocale(locale, "感兴趣的场景", "感興趣的場景")}</Label>
               <Select
                 aria-invalid={Boolean(errors.useCaseInterest)}
                 id="lead-use-case"
                 onChange={(event) => setValues((current) => ({ ...current, useCaseInterest: event.target.value }))}
                 value={values.useCaseInterest}
               >
-                <option value="">Select one</option>
-                {leadUseCaseOptions.map((option) => (
+                <option value="">{messages.common.selectOne}</option>
+                {useCaseOptions.map((option) => (
                   <option key={option.value} value={option.value}>
                     {option.label}
                   </option>
@@ -142,15 +149,15 @@ export function BookDemoForm({ initialEmail = "" }: BookDemoFormProps) {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="lead-stage">Current stage</Label>
+              <Label htmlFor="lead-stage">{pickLocale(locale, "当前阶段", "目前階段")}</Label>
               <Select
                 aria-invalid={Boolean(errors.currentStage)}
                 id="lead-stage"
                 onChange={(event) => setValues((current) => ({ ...current, currentStage: event.target.value }))}
                 value={values.currentStage}
               >
-                <option value="">Select one</option>
-                {leadStageOptions.map((option) => (
+                <option value="">{messages.common.selectOne}</option>
+                {stageOptions.map((option) => (
                   <option key={option.value} value={option.value}>
                     {option.label}
                   </option>
@@ -160,15 +167,15 @@ export function BookDemoForm({ initialEmail = "" }: BookDemoFormProps) {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="lead-request-type">Request type</Label>
+              <Label htmlFor="lead-request-type">{pickLocale(locale, "请求类型", "請求類型")}</Label>
               <Select
                 aria-invalid={Boolean(errors.requestType)}
                 id="lead-request-type"
                 onChange={(event) => setValues((current) => ({ ...current, requestType: event.target.value }))}
                 value={values.requestType}
               >
-                <option value="">Select one</option>
-                {leadRequestTypeOptions.map((option) => (
+                <option value="">{messages.common.selectOne}</option>
+                {requestTypeOptions.map((option) => (
                   <option key={option.value} value={option.value}>
                     {option.label}
                   </option>
@@ -178,11 +185,15 @@ export function BookDemoForm({ initialEmail = "" }: BookDemoFormProps) {
             </div>
 
             <div className="space-y-2 md:col-span-2">
-              <Label htmlFor="lead-note">Optional note</Label>
+              <Label htmlFor="lead-note">{pickLocale(locale, "可选备注", "可選備註")}</Label>
               <Textarea
                 id="lead-note"
                 onChange={(event) => setValues((current) => ({ ...current, note: event.target.value }))}
-                placeholder="Share timing, the package problem you are trying to solve, or what you want to see in a demo."
+                placeholder={pickLocale(
+                  locale,
+                  "可补充说明时间要求、当前包件问题，或你希望在演示中看到的内容。",
+                  "可補充說明時間需求、目前包件問題，或你希望在演示中看到的內容。"
+                )}
                 value={values.note}
               />
             </div>
@@ -197,18 +208,18 @@ export function BookDemoForm({ initialEmail = "" }: BookDemoFormProps) {
           >
             <p className="font-semibold uppercase tracking-[0.18em]">
               {status === "idle"
-                ? "Ready"
+                ? messages.common.ready
                 : status === "loading"
-                  ? "Working"
+                  ? messages.common.working
                   : status === "success"
-                    ? "Saved"
-                    : "Error"}
+                    ? messages.common.saved
+                    : messages.common.error}
             </p>
             <p className="mt-2">{message}</p>
           </div>
 
           <Button disabled={status === "loading"} type="submit">
-            {status === "loading" ? "Sending..." : "Send request"}
+            {status === "loading" ? pickLocale(locale, "发送中...", "傳送中...") : pickLocale(locale, "发送请求", "送出請求")}
           </Button>
         </form>
       </CardContent>

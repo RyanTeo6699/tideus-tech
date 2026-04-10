@@ -17,6 +17,8 @@ import {
   getCaseReviewSnapshot,
   readCaseIntake
 } from "@/lib/cases";
+import { getCurrentLocale } from "@/lib/i18n/server";
+import { pickLocale } from "@/lib/i18n/workspace";
 import type { SupportedUseCaseSlug } from "@/lib/case-workflows";
 import { buildKnowledgeContext, summarizeKnowledgeContext } from "@/lib/knowledge/adapter";
 import { createClient } from "@/lib/supabase/server";
@@ -30,7 +32,8 @@ type CaseQuestionRouteProps = {
 export async function POST(request: Request, { params }: CaseQuestionRouteProps) {
   const { caseId } = await params;
   const body = await request.json().catch(() => null);
-  const parsed = parseCaseQuestionRequest(body);
+  const locale = await getCurrentLocale();
+  const parsed = parseCaseQuestionRequest(body, locale);
 
   if (!parsed.success) {
     return NextResponse.json({ message: parsed.message }, { status: 400 });
@@ -42,7 +45,10 @@ export async function POST(request: Request, { params }: CaseQuestionRouteProps)
   } = await supabase.auth.getUser();
 
   if (!user) {
-    return NextResponse.json({ message: "Sign in to ask about this case." }, { status: 401 });
+    return NextResponse.json(
+      { message: pickLocale(locale, "请先登录后再询问这个案件。", "請先登入後再詢問這個案件。") },
+      { status: 401 }
+    );
   }
 
   const { data: caseRecord, error: caseError } = await supabase
@@ -57,11 +63,17 @@ export async function POST(request: Request, { params }: CaseQuestionRouteProps)
   }
 
   if (!caseRecord) {
-    return NextResponse.json({ message: "The selected case could not be found." }, { status: 404 });
+    return NextResponse.json(
+      { message: pickLocale(locale, "找不到所选案件。", "找不到所選案件。") },
+      { status: 404 }
+    );
   }
 
   if (caseRecord.use_case_slug !== parsed.data.useCase) {
-    return NextResponse.json({ message: "The question scenario does not match this case." }, { status: 400 });
+    return NextResponse.json(
+      { message: pickLocale(locale, "提问场景与当前案件不匹配。", "提問場景與目前案件不匹配。") },
+      { status: 400 }
+    );
   }
 
   const [{ data: documents, error: documentsError }, { data: reviewRows, error: reviewError }] = await Promise.all([
@@ -72,7 +84,10 @@ export async function POST(request: Request, { params }: CaseQuestionRouteProps)
   if (documentsError || reviewError) {
     return NextResponse.json(
       {
-        message: documentsError?.message || reviewError?.message || "Unable to load the case context."
+        message:
+          documentsError?.message ||
+          reviewError?.message ||
+          pickLocale(locale, "暂时无法加载案件上下文。", "暫時無法載入案件脈絡。")
       },
       { status: 500 }
     );
@@ -81,8 +96,9 @@ export async function POST(request: Request, { params }: CaseQuestionRouteProps)
   const intake = readCaseIntake(caseRecord.intake_answers);
   const materialSnapshots = buildCaseMaterialSnapshots(documents ?? []);
   const intakeNormalization = parseStoredIntakeNormalization(caseRecord.metadata);
-  const materialInterpretation = parseStoredMaterialInterpretation(caseRecord.metadata);
-  const knowledgeContext = buildKnowledgeContext({
+  const materialInterpretation = parseStoredMaterialInterpretation(caseRecord.metadata, locale);
+  const knowledgeContext = await buildKnowledgeContext({
+    language: locale,
     useCaseSlug: caseRecord.use_case_slug as SupportedUseCaseSlug,
     intake,
     documents: materialSnapshots,
@@ -91,8 +107,9 @@ export async function POST(request: Request, { params }: CaseQuestionRouteProps)
   });
   const latestReview = getCaseReviewSnapshot(reviewRows?.[0] ?? null);
   const previousReview = getCaseReviewSnapshot(reviewRows?.[1] ?? null);
-  const reviewDelta = getCaseReviewDeltaSnapshot(reviewRows?.[0] ?? null);
+  const reviewDelta = getCaseReviewDeltaSnapshot(reviewRows?.[0] ?? null, locale);
   const answerTrace = await answerCaseQuestionWithAi({
+    language: locale,
     useCaseSlug: caseRecord.use_case_slug as SupportedUseCaseSlug,
     question: parsed.data.question,
     knowledgeContext,

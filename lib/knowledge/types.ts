@@ -3,8 +3,10 @@ import type {
   CaseIntakeValues,
   SupportedUseCaseSlug
 } from "@/lib/case-workflows";
+import type { AppLocale } from "@/lib/i18n/config";
 
-export const CASE_KNOWLEDGE_ADAPTER_VERSION = "tideus-case-knowledge-adapter-v2";
+export const CASE_KNOWLEDGE_ADAPTER_VERSION = "tideus-case-knowledge-adapter-v3";
+export const CASE_KNOWLEDGE_REFRESH_EVENT_TYPE = "knowledge_refresh_completed";
 
 export type CaseKnowledgeTrustLevel = "official-context" | "scenario-workflow" | "case-derived";
 
@@ -32,9 +34,13 @@ export type CaseKnowledgeMaterialGuidanceNote = {
 export type CaseKnowledgeContext = {
   status: "available" | "unavailable";
   source: "tideus-internal-knowledge-adapter";
-  sourceVersion: typeof CASE_KNOWLEDGE_ADAPTER_VERSION;
+  sourceVersion: string;
+  adapterVersion: typeof CASE_KNOWLEDGE_ADAPTER_VERSION;
+  sourceKind: "static-adapter" | "refreshed-snapshot";
   scenarioTag: SupportedUseCaseSlug;
+  language: AppLocale;
   generatedAt: string;
+  refreshedAt: string | null;
   processingTimeNote: CaseKnowledgeProcessingTimeNote | null;
   supportingContextNotes: string[];
   materialsGuidanceNotes: CaseKnowledgeMaterialGuidanceNote[];
@@ -82,6 +88,7 @@ export type CaseKnowledgeMaterialInterpretation = {
 };
 
 export type CaseKnowledgeInput = {
+  language: AppLocale;
   useCaseSlug: SupportedUseCaseSlug;
   intake: CaseIntakeValues;
   documents: CaseKnowledgeMaterialSnapshot[];
@@ -90,8 +97,27 @@ export type CaseKnowledgeInput = {
 };
 
 export type CaseScenarioKnowledge = {
+  processingTimeNote: CaseKnowledgeProcessingTimeNote | null;
   references: CaseKnowledgeReference[];
   supportingContextNotes: string[];
   materialsGuidanceNotes: CaseKnowledgeMaterialGuidanceNote[];
   scenarioSpecificWarnings: string[];
+  officialReferenceLabels?: string[];
+};
+
+export type CaseKnowledgeRefreshPayload = {
+  processingTimeNote: CaseKnowledgeProcessingTimeNote | null;
+  supportingContextNotes: string[];
+  materialsGuidanceNotes: CaseKnowledgeMaterialGuidanceNote[];
+  scenarioSpecificWarnings: string[];
+  officialReferenceLabels: string[];
+  references: CaseKnowledgeReference[];
+};
+
+export type CaseKnowledgeRefreshSnapshot = {
+  scenarioTag: SupportedUseCaseSlug;
+  sourceVersion: string;
+  sourceLabel: string;
+  refreshedAt: string;
+  localizedKnowledge: Partial<Record<AppLocale, CaseKnowledgeRefreshPayload>>;
 };

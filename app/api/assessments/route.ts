@@ -1,11 +1,14 @@
-import { NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
+import { NextResponse } from "next/server";
 
 import type { Json, TablesInsert } from "@/lib/database.types";
+import { getCurrentLocale } from "@/lib/i18n/server";
+import { pickLocale } from "@/lib/i18n/workspace";
 import { buildAssessmentResult, parseAssessmentInput } from "@/lib/legacy/tool-results";
 import { createClient } from "@/lib/supabase/server";
 
 export async function POST(request: Request) {
+  const locale = await getCurrentLocale();
   const body = await request.json().catch(() => null);
   const parsed = parseAssessmentInput(body);
 
@@ -23,7 +26,7 @@ export async function POST(request: Request) {
     return NextResponse.json({
       result,
       saved: false,
-      message: "Sign in to save this legacy assessment record to your dashboard archive."
+      message: pickLocale(locale, "登录后即可将这条旧评估记录保存到工作台归档。", "登入後即可將這條舊評估紀錄儲存到工作台歸檔。")
     });
   }
 
@@ -104,7 +107,7 @@ export async function POST(request: Request) {
     result,
     saved: true,
     savedRecord: data,
-    message: "Legacy assessment record saved to your dashboard archive."
+    message: pickLocale(locale, "旧评估记录已保存到工作台归档。", "舊評估紀錄已儲存到工作台歸檔。")
   });
 }
 

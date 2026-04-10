@@ -1,8 +1,15 @@
 import Link from "next/link";
 
-import { footerGroups, siteConfig } from "@/lib/site";
+import { getCurrentLocale } from "@/lib/i18n/server";
+import { getFooterGroups, getSiteConfig } from "@/lib/site";
+import { getAppMessages } from "@/lib/i18n/messages";
 
-export function SiteFooter() {
+export async function SiteFooter() {
+  const locale = await getCurrentLocale();
+  const messages = getAppMessages(locale);
+  const footerGroups = getFooterGroups(locale);
+  const siteConfig = getSiteConfig(locale);
+
   return (
     <footer className="border-t border-border/80 bg-background/90">
       <div className="mx-auto grid w-full max-w-7xl gap-12 px-4 py-16 sm:px-6 lg:grid-cols-[1.2fr_0.8fr_0.8fr] lg:px-8">
@@ -13,12 +20,10 @@ export function SiteFooter() {
             </span>
             <div>
               <p className="text-base font-semibold text-foreground">{siteConfig.name}</p>
-              <p className="text-sm text-muted-foreground">Focused case prep workspace</p>
+              <p className="text-sm text-muted-foreground">{messages.site.footerTagline}</p>
             </div>
           </div>
-          <p className="text-sm leading-6 text-muted-foreground">
-            {siteConfig.name} helps people organize narrow, document-heavy case prep work with saved intake answers, materials tracking, and structured review outputs.
-          </p>
+          <p className="text-sm leading-6 text-muted-foreground">{messages.site.footerDescription}</p>
         </div>
 
         {footerGroups.map((group) => (

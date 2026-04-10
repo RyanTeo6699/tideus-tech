@@ -1,8 +1,7 @@
 import type { CaseReviewResult } from "@/lib/case-review";
-import {
-  getUseCaseDefinition,
-  type CaseDocumentStatus
-} from "@/lib/case-workflows";
+import { getUseCaseDefinition, type CaseDocumentStatus } from "@/lib/case-workflows";
+import { pickLocale } from "@/lib/i18n/workspace";
+import { readLatestKnowledgeRefreshSnapshot, getKnowledgeRefreshPayloadForLocale } from "@/lib/knowledge/refresh";
 import { buildStudyPermitExtensionKnowledge } from "@/lib/knowledge/scenarios/study-permit-extension";
 import { buildVisitorRecordKnowledge } from "@/lib/knowledge/scenarios/visitor-record";
 import {
@@ -11,6 +10,7 @@ import {
   type CaseKnowledgeInput,
   type CaseKnowledgeMaterialGuidanceNote,
   type CaseKnowledgeProcessingTimeNote,
+  type CaseKnowledgeRefreshPayload,
   type CaseScenarioKnowledge
 } from "@/lib/knowledge/types";
 
@@ -22,11 +22,13 @@ export type {
   CaseKnowledgeMaterialSnapshot,
   CaseKnowledgeProcessingTimeNote,
   CaseKnowledgeReference,
+  CaseKnowledgeRefreshPayload,
+  CaseKnowledgeRefreshSnapshot,
   CaseKnowledgeTrustLevel
 } from "@/lib/knowledge/types";
 
-export function buildKnowledgeContext(input: CaseKnowledgeInput): CaseKnowledgeContext {
-  const definition = getUseCaseDefinition(input.useCaseSlug);
+export async function buildKnowledgeContext(input: CaseKnowledgeInput): Promise<CaseKnowledgeContext> {
+  const definition = getUseCaseDefinition(input.useCaseSlug, input.language);
   const generatedAt = new Date().toISOString();
 
   if (!definition) {
@@ -34,8 +36,12 @@ export function buildKnowledgeContext(input: CaseKnowledgeInput): CaseKnowledgeC
       status: "unavailable",
       source: "tideus-internal-knowledge-adapter",
       sourceVersion: CASE_KNOWLEDGE_ADAPTER_VERSION,
+      adapterVersion: CASE_KNOWLEDGE_ADAPTER_VERSION,
+      sourceKind: "static-adapter",
       scenarioTag: input.useCaseSlug,
+      language: input.language,
       generatedAt,
+      refreshedAt: null,
       processingTimeNote: null,
       supportingContextNotes: [],
       materialsGuidanceNotes: [],
@@ -45,41 +51,50 @@ export function buildKnowledgeContext(input: CaseKnowledgeInput): CaseKnowledgeC
     };
   }
 
-  const scenarioKnowledge = getScenarioKnowledge(input);
-  const references = scenarioKnowledge.references;
-  const processingTimeNote: CaseKnowledgeProcessingTimeNote = {
-    label: "Official processing-time check required",
-    note:
-      "Use the current IRCC processing-time reference before final handoff; Tideus stores this as a workflow reminder, not as live government processing-time data.",
-    referenceLabel: "IRCC: Check processing times",
-    freshness: "live-check-required"
-  };
+  const baseScenarioKnowledge = getScenarioKnowledge(input);
+  const refreshedSnapshot = await readLatestKnowledgeRefreshSnapshot(input.useCaseSlug);
+  const refreshedKnowledge = getKnowledgeRefreshPayloadForLocale(refreshedSnapshot, input.language);
+  const mergedScenarioKnowledge = mergeScenarioKnowledge(baseScenarioKnowledge, refreshedKnowledge);
+  const references = mergedScenarioKnowledge.references;
+  const processingTimeNote = mergedScenarioKnowledge.processingTimeNote;
 
   return {
     status: "available",
     source: "tideus-internal-knowledge-adapter",
-    sourceVersion: CASE_KNOWLEDGE_ADAPTER_VERSION,
+    sourceVersion: refreshedSnapshot?.sourceVersion ?? CASE_KNOWLEDGE_ADAPTER_VERSION,
+    adapterVersion: CASE_KNOWLEDGE_ADAPTER_VERSION,
+    sourceKind: refreshedKnowledge ? "refreshed-snapshot" : "static-adapter",
     scenarioTag: input.useCaseSlug,
+    language: input.language,
     generatedAt,
+    refreshedAt: refreshedSnapshot?.refreshedAt ?? null,
     processingTimeNote,
     supportingContextNotes: dedupeStrings([
-      "Knowledge context is internal to Tideus workflow generation and does not create a public portal, data page, or broad search surface.",
-      ...scenarioKnowledge.supportingContextNotes,
+      pickLocale(
+        input.language,
+        "这些知识上下文只用于 Tideus 内部工作流生成，不会把产品扩展成公共门户、数据页或广泛搜索入口。",
+        "這些知識上下文只用於 Tideus 內部工作流程生成，不會把產品擴展成公共入口、資料頁或廣泛搜尋入口。"
+      ),
+      ...mergedScenarioKnowledge.supportingContextNotes,
       input.intakeNormalization?.reviewNotes[0] ?? "",
       input.materialInterpretation?.items.some((item) => readMaterialIssues(item).length > 0)
         ? input.materialInterpretation.summary
         : ""
     ]).slice(0, 6),
     materialsGuidanceNotes: dedupeMaterialGuidanceNotes([
-      ...scenarioKnowledge.materialsGuidanceNotes,
+      ...mergedScenarioKnowledge.materialsGuidanceNotes,
       ...buildAiMaterialGuidanceNotes(input),
       ...buildMetadataMaterialGuidanceNotes(input)
     ]).slice(0, 10),
     scenarioSpecificWarnings: dedupeStrings([
       ...buildSharedScenarioWarnings(input),
-      ...scenarioKnowledge.scenarioSpecificWarnings
+      ...mergedScenarioKnowledge.scenarioSpecificWarnings
     ]).slice(0, 6),
-    officialReferenceLabels: references.map((item) => item.label),
+    officialReferenceLabels: dedupeStrings(
+      mergedScenarioKnowledge.officialReferenceLabels?.length
+        ? mergedScenarioKnowledge.officialReferenceLabels
+        : references.map((item) => item.label)
+    ).slice(0, 8),
     references
   };
 }
@@ -106,7 +121,11 @@ export function applyKnowledgeToReview(review: CaseReviewResult, knowledgeContex
 
   const nextSteps = dedupeStrings([
     ...review.nextSteps,
-    "Check and note the current IRCC processing-time reference before final handoff or professional review."
+    pickLocale(
+      knowledgeContext.language,
+      "在最终交接或专业审查前，请先核对并记录最新的 IRCC 处理时间参考。",
+      "在最終交接或專業審查前，請先核對並記錄最新的 IRCC 處理時間參考。"
+    )
   ]).slice(0, 6);
 
   return {
@@ -130,8 +149,12 @@ export function summarizeKnowledgeContext(context: CaseKnowledgeContext) {
   return {
     status: context.status,
     sourceVersion: context.sourceVersion,
+    adapterVersion: context.adapterVersion,
+    sourceKind: context.sourceKind,
     scenarioTag: context.scenarioTag,
+    language: context.language,
     generatedAt: context.generatedAt,
+    refreshedAt: context.refreshedAt,
     processingTimeReferenceLabel: context.processingTimeNote?.referenceLabel ?? null,
     supportingContextNoteCount: context.supportingContextNotes.length,
     materialsGuidanceNoteCount: context.materialsGuidanceNotes.length,
@@ -148,21 +171,59 @@ function getScenarioKnowledge(input: CaseKnowledgeInput): CaseScenarioKnowledge 
   return buildStudyPermitExtensionKnowledge(input);
 }
 
+function mergeScenarioKnowledge(
+  base: CaseScenarioKnowledge,
+  refreshed: CaseKnowledgeRefreshPayload | null
+): CaseScenarioKnowledge {
+  if (!refreshed) {
+    return base;
+  }
+
+  return {
+    processingTimeNote: refreshed.processingTimeNote ?? base.processingTimeNote,
+    references: refreshed.references.length > 0 ? refreshed.references : base.references,
+    supportingContextNotes:
+      refreshed.supportingContextNotes.length > 0 ? refreshed.supportingContextNotes : base.supportingContextNotes,
+    materialsGuidanceNotes:
+      refreshed.materialsGuidanceNotes.length > 0 ? refreshed.materialsGuidanceNotes : base.materialsGuidanceNotes,
+    scenarioSpecificWarnings:
+      refreshed.scenarioSpecificWarnings.length > 0 ? refreshed.scenarioSpecificWarnings : base.scenarioSpecificWarnings,
+    officialReferenceLabels:
+      refreshed.officialReferenceLabels.length > 0 ? refreshed.officialReferenceLabels : base.officialReferenceLabels
+  };
+}
+
 function buildSharedScenarioWarnings(input: CaseKnowledgeInput) {
   const warnings: string[] = [];
 
   if (input.intake.urgency === "under-30") {
     warnings.push(
-      "The status-expiry window is short, so official timing and remaining evidence work should be checked before handoff."
+      pickLocale(
+        input.language,
+        "当前身份到期窗口较短，因此在交接前应优先核对官方时间与剩余证据工作。",
+        "目前身分到期窗口較短，因此在交接前應優先核對官方時間與剩餘證據工作。"
+      )
     );
   }
 
   if (input.intake.passportValidity === "under-6") {
-    warnings.push("Passport validity may constrain the practical extension period or create an explanation issue.");
+    warnings.push(
+      pickLocale(
+        input.language,
+        "护照有效期可能限制可获批的实际延期时长，或形成额外解释压力。",
+        "護照效期可能限制可獲批的實際延期時長，或形成額外解釋壓力。"
+      )
+    );
   }
 
   if (input.intake.refusalOrComplianceIssues === "yes" || input.intakeNormalization?.explanationSignals.priorIssueMentioned) {
-    warnings.push("Prior refusal or compliance signals should stay visible as a professional-review item.");
+    warnings.push(
+      pickLocale(
+        input.language,
+        "曾有拒签或合规问题的信号应继续保持可见，并保留为人工复核项目。",
+        "曾有拒簽或合規問題的訊號應繼續保持可見，並保留為人工複核項目。"
+      )
+    );
   }
 
   return warnings;
@@ -184,7 +245,11 @@ function buildAiMaterialGuidanceNotes(input: CaseKnowledgeInput): CaseKnowledgeM
       {
         documentKey: item.documentKey,
         label: item.label,
-        note: `Material signal: ${item.interpretationNote} ${item.suggestedNextAction ?? ""}`.trim(),
+        note: pickLocale(
+          input.language,
+          `材料信号：${item.interpretationNote} ${item.suggestedNextAction ?? ""}`.trim(),
+          `材料訊號：${item.interpretationNote} ${item.suggestedNextAction ?? ""}`.trim()
+        ),
         appliesToStatuses: ["missing", "collecting", "needs-refresh", "ready"] satisfies CaseDocumentStatus[]
       }
     ];
@@ -195,7 +260,7 @@ function buildMetadataMaterialGuidanceNotes(input: CaseKnowledgeInput): CaseKnow
   return input.documents.flatMap((item) => {
     const text = `${item.materialReference ?? ""} ${item.notes ?? ""} ${item.fileName ?? ""}`.toLowerCase();
 
-    if (!containsAny(text, ["expired", "old", "outdated", "unclear", "incomplete"])) {
+    if (!containsAny(text, ["expired", "old", "outdated", "unclear", "incomplete", "过期", "過期", "旧", "舊", "不清楚", "不完整"])) {
       return [];
     }
 
@@ -203,7 +268,11 @@ function buildMetadataMaterialGuidanceNotes(input: CaseKnowledgeInput): CaseKnow
       {
         documentKey: item.documentKey,
         label: item.label,
-        note: "Material note indicates this item may need freshness or completeness review before handoff.",
+        note: pickLocale(
+          input.language,
+          "材料备注显示，这一项在交接前可能仍需要确认新鲜度或完整性。",
+          "材料備註顯示，這一項在交接前可能仍需要確認新鮮度或完整性。"
+        ),
         appliesToStatuses: ["collecting", "needs-refresh", "ready"] satisfies CaseDocumentStatus[]
       }
     ];

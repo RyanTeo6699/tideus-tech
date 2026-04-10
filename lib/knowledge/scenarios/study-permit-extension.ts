@@ -1,8 +1,19 @@
 import type { CaseKnowledgeInput, CaseScenarioKnowledge } from "@/lib/knowledge/types";
 import type { CaseDocumentStatus } from "@/lib/case-workflows";
+import { pickLocale } from "@/lib/i18n/workspace";
 
 export function buildStudyPermitExtensionKnowledge(input: CaseKnowledgeInput): CaseScenarioKnowledge {
   return {
+    processingTimeNote: {
+      label: pickLocale(input.language, "官方处理时间需复核", "官方處理時間需複核"),
+      note: pickLocale(
+        input.language,
+        "在最终交接前，请复核 IRCC 当前处理时间。Tideus 仅把它作为工作流提醒，不把它当作实时官方数据。",
+        "在最終交接前，請複核 IRCC 目前處理時間。Tideus 只把它作為工作流程提醒，不把它當作即時官方資料。"
+      ),
+      referenceLabel: "IRCC: Check processing times",
+      freshness: "live-check-required"
+    },
     references: [
       {
         label: "IRCC: Check processing times",
@@ -23,34 +34,62 @@ export function buildStudyPermitExtensionKnowledge(input: CaseKnowledgeInput): C
         freshness: "static-adapter"
       }
     ],
+    officialReferenceLabels: [
+      "IRCC: Check processing times",
+      "IRCC: Extend your study permit",
+      "IRCC: Study permit extension document checklist"
+    ],
     supportingContextNotes: [
-      "Study Permit Extension prep should keep enrolment, academic progress, funding, and extension timing aligned in one clean record.",
-      "School documents and funding evidence should support the requested extension period, not just show that some documents exist."
+      pickLocale(
+        input.language,
+        "学签延期案件应把在学状态、学习进度、资金与延期时间线整理成同一个干净记录。",
+        "學簽延期案件應把在學狀態、學習進度、資金與延期時間線整理成同一個乾淨記錄。"
+      ),
+      pickLocale(
+        input.language,
+        "学校文件与资金证明应真正支撑申请中的延期周期，而不只是证明手上有一些材料。",
+        "學校文件與資金證明應真正支撐申請中的延期週期，而不只是證明手上有一些材料。"
+      )
     ],
     materialsGuidanceNotes: [
       {
         documentKey: "enrolment-letter",
-        label: "Enrolment letter",
-        note: "Internal context: enrolment proof should be current and align with the requested extension period.",
+        label: pickLocale(input.language, "在学证明", "在學證明"),
+        note: pickLocale(
+          input.language,
+          "内部知识提示：在学证明应是最新版本，并与申请中的延期周期保持一致。",
+          "內部知識提示：在學證明應是最新版本，並與申請中的延期週期保持一致。"
+        ),
         appliesToStatuses: ["missing", "collecting", "needs-refresh", "ready"] satisfies CaseDocumentStatus[]
       },
       {
         documentKey: "transcript-or-progress",
-        label: "Transcript or progress evidence",
-        note: "Internal context: progress evidence should make academic standing or any study delay easy to understand.",
+        label: pickLocale(input.language, "成绩单或学习进度材料", "成績單或學習進度材料"),
+        note: pickLocale(
+          input.language,
+          "内部知识提示：进度材料应让学业状态与任何延误原因都能被快速理解。",
+          "內部知識提示：進度材料應讓學業狀態與任何延誤原因都能被快速理解。"
+        ),
         appliesToStatuses: ["missing", "collecting", "needs-refresh", "ready"] satisfies CaseDocumentStatus[]
       },
       {
         documentKey: "proof-of-funds",
-        label: "Proof of funds",
-        note: "Internal context: funding evidence should support the remaining study period and living-cost position.",
+        label: pickLocale(input.language, "资金证明", "資金證明"),
+        note: pickLocale(
+          input.language,
+          "内部知识提示：资金证明应覆盖剩余学习周期与生活成本，而不只是补充学校文件。",
+          "內部知識提示：資金證明應覆蓋剩餘學習週期與生活成本，而不只是補充學校文件。"
+        ),
         appliesToStatuses: ["missing", "collecting", "needs-refresh", "ready"] satisfies CaseDocumentStatus[]
       },
       {
         documentKey: "extension-explanation",
-        label: "Extension explanation letter",
-        note:
-          "Internal context: the explanation should tie program timing, funding, current status, and the extension reason together.",
+        label: pickLocale(input.language, "延期说明信", "延期說明信"),
+        note: pickLocale(
+          input.language,
+          "内部知识提示：说明信应把课程时间线、资金、当前身份与延期原因串联成一体。",
+          "內部知識提示：說明信應把課程時間線、資金、目前身分與延期原因串聯成一體。"
+        ),
         appliesToStatuses: ["missing", "collecting", "needs-refresh", "ready"] satisfies CaseDocumentStatus[]
       }
     ],
@@ -64,16 +103,32 @@ function buildStudyPermitExtensionWarnings(input: CaseKnowledgeInput) {
 
   if (intake.currentStatus && intake.currentStatus !== "student") {
     warnings.push(
-      "This Study Permit Extension workflow assumes in-status student extension prep, so the current status should be confirmed."
+      pickLocale(
+        input.language,
+        "这个学签延期工作流默认你是在以学生身份准备延期，因此需要先确认当前身份是否匹配。",
+        "這個學簽延期工作流程預設你是在以學生身分準備延期，因此需要先確認目前身分是否匹配。"
+      )
     );
   }
 
   if (intake.scenarioProgressStatus !== "good-standing" || input.intakeNormalization?.explanationSignals.schoolProgressConcern) {
-    warnings.push("Academic standing, tuition, or progress issues should be explained directly before the package is treated as clean.");
+    warnings.push(
+      pickLocale(
+        input.language,
+        "学业状态、学费或学习进度问题，应在把包件视为干净前被直接说明。",
+        "學業狀態、學費或學習進度問題，應在把包件視為乾淨前被直接說明。"
+      )
+    );
   }
 
   if (intake.supportEvidenceStatus !== "ready") {
-    warnings.push("Current enrolment evidence is central to this scenario and should be refreshed before final handoff.");
+    warnings.push(
+      pickLocale(
+        input.language,
+        "当前在学证明是这个场景中的核心材料，在最终交接前应先补齐或更新。",
+        "目前在學證明是這個場景中的核心材料，在最終交接前應先補齊或更新。"
+      )
+    );
   }
 
   return warnings;

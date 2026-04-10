@@ -4,8 +4,10 @@ import { startTransition, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import { Button } from "@/components/ui/button";
+import { useLocaleContext } from "@/lib/i18n/client";
 
 export function LogoutButton() {
+  const { locale } = useLocaleContext();
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
 
@@ -29,7 +31,7 @@ export function LogoutButton() {
 
   return (
     <Button className="w-full sm:w-auto" disabled={isLoading} onClick={handleLogout} variant="outline">
-      {isLoading ? "Signing out..." : "Sign out"}
+      {isLoading ? (locale === "zh-TW" ? "正在登出..." : "正在退出登录...") : locale === "zh-TW" ? "登出" : "退出登录"}
     </Button>
   );
 }

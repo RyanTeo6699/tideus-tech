@@ -10,13 +10,16 @@ import {
   parseCaseQuestionSaveRequest
 } from "@/lib/case-question";
 import { buildInitialCaseDocuments } from "@/lib/cases";
+import { getCurrentLocale } from "@/lib/i18n/server";
+import { pickLocale } from "@/lib/i18n/workspace";
 import { appendCaseStatusHistory, getInitialCaseStatus } from "@/lib/case-state";
 import { buildKnowledgeContext, summarizeKnowledgeContext } from "@/lib/knowledge/adapter";
 import { createClient } from "@/lib/supabase/server";
 
 export async function POST(request: Request) {
   const body = await request.json().catch(() => null);
-  const parsed = parseCaseQuestionSaveRequest(body);
+  const locale = await getCurrentLocale();
+  const parsed = parseCaseQuestionSaveRequest(body, locale);
 
   if (!parsed.success) {
     return NextResponse.json({ message: parsed.message }, { status: 400 });
@@ -28,14 +31,18 @@ export async function POST(request: Request) {
   } = await supabase.auth.getUser();
 
   if (!user) {
-    return NextResponse.json({ message: "Sign in to save this answer to a workspace." }, { status: 401 });
+    return NextResponse.json(
+      { message: pickLocale(locale, "请先登录后再把答案保存到工作台。", "請先登入後再把答案儲存到工作台。") },
+      { status: 401 }
+    );
   }
 
   const now = new Date().toISOString();
   const createdStatus = getInitialCaseStatus();
-  const intake = buildQuestionSeedIntake(parsed.data.useCase, parsed.data.question);
-  const intakeNormalization = await normalizeCaseIntakeWithAi(parsed.data.useCase, intake);
-  const knowledgeContext = buildKnowledgeContext({
+  const intake = buildQuestionSeedIntake(parsed.data.useCase, parsed.data.question, locale);
+  const intakeNormalization = await normalizeCaseIntakeWithAi(parsed.data.useCase, intake, locale);
+  const knowledgeContext = await buildKnowledgeContext({
+    language: locale,
     useCaseSlug: parsed.data.useCase,
     intake,
     documents: [],
@@ -43,6 +50,7 @@ export async function POST(request: Request) {
     materialInterpretation: null
   });
   const answerTrace = await answerCaseQuestionWithAi({
+    language: locale,
     useCaseSlug: parsed.data.useCase,
     question: parsed.data.question,
     knowledgeContext
@@ -94,10 +102,13 @@ export async function POST(request: Request) {
     .single();
 
   if (caseError || !createdCase) {
-    return NextResponse.json({ message: caseError?.message || "Unable to create the workspace." }, { status: 500 });
+    return NextResponse.json(
+      { message: caseError?.message || pickLocale(locale, "暂时无法创建工作台。", "暫時無法建立工作台。") },
+      { status: 500 }
+    );
   }
 
-  const documents = buildInitialCaseDocuments(parsed.data.useCase, intake).map((item) => ({
+  const documents = buildInitialCaseDocuments(parsed.data.useCase, intake, locale).map((item) => ({
     ...item,
     case_id: createdCase.id
   }));
@@ -141,7 +152,7 @@ export async function POST(request: Request) {
       : `/upload-materials/${createdCase.id}`;
 
   return NextResponse.json({
-    message: "Saved to workspace.",
+    message: pickLocale(locale, "已保存到工作台。", "已儲存到工作台。"),
     caseId: createdCase.id,
     nextHref
   });

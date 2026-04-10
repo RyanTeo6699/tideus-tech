@@ -1,8 +1,11 @@
 import type { CaseReviewResult as CaseReviewSnapshot } from "@/lib/case-review";
 import { formatDocumentStatus, formatReadinessStatus } from "@/lib/case-workflows";
+import { formatAppDateTime } from "@/lib/i18n/format";
+import { getCurrentLocale } from "@/lib/i18n/server";
+import { formatRiskSeverityLabel, getWorkspaceCopy } from "@/lib/i18n/workspace";
 import { EventLink } from "@/components/site/event-link";
-import { buttonVariants } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 
@@ -24,7 +27,7 @@ type CaseReviewResultProps = {
   showBookDemoCta?: boolean;
 };
 
-export function CaseReviewResult({
+export async function CaseReviewResult({
   caseId,
   caseTitle,
   useCaseTitle,
@@ -36,6 +39,8 @@ export function CaseReviewResult({
   latestReviewVersion = null,
   showBookDemoCta = false
 }: CaseReviewResultProps) {
+  const locale = await getCurrentLocale();
+  const copy = getWorkspaceCopy(locale);
   const checklistReadyCount = review.checklist.filter((item) => item.status === "ready" || item.status === "not-applicable").length;
   const checklistNeedsWorkCount = review.checklist.length - checklistReadyCount;
 
@@ -45,7 +50,7 @@ export function CaseReviewResult({
         <CardHeader className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div className="max-w-3xl">
             <Badge variant="secondary" className="mb-4 w-fit">
-              {formatReadinessStatus(review.readinessStatus)}
+              {formatReadinessStatus(review.readinessStatus, locale)}
             </Badge>
             <CardTitle className="text-3xl">{caseTitle}</CardTitle>
             <CardDescription>{useCaseTitle}</CardDescription>
@@ -64,7 +69,7 @@ export function CaseReviewResult({
                 reviewVersion: latestReviewVersion
               }}
             >
-              Update materials
+              {copy.actions.updateMaterials}
             </EventLink>
             <EventLink
               caseId={caseId}
@@ -80,7 +85,7 @@ export function CaseReviewResult({
                 riskCount: review.riskFlags.length
               }}
             >
-              Export summary
+              {copy.actions.exportSummary}
             </EventLink>
             {showBookDemoCta ? (
               <EventLink
@@ -95,7 +100,7 @@ export function CaseReviewResult({
                   reviewVersion: latestReviewVersion
                 }}
               >
-                Book demo
+                预约演示
               </EventLink>
             ) : null}
           </div>
@@ -103,22 +108,22 @@ export function CaseReviewResult({
         <CardContent className="space-y-4">
           <p className="text-lg leading-8 text-slate-900">{review.summary}</p>
           <div className="rounded-2xl border border-emerald-200 bg-white p-4 text-sm leading-6 text-slate-700">
-            <p className="font-semibold uppercase tracking-[0.18em] text-emerald-800">Readiness summary</p>
+            <p className="font-semibold uppercase tracking-[0.18em] text-emerald-800">{copy.review.readinessSummary}</p>
             <p className="mt-2">{review.readinessSummary}</p>
-            <p className="mt-4 font-semibold uppercase tracking-[0.18em] text-emerald-800">Timeline note</p>
+            <p className="mt-4 font-semibold uppercase tracking-[0.18em] text-emerald-800">{copy.review.timelineNote}</p>
             <p className="mt-2">{review.timelineNote}</p>
             {latestReviewedAt ? (
               <>
-                <p className="mt-4 font-semibold uppercase tracking-[0.18em] text-emerald-800">Latest review timestamp</p>
-                <p className="mt-2">{formatDateTime(latestReviewedAt)}</p>
+                <p className="mt-4 font-semibold uppercase tracking-[0.18em] text-emerald-800">{copy.review.latestReviewTimestamp}</p>
+                <p className="mt-2">{formatAppDateTime(latestReviewedAt, locale)}</p>
               </>
             ) : null}
           </div>
           <div className="grid gap-3 sm:grid-cols-4">
-            <SummaryPill label="Checklist ready" value={`${checklistReadyCount}/${review.checklist.length}`} />
-            <SummaryPill label="Needs work" value={checklistNeedsWorkCount.toString()} />
-            <SummaryPill label="Missing items" value={review.missingItems.length.toString()} />
-            <SummaryPill label="Risk flags" value={review.riskFlags.length.toString()} />
+            <SummaryPill label={copy.review.checklistReady} value={`${checklistReadyCount}/${review.checklist.length}`} />
+            <SummaryPill label={copy.review.needsWork} value={checklistNeedsWorkCount.toString()} />
+            <SummaryPill label={copy.review.missingItems} value={review.missingItems.length.toString()} />
+            <SummaryPill label={copy.review.riskFlags} value={review.riskFlags.length.toString()} />
           </div>
         </CardContent>
       </Card>
@@ -126,8 +131,8 @@ export function CaseReviewResult({
       <div className="grid gap-6 xl:grid-cols-2">
         <Card>
           <CardHeader>
-            <CardTitle>Checklist</CardTitle>
-            <CardDescription>The package state stays visible so the next review pass starts from facts, not memory.</CardDescription>
+            <CardTitle>{copy.review.checklist}</CardTitle>
+            <CardDescription>{copy.review.checklistDescription}</CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
             {review.checklist.map((item) => (
@@ -140,9 +145,9 @@ export function CaseReviewResult({
                 key={item.key}
               >
                 <p className="font-semibold">{item.label}</p>
-                <p className="mt-2 text-xs font-semibold uppercase tracking-[0.18em]">{formatDocumentStatus(item.status)}</p>
+                <p className="mt-2 text-xs font-semibold uppercase tracking-[0.18em]">{formatDocumentStatus(item.status, locale)}</p>
                 <p className="mt-2">{item.detail}</p>
-                {item.materialReference ? <p className="mt-2 text-slate-600">Reference: {item.materialReference}</p> : null}
+                {item.materialReference ? <p className="mt-2 text-slate-600">{`${copy.common.reference}：${item.materialReference}`}</p> : null}
               </div>
             ))}
           </CardContent>
@@ -151,12 +156,12 @@ export function CaseReviewResult({
         <div className="space-y-6">
           <Card>
             <CardHeader>
-              <CardTitle>Missing items</CardTitle>
+              <CardTitle>{copy.review.missingItems}</CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
               {review.missingItems.length === 0 ? (
                 <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm leading-6 text-slate-900">
-                  No required materials are currently marked missing.
+                  {copy.review.noMissing}
                 </div>
               ) : (
                 review.missingItems.map((item) => (
@@ -170,12 +175,12 @@ export function CaseReviewResult({
 
           <Card>
             <CardHeader>
-              <CardTitle>Risk flags</CardTitle>
+              <CardTitle>{copy.review.riskFlags}</CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
               {review.riskFlags.length === 0 ? (
                 <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm leading-6 text-slate-900">
-                  No major risk flags are visible in the current version.
+                  {copy.review.noRisk}
                 </div>
               ) : (
                 review.riskFlags.map((item) => (
@@ -188,7 +193,7 @@ export function CaseReviewResult({
                     key={`${item.label}-${item.detail}`}
                   >
                     <p className="font-semibold">{item.label}</p>
-                    <p className="mt-2 text-xs font-semibold uppercase tracking-[0.18em]">{item.severity}</p>
+                    <p className="mt-2 text-xs font-semibold uppercase tracking-[0.18em]">{formatRiskSeverityLabel(item.severity, locale)}</p>
                     <p className="mt-2">{item.detail}</p>
                   </div>
                 ))
@@ -201,7 +206,7 @@ export function CaseReviewResult({
       <div className="grid gap-6 xl:grid-cols-[1.1fr_0.9fr]">
         <Card>
           <CardHeader>
-            <CardTitle>Next steps</CardTitle>
+            <CardTitle>{copy.review.nextSteps}</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
             {review.nextSteps.map((item) => (
@@ -215,8 +220,8 @@ export function CaseReviewResult({
         {reviewHistoryFacts.length > 0 ? (
           <Card>
             <CardHeader>
-              <CardTitle>Review history</CardTitle>
-              <CardDescription>Each generated pass is saved as a version so the case history stays reviewable.</CardDescription>
+              <CardTitle>{copy.review.reviewHistory}</CardTitle>
+              <CardDescription>{copy.review.reviewHistoryDescription}</CardDescription>
             </CardHeader>
             <CardContent className="space-y-3">
               {reviewHistoryFacts.map((item) => (
@@ -234,8 +239,8 @@ export function CaseReviewResult({
         <div className="grid gap-6 xl:grid-cols-2">
           <Card>
             <CardHeader>
-              <CardTitle>Supporting context</CardTitle>
-              <CardDescription>Internal knowledge notes used to sharpen the structured review.</CardDescription>
+              <CardTitle>{copy.review.supportingContext}</CardTitle>
+              <CardDescription>{copy.review.supportingContextDescription}</CardDescription>
             </CardHeader>
             <CardContent className="space-y-3">
               {review.supportingContextNotes.length > 0 ? (
@@ -246,7 +251,7 @@ export function CaseReviewResult({
                 ))
               ) : (
                 <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm leading-6 text-slate-700">
-                  No supporting context notes were stored for this version.
+                  {copy.review.noSupportingContext}
                 </div>
               )}
             </CardContent>
@@ -254,8 +259,8 @@ export function CaseReviewResult({
 
           <Card>
             <CardHeader>
-              <CardTitle>Official context references</CardTitle>
-              <CardDescription>Reference labels retained for traceability, not as a public data portal.</CardDescription>
+              <CardTitle>{copy.review.officialReferences}</CardTitle>
+              <CardDescription>{copy.review.officialReferencesDescription}</CardDescription>
             </CardHeader>
             <CardContent className="space-y-3">
               {review.officialReferenceLabels.length > 0 ? (
@@ -266,7 +271,7 @@ export function CaseReviewResult({
                 ))
               ) : (
                 <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm leading-6 text-slate-700">
-                  No official reference labels were stored for this version.
+                  {copy.review.noOfficialReferences}
                 </div>
               )}
             </CardContent>
@@ -279,19 +284,9 @@ export function CaseReviewResult({
 
 function SummaryPill({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-2xl border border-emerald-200 bg-white p-4">
-      <p className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-800">{label}</p>
-      <p className="mt-2 text-lg font-semibold text-slate-950">{value}</p>
+    <div className="rounded-2xl border border-slate-200 bg-white p-4">
+      <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">{label}</p>
+      <p className="mt-2 text-2xl font-semibold text-slate-950">{value}</p>
     </div>
   );
-}
-
-function formatDateTime(value: string) {
-  return new Intl.DateTimeFormat("en-CA", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-    hour: "numeric",
-    minute: "2-digit"
-  }).format(new Date(value));
 }

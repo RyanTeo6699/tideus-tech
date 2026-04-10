@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { useLocaleContext } from "@/lib/i18n/client";
 import { cn } from "@/lib/utils";
 
 type ProfileFact = {
@@ -24,8 +25,9 @@ type CaseIntakeFormProps = {
 };
 
 export function CaseIntakeForm({ useCase, initialValues, profileFacts }: CaseIntakeFormProps) {
+  const { locale, messages } = useLocaleContext();
   const router = useRouter();
-  const fields = useMemo(() => getCaseIntakeFields(useCase), [useCase]);
+  const fields = useMemo(() => getCaseIntakeFields(useCase, locale), [locale, useCase]);
   const [values, setValues] = useState<CaseIntakeValues>({
     title: "",
     currentStatus: "",
@@ -43,7 +45,11 @@ export function CaseIntakeForm({ useCase, initialValues, profileFacts }: CaseInt
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [status, setStatus] = useState<"idle" | "loading" | "error">("idle");
-  const [message, setMessage] = useState("The intake will create a saved case and seed the expected materials list.");
+  const [message, setMessage] = useState(
+    locale === "zh-TW"
+      ? "這份 intake 會建立可保存的案件，並初始化對應的預期材料清單。"
+      : "这份 intake 会建立可保存的案件，并初始化对应的预期材料清单。"
+  );
 
   function validate() {
     const nextErrors: Record<string, string> = {};
@@ -51,8 +57,8 @@ export function CaseIntakeForm({ useCase, initialValues, profileFacts }: CaseInt
     for (const field of fields) {
       const value = values[field.name].trim();
 
-      if (field.required && !value) {
-        nextErrors[field.name] = "This field is required.";
+        if (field.required && !value) {
+        nextErrors[field.name] = locale === "zh-TW" ? "此欄位為必填。" : "此字段为必填。";
       }
     }
 
@@ -65,12 +71,12 @@ export function CaseIntakeForm({ useCase, initialValues, profileFacts }: CaseInt
 
     if (!validate()) {
       setStatus("error");
-      setMessage("Fix the highlighted fields before creating the case.");
+      setMessage(locale === "zh-TW" ? "請先修正高亮欄位，再建立案件。" : "请先修正高亮字段，再建立案件。");
       return;
     }
 
     setStatus("loading");
-    setMessage("Creating case workspace...");
+    setMessage(locale === "zh-TW" ? "正在建立案件工作台..." : "正在建立案件工作台...");
 
     try {
       const response = await fetch("/api/cases", {
@@ -93,7 +99,7 @@ export function CaseIntakeForm({ useCase, initialValues, profileFacts }: CaseInt
         | null;
 
       if (!response.ok || !data?.caseId || !data.nextHref) {
-        throw new Error(data?.message || "Unable to create the case.");
+        throw new Error(data?.message || (locale === "zh-TW" ? "暫時無法建立案件。" : "暂时无法建立案件。"));
       }
 
       const nextHref = data.nextHref;
@@ -104,7 +110,7 @@ export function CaseIntakeForm({ useCase, initialValues, profileFacts }: CaseInt
       });
     } catch (error) {
       setStatus("error");
-      setMessage(error instanceof Error ? error.message : "Unable to create the case.");
+      setMessage(error instanceof Error ? error.message : locale === "zh-TW" ? "暫時無法建立案件。" : "暂时无法建立案件。");
     }
   }
 
@@ -113,13 +119,13 @@ export function CaseIntakeForm({ useCase, initialValues, profileFacts }: CaseInt
       aside={
         <div className="space-y-6">
           <div>
-            <p className="text-sm font-semibold uppercase tracking-[0.2em] text-muted-foreground">What happens next</p>
+            <p className="text-sm font-semibold uppercase tracking-[0.2em] text-muted-foreground">{locale === "zh-TW" ? "接下來會發生什麼" : "接下来会发生什么"}</p>
             <div className="mt-4 space-y-3">
               {[
-                "The case record is created and saved to your dashboard.",
-                "Optional notes are normalized into structured workflow signals when possible.",
-                "The expected materials list is seeded for this workflow.",
-                "The next step moves directly into the materials review."
+                locale === "zh-TW" ? "案件紀錄會建立並保存到你的工作台。" : "案件记录会建立并保存到你的工作台。",
+                locale === "zh-TW" ? "可選備註會在可能時被規範化為結構化工作流程訊號。" : "可选备注会在可能时被规范化为结构化工作流信号。",
+                locale === "zh-TW" ? "系統會為這個工作流程初始化預期材料清單。" : "系统会为这个工作流初始化预期材料清单。",
+                locale === "zh-TW" ? "下一步會直接進入材料審查。" : "下一步会直接进入材料审查。"
               ].map((item) => (
                 <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm leading-6 text-slate-700" key={item}>
                   {item}
@@ -129,11 +135,15 @@ export function CaseIntakeForm({ useCase, initialValues, profileFacts }: CaseInt
           </div>
 
           <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm leading-6 text-slate-900">
-            <p className="font-semibold uppercase tracking-[0.18em] text-emerald-800">Saved profile context</p>
+            <p className="font-semibold uppercase tracking-[0.18em] text-emerald-800">{locale === "zh-TW" ? "已保存的資料檔案脈絡" : "已保存的资料档案上下文"}</p>
             <p className="mt-2">
               {profileFacts.length > 0
-                ? "Saved profile facts are already helping shape this intake so the workflow does not ask for the same core details again."
-                : "You can still complete the case without a saved profile, but the profile page makes future intake steps shorter."}
+                ? locale === "zh-TW"
+                  ? "已保存的資料檔案事實會直接幫助塑造這份 intake，讓工作流程不需要重複詢問同樣的核心背景。"
+                  : "已保存的资料档案事实会直接帮助塑造这份 intake，让工作流不需要重复询问同样的核心背景。"
+                : locale === "zh-TW"
+                  ? "沒有保存資料檔案也可以完成案件，但資料檔案頁面能讓未來的 intake 更短。"
+                  : "没有保存资料档案也可以完成案件，但资料档案页面能让未来的 intake 更短。"}
             </p>
           </div>
 
@@ -176,7 +186,7 @@ export function CaseIntakeForm({ useCase, initialValues, profileFacts }: CaseInt
                     onChange={(event) => setValues((current) => ({ ...current, [field.name]: event.target.value }))}
                     value={values[field.name]}
                   >
-                    <option value="">Select one</option>
+                    <option value="">{messages.common.selectOne}</option>
                     {field.options?.map((option) => (
                       <option key={option.value} value={option.value}>
                         {option.label}
@@ -206,12 +216,20 @@ export function CaseIntakeForm({ useCase, initialValues, profileFacts }: CaseInt
             "border-red-200 bg-red-50 text-red-700": status === "error"
           })}
         >
-          <p className="font-semibold uppercase tracking-[0.18em]">{status === "loading" ? "Working" : status === "error" ? "Error" : "Ready"}</p>
+          <p className="font-semibold uppercase tracking-[0.18em]">
+            {status === "loading" ? messages.common.working : status === "error" ? messages.common.error : messages.common.ready}
+          </p>
           <p className="mt-2">{message}</p>
         </div>
 
         <Button disabled={status === "loading"} type="submit">
-          {status === "loading" ? "Creating case..." : "Save intake and continue"}
+          {status === "loading"
+            ? locale === "zh-TW"
+              ? "正在建立案件..."
+              : "正在建立案件..."
+            : locale === "zh-TW"
+              ? "保存 intake 並繼續"
+              : "保存 intake 并继续"}
         </Button>
       </form>
     </FormShell>

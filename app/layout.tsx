@@ -1,20 +1,11 @@
 import type { Metadata } from "next";
-import { Fraunces, Plus_Jakarta_Sans } from "next/font/google";
 
-import { siteConfig } from "@/lib/site";
+import { LocaleProvider } from "@/lib/i18n/client";
+import { getLocaleContext } from "@/lib/i18n/server";
+import { getSiteConfig } from "@/lib/site";
 import "./globals.css";
 
-const plusJakartaSans = Plus_Jakarta_Sans({
-  subsets: ["latin"],
-  variable: "--font-plus-jakarta",
-  display: "swap"
-});
-
-const fraunces = Fraunces({
-  subsets: ["latin"],
-  variable: "--font-fraunces",
-  display: "swap"
-});
+const siteConfig = getSiteConfig();
 
 export const metadata: Metadata = {
   title: siteConfig.name,
@@ -22,14 +13,20 @@ export const metadata: Metadata = {
   applicationName: siteConfig.name
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const { locale, messages } = await getLocaleContext();
+
   return (
-    <html className={`${plusJakartaSans.variable} ${fraunces.variable}`} lang="en">
-      <body>{children}</body>
+    <html lang={locale}>
+      <body>
+        <LocaleProvider locale={locale} messages={messages}>
+          {children}
+        </LocaleProvider>
+      </body>
     </html>
   );
 }

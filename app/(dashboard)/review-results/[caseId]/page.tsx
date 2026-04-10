@@ -8,6 +8,8 @@ import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { getCaseDetail, getCaseReviewSnapshot, getReviewHistoryFacts } from "@/lib/cases";
 import { getUseCaseDefinition } from "@/lib/case-workflows";
+import { getCurrentLocale } from "@/lib/i18n/server";
+import { getWorkspaceCopy } from "@/lib/i18n/workspace";
 
 type ReviewResultsPageProps = {
   params: Promise<{
@@ -20,6 +22,8 @@ export default async function ReviewResultsPage({ params }: ReviewResultsPagePro
   const detail = await getCaseDetail(caseId, {
     resumeSource: "review-results"
   });
+  const locale = await getCurrentLocale();
+  const copy = getWorkspaceCopy(locale);
 
   if (!detail.user) {
     redirect(`/login?next=${encodeURIComponent(`/review-results/${caseId}`)}`);
@@ -30,14 +34,14 @@ export default async function ReviewResultsPage({ params }: ReviewResultsPagePro
   }
 
   const review = getCaseReviewSnapshot(detail.latestReview);
-  const useCase = getUseCaseDefinition(detail.caseRecord.use_case_slug);
+  const useCase = getUseCaseDefinition(detail.caseRecord.use_case_slug, locale);
 
   return (
     <WorkspaceShell
-      actions={[{ href: `/dashboard/cases/${caseId}`, label: "View case", variant: "outline" }]}
-      description="This result is the saved review version for the current package state."
-      eyebrow="Review Results"
-      title={`${detail.caseRecord.title} review`}
+      actions={[{ href: `/dashboard/cases/${caseId}`, label: copy.actions.viewCase, variant: "outline" }]}
+      description="这是一份与当前材料包状态对应的已保存审查版本。"
+      eyebrow={copy.shell.reviewEyebrow}
+      title={`${detail.caseRecord.title} · ${copy.shell.reviewEyebrow}`}
     >
       {review ? (
         <CaseReviewResult
@@ -46,7 +50,7 @@ export default async function ReviewResultsPage({ params }: ReviewResultsPagePro
           latestReviewedAt={detail.latestReview?.created_at ?? detail.caseRecord.latest_reviewed_at}
           latestReviewVersion={detail.latestReview?.version_number ?? detail.caseRecord.latest_review_version}
           review={review}
-          reviewHistoryFacts={getReviewHistoryFacts(detail.reviewHistory)}
+          reviewHistoryFacts={getReviewHistoryFacts(detail.reviewHistory, locale)}
           showBookDemoCta
           sourceSurface="review-results-page"
           useCaseSlug={detail.caseRecord.use_case_slug}
@@ -55,8 +59,8 @@ export default async function ReviewResultsPage({ params }: ReviewResultsPagePro
       ) : (
         <Card>
           <CardHeader>
-            <CardTitle>No review version yet</CardTitle>
-            <CardDescription>The materials state has not been turned into a saved review output yet.</CardDescription>
+            <CardTitle>{copy.common.noReviewYet}</CardTitle>
+            <CardDescription>当前材料状态还没有生成可保存的结构化审查结果。</CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col gap-3 sm:flex-row">
             <EventLink
@@ -72,10 +76,10 @@ export default async function ReviewResultsPage({ params }: ReviewResultsPagePro
                 reviewVersion: detail.caseRecord.latest_review_version
               }}
             >
-              Return to materials
+              {copy.actions.returnToMaterials}
             </EventLink>
             <Link className={buttonVariants({ variant: "outline", size: "sm" })} href={`/dashboard/cases/${caseId}`}>
-              View case detail
+              {copy.actions.viewDetail}
             </Link>
           </CardContent>
         </Card>

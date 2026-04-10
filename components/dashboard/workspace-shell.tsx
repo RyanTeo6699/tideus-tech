@@ -1,8 +1,10 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
 
-import { buttonVariants } from "@/components/ui/button";
+import { getCurrentLocale } from "@/lib/i18n/server";
+import { LanguageSwitcher } from "@/components/site/language-switcher";
 import { Badge } from "@/components/ui/badge";
+import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 
@@ -20,11 +22,13 @@ type WorkspaceShellProps = {
   children: ReactNode;
 };
 
-export function WorkspaceShell({ eyebrow, title, description, actions = [], children }: WorkspaceShellProps) {
+export async function WorkspaceShell({ eyebrow, title, description, actions = [], children }: WorkspaceShellProps) {
+  await getCurrentLocale();
+
   return (
     <div className="min-h-screen bg-slate-950 text-slate-50">
       <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 py-6 sm:px-6 lg:px-8">
-        <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:justify-between">
+        <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
           <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
             {actions.map((action) => (
               <Link
@@ -42,6 +46,7 @@ export function WorkspaceShell({ eyebrow, title, description, actions = [], chil
               </Link>
             ))}
           </div>
+          <LanguageSwitcher />
         </div>
 
         <Card className="border-white/10 bg-white text-slate-950">

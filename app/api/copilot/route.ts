@@ -1,7 +1,9 @@
-import { NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
+import { NextResponse } from "next/server";
 
 import type { TablesInsert, TablesUpdate } from "@/lib/database.types";
+import { getCurrentLocale } from "@/lib/i18n/server";
+import { pickLocale } from "@/lib/i18n/workspace";
 import { generateCopilotStructuredResponse } from "@/lib/legacy/copilot-ai";
 import {
   buildCopilotAssistantMessageText,
@@ -14,6 +16,7 @@ import {
 import { createClient } from "@/lib/supabase/server";
 
 export async function POST(request: Request) {
+  const locale = await getCurrentLocale();
   const body = await request.json().catch(() => null);
   const parsed = parseCopilotInput(body);
 
@@ -27,7 +30,10 @@ export async function POST(request: Request) {
   } = await supabase.auth.getUser();
 
   if (!user) {
-    return NextResponse.json({ message: "Sign in to use Copilot." }, { status: 401 });
+    return NextResponse.json(
+      { message: pickLocale(locale, "请先登录后再使用归档助手。", "請先登入後再使用歸檔助手。") },
+      { status: 401 }
+    );
   }
 
   let threadId = parsed.data.threadId;
@@ -46,7 +52,10 @@ export async function POST(request: Request) {
     }
 
     if (!existingThread) {
-      return NextResponse.json({ message: "The selected thread could not be found." }, { status: 404 });
+      return NextResponse.json(
+        { message: pickLocale(locale, "未找到所选归档线程。", "未找到所選歸檔執行緒。") },
+        { status: 404 }
+      );
     }
 
     threadTitle = existingThread.title;
@@ -68,7 +77,14 @@ export async function POST(request: Request) {
       .single();
 
     if (createThreadError || !createdThread) {
-      return NextResponse.json({ message: createThreadError?.message || "Unable to create a new thread." }, { status: 500 });
+      return NextResponse.json(
+        {
+          message:
+            createThreadError?.message ||
+            pickLocale(locale, "暂时无法创建新的归档线程。", "暫時無法建立新的歸檔執行緒。")
+        },
+        { status: 500 }
+      );
     }
 
     threadId = createdThread.id;
@@ -76,7 +92,10 @@ export async function POST(request: Request) {
   }
 
   if (!threadId) {
-    return NextResponse.json({ message: "Unable to resolve the Copilot thread." }, { status: 500 });
+    return NextResponse.json(
+      { message: pickLocale(locale, "暂时无法定位归档助手线程。", "暫時無法定位歸檔助手執行緒。") },
+      { status: 500 }
+    );
   }
 
   const { data: profile } = await supabase
@@ -149,7 +168,7 @@ export async function POST(request: Request) {
   revalidatePath("/dashboard/copilot");
 
   return NextResponse.json({
-    message: "Copilot response saved.",
+    message: pickLocale(locale, "归档助手回复已保存。", "歸檔助手回覆已儲存。"),
     threadId,
     threadTitle,
     response: generation.response

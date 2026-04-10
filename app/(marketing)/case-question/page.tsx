@@ -4,9 +4,13 @@ import { PageHero } from "@/components/site/page-hero";
 import { SectionContainer } from "@/components/site/section-container";
 import { buttonVariants } from "@/components/ui/button";
 import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { supportedUseCases } from "@/lib/case-workflows";
+import { getSupportedUseCases } from "@/lib/case-workflows";
+import { getLocaleContext } from "@/lib/i18n/server";
 
-export default function CaseQuestionPage() {
+export default async function CaseQuestionPage() {
+  const { locale, messages } = await getLocaleContext();
+  const supportedUseCases = getSupportedUseCases(locale);
+
   return (
     <>
       <PageHero
@@ -21,7 +25,7 @@ export default function CaseQuestionPage() {
                 cta: "start-case"
               }}
             >
-              Start a Case
+              {messages.caseQuestionPage.startCase}
             </EventLink>
             <EventLink
               className={buttonVariants({ variant: "outline", size: "lg" })}
@@ -31,25 +35,21 @@ export default function CaseQuestionPage() {
                 sourceSurface: "case-question-page-hero"
               }}
             >
-              Book demo
+              {messages.caseQuestionPage.bookDemo}
             </EventLink>
           </>
         }
-        description="Ask a focused question tied to Visitor Record or Study Permit Extension prep, then turn the structured answer into workspace actions."
-        eyebrow="AI Front Door"
-        title="Ask a case-prep question without leaving the workflow."
+        description={messages.caseQuestionPage.description}
+        eyebrow={messages.caseQuestionPage.eyebrow}
+        title={messages.caseQuestionPage.title}
       />
 
       <SectionContainer className="pb-12">
         <div className="grid gap-4 md:grid-cols-3">
-          {[
-            "Structured answers instead of open-ended chat",
-            "Current wedge scenarios only",
-            "Tracker actions that can become a saved case workspace"
-          ].map((item) => (
+          {messages.caseQuestionPage.boundaryItems.map((item) => (
             <Card className="border-slate-200 bg-slate-50 shadow-none" key={item}>
               <CardHeader>
-                <CardTitle className="text-xl">Boundary</CardTitle>
+                <CardTitle className="text-xl">{messages.caseQuestionPage.boundaryCardTitle}</CardTitle>
                 <CardDescription>{item}</CardDescription>
               </CardHeader>
             </Card>
