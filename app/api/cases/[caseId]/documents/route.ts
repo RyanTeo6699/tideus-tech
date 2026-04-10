@@ -155,12 +155,13 @@ export async function PATCH(request: Request, { params }: CaseDocumentsRouteProp
     buildCaseMaterialSnapshots(proposedDocuments)
   );
   const materialInterpretationSummary = summarizeMaterialInterpretationIssues(materialInterpretation.output);
+  const materialPossibleIssueCount = materialInterpretationSummary.possibleIssueCount ?? 0;
   const reviewRegenerationRecommended = shouldRecommendReviewRegeneration({
     currentStatus,
     changedMaterialsCount,
     changedRequiredMaterialsCount,
     requiredActionCount,
-    materialIssueCount: materialInterpretationSummary.possibleIssueCount
+    materialIssueCount: materialPossibleIssueCount
   });
   const likelyReadinessImpact = buildLikelyReadinessImpact({
     changedMaterialsCount,
@@ -176,7 +177,7 @@ export async function PATCH(request: Request, { params }: CaseDocumentsRouteProp
     requiredReadyCount,
     requiredMissingCount,
     requiredActionCount,
-    possibleIssueCount: materialInterpretationSummary.possibleIssueCount,
+    possibleIssueCount: materialPossibleIssueCount,
     likelySupportingDocSuggestionCount: materialInterpretationSummary.likelySupportingDocSuggestionCount,
     reviewRegenerationRecommended,
     likelyReadinessImpact,
@@ -229,7 +230,7 @@ export async function PATCH(request: Request, { params }: CaseDocumentsRouteProp
       materialInterpretationSource: materialInterpretation.source,
       materialInterpretationPromptVersion: materialInterpretation.promptVersion,
       materialIssueFlagCount: materialInterpretationSummary.issueFlagCount,
-      materialPossibleIssueCount: materialInterpretationSummary.possibleIssueCount,
+      materialPossibleIssueCount,
       materialLikelySupportingDocSuggestionCount: materialInterpretationSummary.likelySupportingDocSuggestionCount,
       materialSuggestedStatusChangesCount: materialInterpretationSummary.suggestedStatusChangesCount,
       materialRecommendedStatusReviewCount: materialInterpretationSummary.recommendedStatusReviewCount,

@@ -131,17 +131,19 @@ export function CaseQuestionEntry({ useCases }: CaseQuestionEntryProps) {
         throw new Error(data?.message || "Sign in to save this answer.");
       }
 
-      if (!response.ok || !data?.caseId || !data.nextHref) {
+      if (!response.ok || !data?.caseId || typeof data.nextHref !== "string") {
         throw new Error(data?.message || "Unable to save this answer.");
       }
 
-      setNextHref(data.nextHref);
+      const savedNextHref = data.nextHref;
+
+      setNextHref(savedNextHref);
       setSaveStatus("success");
       setSaveMessage("Saved as a case workspace with seeded materials and tracker actions.");
 
       if (action === "continue-in-case-workspace") {
         startTransition(() => {
-          router.push(data.nextHref);
+          router.push(savedNextHref);
           router.refresh();
         });
       }
