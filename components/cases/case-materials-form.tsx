@@ -43,6 +43,19 @@ type MaterialRow = {
   uploadMessage: string;
 };
 
+type MaterialImpact = {
+  changedCount: number;
+  changedRequiredCount: number;
+  requiredReadyCount: number;
+  requiredMissingCount: number;
+  requiredActionCount: number;
+  possibleIssueCount: number;
+  likelySupportingDocSuggestionCount: number;
+  reviewRegenerationRecommended: boolean;
+  likelyReadinessImpact: string;
+  suggestedNextAction: string;
+};
+
 export function CaseMaterialsForm({ caseId, caseTitle, useCaseTitle, documents }: CaseMaterialsFormProps) {
   const router = useRouter();
   const [values, setValues] = useState<MaterialRow[]>(
@@ -175,7 +188,12 @@ export function CaseMaterialsForm({ caseId, caseTitle, useCaseTitle, documents }
         })
       });
 
-      const saveData = (await saveResponse.json().catch(() => null)) as { message?: string } | null;
+      const saveData = (await saveResponse.json().catch(() => null)) as
+        | {
+            message?: string;
+            materialImpact?: MaterialImpact;
+          }
+        | null;
 
       if (!saveResponse.ok) {
         throw new Error(saveData?.message || "Unable to save the materials state.");
@@ -183,7 +201,7 @@ export function CaseMaterialsForm({ caseId, caseTitle, useCaseTitle, documents }
 
       if (!generateReview) {
         setStatus("success");
-        setMessage(saveData?.message || "Materials saved.");
+        setMessage(buildMaterialImpactMessage(saveData?.message || "Materials saved.", saveData?.materialImpact));
         startTransition(() => {
           router.refresh();
         });
@@ -396,4 +414,17 @@ function formatDateTime(value: string) {
     hour: "numeric",
     minute: "2-digit"
   }).format(new Date(value));
+}
+
+function buildMaterialImpactMessage(baseMessage: string, impact: MaterialImpact | undefined) {
+  if (!impact) {
+    return baseMessage;
+  }
+
+  return [
+    baseMessage,
+    `${impact.changedCount} material update${impact.changedCount === 1 ? "" : "s"} detected.`,
+    impact.likelyReadinessImpact,
+    impact.reviewRegenerationRecommended ? impact.suggestedNextAction : "Regenerate review after the next meaningful material change."
+  ].join(" ");
 }

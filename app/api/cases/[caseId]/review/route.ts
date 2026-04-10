@@ -4,16 +4,17 @@ import { revalidatePath } from "next/cache";
 import type { Json, TablesInsert } from "@/lib/database.types";
 import {
   buildCaseMaterialSnapshots,
+  buildCaseHandoffIntelligenceWithAi,
   buildCaseReviewDeltaWithAi,
   enrichCaseReviewWithAi,
   parseStoredIntakeNormalization,
   parseStoredMaterialInterpretation
 } from "@/lib/case-ai";
 import {
-  applyCaseKnowledgeToReview,
-  buildCaseKnowledgeContext,
-  summarizeCaseKnowledgeContext
-} from "@/lib/case-knowledge";
+  applyKnowledgeToReview,
+  buildKnowledgeContext,
+  summarizeKnowledgeContext
+} from "@/lib/knowledge/adapter";
 import { recordCaseEvent } from "@/lib/case-events";
 import { buildLatestReviewForCase, getCaseReviewSnapshot, readCaseIntake } from "@/lib/cases";
 import { appendCaseStatusHistory, getNextCaseStatus, normalizeCaseStatus } from "@/lib/case-state";
@@ -37,29 +38,33 @@ export async function POST(_request: Request, { params }: CaseReviewRouteProps) 
     return NextResponse.json({ message: "Sign in to generate a case review." }, { status: 401 });
   }
 
-  const [{ data: caseRecord, error: caseError }, { data: documents, error: documentsError }, { data: latestReviewRow, error: latestReviewError }] =
-    await Promise.all([
-      supabase
-        .from("cases")
-        .select("*")
-        .eq("user_id", user.id)
-        .eq("id", caseId)
-        .maybeSingle(),
-      supabase.from("case_documents").select("*").eq("case_id", caseId).order("position", { ascending: true }),
-      supabase.from("case_review_versions").select("*").eq("case_id", caseId).order("version_number", { ascending: false }).limit(1)
-    ]);
+  const { data: caseRecord, error: caseError } = await supabase
+    .from("cases")
+    .select("*")
+    .eq("user_id", user.id)
+    .eq("id", caseId)
+    .maybeSingle();
 
-  if (caseError || documentsError || latestReviewError) {
-    return NextResponse.json(
-      {
-        message: caseError?.message || documentsError?.message || latestReviewError?.message || "Unable to load the case."
-      },
-      { status: 500 }
-    );
+  if (caseError) {
+    return NextResponse.json({ message: caseError.message }, { status: 500 });
   }
 
   if (!caseRecord) {
     return NextResponse.json({ message: "The selected case could not be found." }, { status: 404 });
+  }
+
+  const [{ data: documents, error: documentsError }, { data: latestReviewRow, error: latestReviewError }] = await Promise.all([
+    supabase.from("case_documents").select("*").eq("case_id", caseRecord.id).order("position", { ascending: true }),
+    supabase.from("case_review_versions").select("*").eq("case_id", caseRecord.id).order("version_number", { ascending: false }).limit(1)
+  ]);
+
+  if (documentsError || latestReviewError) {
+    return NextResponse.json(
+      {
+        message: documentsError?.message || latestReviewError?.message || "Unable to load the case."
+      },
+      { status: 500 }
+    );
   }
 
   const currentStatus = normalizeCaseStatus(caseRecord.status);
@@ -74,14 +79,14 @@ export async function POST(_request: Request, { params }: CaseReviewRouteProps) 
   const materialSnapshots = buildCaseMaterialSnapshots(documents ?? []);
   const intakeNormalization = parseStoredIntakeNormalization(caseRecord.metadata);
   const materialInterpretation = parseStoredMaterialInterpretation(caseRecord.metadata);
-  const knowledgeContext = buildCaseKnowledgeContext({
+  const knowledgeContext = buildKnowledgeContext({
     useCaseSlug: caseRecord.use_case_slug as SupportedUseCaseSlug,
     intake,
     documents: materialSnapshots,
     intakeNormalization,
     materialInterpretation
   });
-  const baselineReview = applyCaseKnowledgeToReview(deterministicReview, knowledgeContext);
+  const baselineReview = applyKnowledgeToReview(deterministicReview, knowledgeContext);
   const aiReview = await enrichCaseReviewWithAi({
     useCaseSlug: caseRecord.use_case_slug as SupportedUseCaseSlug,
     intake,
@@ -100,6 +105,13 @@ export async function POST(_request: Request, { params }: CaseReviewRouteProps) 
       })
     : null;
   const nextVersion = (latestReviewRow?.[0]?.version_number ?? 0) + 1;
+  const handoffIntelligence = await buildCaseHandoffIntelligenceWithAi({
+    useCaseSlug: caseRecord.use_case_slug as SupportedUseCaseSlug,
+    caseTitle: caseRecord.title,
+    reviewVersion: nextVersion,
+    latestReview: review,
+    knowledgeContext
+  });
   const now = new Date().toISOString();
   const nextStatus = getNextCaseStatus(currentStatus, "reviewed");
   const eventType = nextVersion > 1 ? "review_regenerated" : "review_generated";
@@ -111,7 +123,7 @@ export async function POST(_request: Request, { params }: CaseReviewRouteProps) 
   const mediumRiskCount = review.riskFlags.filter((item) => item.severity === "medium").length;
 
   const reviewInsert: TablesInsert<"case_review_versions"> = {
-    case_id: caseId,
+    case_id: caseRecord.id,
     version_number: nextVersion,
     readiness_status: review.readinessStatus,
     readiness_summary: review.readinessSummary,
@@ -123,12 +135,18 @@ export async function POST(_request: Request, { params }: CaseReviewRouteProps) 
     next_steps: review.nextSteps,
     metadata: {
       source: aiReview.trace.source === "openai" ? "knowledge-ai-enriched-case-review" : "knowledge-enhanced-deterministic-case-review",
+      reviewSupport: {
+        supportingContextNotes: review.supportingContextNotes,
+        officialReferenceLabels: review.officialReferenceLabels
+      },
       knowledgeAdapter: knowledgeContext as Json,
       aiWorkflow: {
         reviewGeneration: aiReview.trace as Json,
-        reviewDelta: reviewDelta as Json | null
+        reviewDelta: reviewDelta as Json | null,
+        handoffIntelligence: handoffIntelligence as Json
       },
-      reviewDelta: reviewDelta?.output ?? null
+      reviewDelta: (reviewDelta?.output ?? null) as Json | null,
+      handoffIntelligence: handoffIntelligence.output as Json
     }
   };
 
@@ -151,14 +169,14 @@ export async function POST(_request: Request, { params }: CaseReviewRouteProps) 
       status_history: appendCaseStatusHistory(caseRecord.status_history, nextStatus, now)
     })
     .eq("user_id", user.id)
-    .eq("id", caseId);
+    .eq("id", caseRecord.id);
 
   if (updateCaseError) {
     return NextResponse.json({ message: updateCaseError.message }, { status: 500 });
   }
 
   const eventError = await recordCaseEvent(supabase, {
-    caseId,
+    caseId: caseRecord.id,
     userId: user.id,
     eventType,
     status: nextStatus,
@@ -179,12 +197,17 @@ export async function POST(_request: Request, { params }: CaseReviewRouteProps) 
       knowledgeAdapterStatus: knowledgeContext.status,
       knowledgeSourceVersion: knowledgeContext.sourceVersion,
       knowledgeScenarioTag: knowledgeContext.scenarioTag,
-      knowledgeSummary: summarizeCaseKnowledgeContext(knowledgeContext),
+      knowledgeSummary: summarizeKnowledgeContext(knowledgeContext),
       reviewGenerationSource: aiReview.trace.source,
       reviewPromptVersion: aiReview.trace.promptVersion,
       deltaGenerated: Boolean(reviewDelta),
       deltaSource: reviewDelta?.source ?? null,
-      deltaPromptVersion: reviewDelta?.promptVersion ?? null
+      deltaPromptVersion: reviewDelta?.promptVersion ?? null,
+      deltaRemovedRiskCount: reviewDelta?.output.removedRisks.length ?? 0,
+      handoffIntelligenceSource: handoffIntelligence.source,
+      handoffIntelligencePromptVersion: handoffIntelligence.promptVersion,
+      handoffEscalationTriggerCount: handoffIntelligence.output.escalationTriggers.length,
+      handoffHumanReviewIssueCount: handoffIntelligence.output.issuesNeedingHumanReview.length
     },
     createdAt: now
   });

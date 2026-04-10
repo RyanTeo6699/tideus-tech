@@ -9,6 +9,7 @@ export const siteConfig = {
 export const mainNav = [
   { label: "How It Works", href: "/how-it-works" },
   { label: "Use Cases", href: "/use-cases" },
+  { label: "Ask Question", href: "/case-question" },
   { label: "Start a Case", href: "/start-case" },
   { label: "Trust & Boundaries", href: "/trust" },
   { label: "Case Dashboard", href: "/dashboard" }
@@ -20,6 +21,7 @@ export const footerGroups = [
     links: [
       { label: "How It Works", href: "/how-it-works" },
       { label: "Use Cases", href: "/use-cases" },
+      { label: "Ask Question", href: "/case-question" },
       { label: "Start a Case", href: "/start-case" },
       { label: "Case Dashboard", href: "/dashboard" }
     ]

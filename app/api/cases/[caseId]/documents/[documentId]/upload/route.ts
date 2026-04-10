@@ -46,7 +46,7 @@ export async function POST(request: Request, { params }: CaseDocumentUploadRoute
   const { data: document, error: documentError } = await supabase
     .from("case_documents")
     .select("id, status, storage_path")
-    .eq("case_id", caseId)
+    .eq("case_id", caseRecord.id)
     .eq("id", documentId)
     .maybeSingle();
 
@@ -92,7 +92,7 @@ export async function POST(request: Request, { params }: CaseDocumentUploadRoute
 
   const storagePath = buildCaseDocumentStoragePath({
     userId: user.id,
-    caseId,
+    caseId: caseRecord.id,
     documentId,
     fileName: file.name
   });
@@ -125,7 +125,7 @@ export async function POST(request: Request, { params }: CaseDocumentUploadRoute
       mime_type: file.type,
       uploaded_at: uploadedAt
     })
-    .eq("case_id", caseId)
+    .eq("case_id", caseRecord.id)
     .eq("id", documentId);
 
   if (updateError) {
@@ -134,9 +134,9 @@ export async function POST(request: Request, { params }: CaseDocumentUploadRoute
 
   revalidatePath("/dashboard");
   revalidatePath("/dashboard/cases");
-  revalidatePath(`/dashboard/cases/${caseId}`);
-  revalidatePath(`/upload-materials/${caseId}`);
-  revalidatePath(`/review-results/${caseId}`);
+  revalidatePath(`/dashboard/cases/${caseRecord.id}`);
+  revalidatePath(`/upload-materials/${caseRecord.id}`);
+  revalidatePath(`/review-results/${caseRecord.id}`);
 
   return NextResponse.json({
     message: "File uploaded.",

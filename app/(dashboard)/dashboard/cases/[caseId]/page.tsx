@@ -1,6 +1,8 @@
 import { notFound, redirect } from "next/navigation";
 
+import { CaseQuestionPanel } from "@/components/cases/case-question-panel";
 import { CaseReviewResult } from "@/components/cases/case-review-result";
+import { MaterialWorkspaceActions } from "@/components/cases/material-workspace-actions";
 import { WorkspaceShell } from "@/components/dashboard/workspace-shell";
 import { EventLink } from "@/components/site/event-link";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -18,7 +20,7 @@ import {
   getCaseReviewSnapshot,
   getReviewHistoryFacts
 } from "@/lib/cases";
-import { formatReadinessStatus, getUseCaseDefinition } from "@/lib/case-workflows";
+import { formatReadinessStatus, getUseCaseDefinition, type SupportedUseCaseSlug } from "@/lib/case-workflows";
 import { buttonVariants } from "@/components/ui/button";
 
 type CaseDetailPageProps = {
@@ -47,7 +49,7 @@ export default async function CaseDetailPage({ params }: CaseDetailPageProps) {
   const reviewDelta = getCaseReviewDeltaSnapshot(detail.latestReview);
   const materialInterpretation = getCaseMaterialInterpretationSnapshot(detail.caseRecord);
   const intakeNormalization = getCaseIntakeNormalizationSnapshot(detail.caseRecord);
-  const materialSignals = materialInterpretation?.items.filter((item) => item.issueFlags.length > 0).slice(0, 4) ?? [];
+  const materialSignals = materialInterpretation?.items.filter((item) => item.possibleIssues.length > 0).slice(0, 4) ?? [];
   const latestReviewedLabel = detail.caseRecord.latest_reviewed_at ? formatDateTime(detail.caseRecord.latest_reviewed_at) : "Not reviewed yet";
   const latestReadinessLabel = detail.caseRecord.latest_readiness_status
     ? formatReadinessStatus(detail.caseRecord.latest_readiness_status)
@@ -211,6 +213,7 @@ export default async function CaseDetailPage({ params }: CaseDetailPageProps) {
                     <DeltaBlock title="Improved areas" items={reviewDelta.improvedAreas} />
                     <DeltaBlock title="Remaining gaps" items={reviewDelta.remainingGaps} />
                     <DeltaBlock title="New risks" items={reviewDelta.newRisks} />
+                    <DeltaBlock title="Removed risks" items={reviewDelta.removedRisks} />
                     <DeltaBlock title="Priority actions" items={reviewDelta.priorityActions} />
                   </div>
                 </div>
@@ -274,8 +277,9 @@ export default async function CaseDetailPage({ params }: CaseDetailPageProps) {
                         <p className="font-semibold">{item.label}</p>
                         <p className="mt-2">{item.interpretationNote}</p>
                         <p className="mt-2 text-xs font-semibold uppercase tracking-[0.18em] text-amber-800">
-                          {item.issueFlags.join(", ")}
+                          {item.possibleIssues.join(", ")}
                         </p>
+                        <p className="mt-2 text-sm leading-6 text-slate-700">{item.suggestedNextAction}</p>
                       </div>
                     ))}
                   </div>
@@ -284,6 +288,27 @@ export default async function CaseDetailPage({ params }: CaseDetailPageProps) {
             </CardContent>
           </Card>
         </div>
+
+        <MaterialWorkspaceActions
+          caseId={caseId}
+          documents={detail.documents.map((item) => ({
+            id: item.id,
+            label: item.label,
+            status: item.status,
+            required: item.required,
+            fileName: item.file_name,
+            materialReference: item.material_reference,
+            notes: item.notes
+          }))}
+        />
+
+        <CaseQuestionPanel
+          caseId={caseId}
+          caseTitle={detail.caseRecord.title}
+          latestReviewSummary={detail.caseRecord.latest_review_summary}
+          useCaseSlug={detail.caseRecord.use_case_slug as SupportedUseCaseSlug}
+          useCaseTitle={useCase?.shortTitle || detail.caseRecord.use_case_slug}
+        />
 
         {review ? (
           <CaseReviewResult

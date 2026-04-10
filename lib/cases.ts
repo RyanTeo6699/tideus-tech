@@ -3,6 +3,7 @@ import type { User } from "@supabase/supabase-js";
 import type { Json, Tables, TablesInsert } from "@/lib/database.types";
 import {
   parseStoredIntakeNormalization,
+  parseStoredHandoffIntelligence,
   parseStoredMaterialInterpretation,
   parseStoredReviewDelta
 } from "@/lib/case-ai";
@@ -122,6 +123,8 @@ export function getCaseReviewSnapshot(latestReview: Tables<"case_review_versions
     return null;
   }
 
+  const reviewSupport = readReviewSupportMetadata(latestReview.metadata);
+
   return {
     readinessStatus: latestReview.readiness_status as CaseReviewResult["readinessStatus"],
     readinessSummary: latestReview.readiness_summary,
@@ -130,7 +133,9 @@ export function getCaseReviewSnapshot(latestReview: Tables<"case_review_versions
     checklist: parseStoredChecklistItems(latestReview.checklist_items),
     missingItems: latestReview.missing_items,
     riskFlags: parseStoredRiskFlags(latestReview.risk_flags),
-    nextSteps: latestReview.next_steps
+    nextSteps: latestReview.next_steps,
+    supportingContextNotes: reviewSupport.supportingContextNotes,
+    officialReferenceLabels: reviewSupport.officialReferenceLabels
   };
 }
 
@@ -276,6 +281,10 @@ export function getCaseReviewDeltaSnapshot(latestReview: Tables<"case_review_ver
   return latestReview ? parseStoredReviewDelta(latestReview.metadata) : null;
 }
 
+export function getCaseHandoffIntelligenceSnapshot(latestReview: Tables<"case_review_versions"> | null) {
+  return latestReview ? parseStoredHandoffIntelligence(latestReview.metadata) : null;
+}
+
 export function getCaseMaterialInterpretationSnapshot(caseRecord: Tables<"cases">) {
   return parseStoredMaterialInterpretation(caseRecord.metadata);
 }
@@ -327,14 +336,28 @@ export async function getCaseDetail(caseId: string, options?: CaseDetailOptions)
     };
   }
 
-  const [{ data: profile }, { data: caseRecord }, { data: documents }, { data: reviewHistory }] = await Promise.all([
+  const [{ data: profile }, { data: caseRecord }] = await Promise.all([
     supabase.from("profiles").select("*").eq("user_id", user.id).maybeSingle(),
-    supabase.from("cases").select("*").eq("user_id", user.id).eq("id", caseId).maybeSingle(),
-    supabase.from("case_documents").select("*").eq("case_id", caseId).order("position", { ascending: true }),
-    supabase.from("case_review_versions").select("*").eq("case_id", caseId).order("version_number", { ascending: false })
+    supabase.from("cases").select("*").eq("user_id", user.id).eq("id", caseId).maybeSingle()
   ]);
 
-  if (caseRecord && options?.resumeSource) {
+  if (!caseRecord) {
+    return {
+      user,
+      profile: profile ?? null,
+      caseRecord: null,
+      documents: [],
+      latestReview: null,
+      reviewHistory: []
+    };
+  }
+
+  const [{ data: documents }, { data: reviewHistory }] = await Promise.all([
+    supabase.from("case_documents").select("*").eq("case_id", caseRecord.id).order("position", { ascending: true }),
+    supabase.from("case_review_versions").select("*").eq("case_id", caseRecord.id).order("version_number", { ascending: false })
+  ]);
+
+  if (options?.resumeSource) {
     const status = normalizeCaseStatus(caseRecord.status) ?? getInitialCaseStatus();
     const eventError = await recordCaseEvent(supabase, {
       caseId: caseRecord.id,
@@ -354,7 +377,7 @@ export async function getCaseDetail(caseId: string, options?: CaseDetailOptions)
   return {
     user,
     profile: profile ?? null,
-    caseRecord: caseRecord ?? null,
+    caseRecord,
     documents: documents ?? [],
     latestReview: reviewHistory?.[0] ?? null,
     reviewHistory: reviewHistory ?? []
@@ -463,6 +486,40 @@ export function readCaseIntake(value: Json) {
 
 function readString(value: Json | undefined) {
   return typeof value === "string" ? value : "";
+}
+
+function readReviewSupportMetadata(metadata: Json | null | undefined) {
+  const record = readJsonRecord(metadata);
+  const reviewSupport = readJsonRecord(record.reviewSupport);
+  const knowledgeAdapter = readJsonRecord(record.knowledgeAdapter);
+  const aiWorkflow = readJsonRecord(record.aiWorkflow);
+  const reviewGeneration = readJsonRecord(aiWorkflow.reviewGeneration);
+  const reviewOutput = readJsonRecord(reviewGeneration.output);
+
+  return {
+    supportingContextNotes: readStringArray(
+      reviewSupport.supportingContextNotes ?? reviewOutput.supportingContextNotes ?? knowledgeAdapter.supportingContextNotes
+    ),
+    officialReferenceLabels: readStringArray(
+      reviewSupport.officialReferenceLabels ?? reviewOutput.officialReferenceLabels ?? knowledgeAdapter.officialReferenceLabels
+    )
+  };
+}
+
+function readJsonRecord(value: Json | null | undefined): Record<string, Json> {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return {};
+  }
+
+  return value as Record<string, Json>;
+}
+
+function readStringArray(value: Json | undefined): string[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value.flatMap((item) => (typeof item === "string" && item.trim() ? [item.trim()] : []));
 }
 
 function formatStoredValue(value: string | null | undefined) {

@@ -61,7 +61,7 @@ export async function PATCH(request: Request, { params }: CaseDocumentsRouteProp
   const { data: existingDocuments, error: existingDocumentsError } = await supabase
     .from("case_documents")
     .select("id, document_key, label, description, required, status, material_reference, notes, file_name, mime_type")
-    .eq("case_id", caseId);
+    .eq("case_id", caseRecord.id);
 
   if (existingDocumentsError) {
     return NextResponse.json({ message: existingDocumentsError.message }, { status: 500 });
@@ -109,7 +109,7 @@ export async function PATCH(request: Request, { params }: CaseDocumentsRouteProp
         material_reference: item.materialReference || null,
         notes: item.notes || null
       })
-      .eq("case_id", caseId)
+      .eq("case_id", caseRecord.id)
       .eq("id", item.id);
 
     if (error) {
@@ -155,6 +155,35 @@ export async function PATCH(request: Request, { params }: CaseDocumentsRouteProp
     buildCaseMaterialSnapshots(proposedDocuments)
   );
   const materialInterpretationSummary = summarizeMaterialInterpretationIssues(materialInterpretation.output);
+  const reviewRegenerationRecommended = shouldRecommendReviewRegeneration({
+    currentStatus,
+    changedMaterialsCount,
+    changedRequiredMaterialsCount,
+    requiredActionCount,
+    materialIssueCount: materialInterpretationSummary.possibleIssueCount
+  });
+  const likelyReadinessImpact = buildLikelyReadinessImpact({
+    changedMaterialsCount,
+    changedRequiredMaterialsCount,
+    requiredReadyCount,
+    requiredMissingCount,
+    requiredActionCount,
+    reviewRegenerationRecommended
+  });
+  const materialImpact = {
+    changedCount: changedMaterialsCount,
+    changedRequiredCount: changedRequiredMaterialsCount,
+    requiredReadyCount,
+    requiredMissingCount,
+    requiredActionCount,
+    possibleIssueCount: materialInterpretationSummary.possibleIssueCount,
+    likelySupportingDocSuggestionCount: materialInterpretationSummary.likelySupportingDocSuggestionCount,
+    reviewRegenerationRecommended,
+    likelyReadinessImpact,
+    suggestedNextAction: reviewRegenerationRecommended
+      ? "Regenerate the review after saving these material changes so readiness, missing items, and risk flags reflect the current package."
+      : "Materials are saved. Continue collecting unresolved items before regenerating review."
+  };
   const nextCaseMetadata = {
     ...readMetadataRecord(caseRecord.metadata),
     aiWorkflow: {
@@ -171,14 +200,14 @@ export async function PATCH(request: Request, { params }: CaseDocumentsRouteProp
       metadata: nextCaseMetadata
     })
     .eq("user_id", user.id)
-    .eq("id", caseId);
+    .eq("id", caseRecord.id);
 
   if (updateCaseError) {
     return NextResponse.json({ message: updateCaseError.message }, { status: 500 });
   }
 
   const eventError = await recordCaseEvent(supabase, {
-    caseId,
+    caseId: caseRecord.id,
     userId: user.id,
     eventType: "materials_updated",
     status: nextStatus,
@@ -200,7 +229,12 @@ export async function PATCH(request: Request, { params }: CaseDocumentsRouteProp
       materialInterpretationSource: materialInterpretation.source,
       materialInterpretationPromptVersion: materialInterpretation.promptVersion,
       materialIssueFlagCount: materialInterpretationSummary.issueFlagCount,
-      materialSuggestedStatusChangesCount: materialInterpretationSummary.suggestedStatusChangesCount
+      materialPossibleIssueCount: materialInterpretationSummary.possibleIssueCount,
+      materialLikelySupportingDocSuggestionCount: materialInterpretationSummary.likelySupportingDocSuggestionCount,
+      materialSuggestedStatusChangesCount: materialInterpretationSummary.suggestedStatusChangesCount,
+      materialRecommendedStatusReviewCount: materialInterpretationSummary.recommendedStatusReviewCount,
+      reviewRegenerationRecommended,
+      likelyReadinessImpact
     }
   });
 
@@ -210,11 +244,12 @@ export async function PATCH(request: Request, { params }: CaseDocumentsRouteProp
 
   revalidatePath("/dashboard");
   revalidatePath("/dashboard/cases");
-  revalidatePath(`/dashboard/cases/${caseId}`);
-  revalidatePath(`/upload-materials/${caseId}`);
+  revalidatePath(`/dashboard/cases/${caseRecord.id}`);
+  revalidatePath(`/upload-materials/${caseRecord.id}`);
 
   return NextResponse.json({
-    message: "Materials saved."
+    message: "Materials saved.",
+    materialImpact
   });
 }
 
@@ -224,4 +259,64 @@ function readMetadataRecord(metadata: Json | null | undefined) {
   }
 
   return metadata;
+}
+
+function shouldRecommendReviewRegeneration({
+  currentStatus,
+  changedMaterialsCount,
+  changedRequiredMaterialsCount,
+  requiredActionCount,
+  materialIssueCount
+}: {
+  currentStatus: string;
+  changedMaterialsCount: number;
+  changedRequiredMaterialsCount: number;
+  requiredActionCount: number;
+  materialIssueCount: number;
+}) {
+  if (changedMaterialsCount === 0) {
+    return false;
+  }
+
+  if (currentStatus === "reviewed") {
+    return true;
+  }
+
+  return changedRequiredMaterialsCount > 0 || requiredActionCount === 0 || materialIssueCount > 0;
+}
+
+function buildLikelyReadinessImpact({
+  changedMaterialsCount,
+  changedRequiredMaterialsCount,
+  requiredReadyCount,
+  requiredMissingCount,
+  requiredActionCount,
+  reviewRegenerationRecommended
+}: {
+  changedMaterialsCount: number;
+  changedRequiredMaterialsCount: number;
+  requiredReadyCount: number;
+  requiredMissingCount: number;
+  requiredActionCount: number;
+  reviewRegenerationRecommended: boolean;
+}) {
+  if (changedMaterialsCount === 0) {
+    return "No material changes were detected.";
+  }
+
+  if (requiredActionCount === 0) {
+    return "All required materials are marked ready or not applicable; a regenerated review can validate handoff readiness.";
+  }
+
+  if (changedRequiredMaterialsCount > 0 && requiredReadyCount > 0) {
+    return `${changedRequiredMaterialsCount} required material update${changedRequiredMaterialsCount === 1 ? "" : "s"} may improve missing-item or risk signals after review regeneration.`;
+  }
+
+  if (requiredMissingCount > 0) {
+    return `${requiredMissingCount} required material${requiredMissingCount === 1 ? "" : "s"} remain missing, so readiness is likely still constrained.`;
+  }
+
+  return reviewRegenerationRecommended
+    ? "Material metadata changed enough that a regenerated review should refresh the case signal."
+    : "Material changes are saved, but more package work is likely needed before review regeneration matters.";
 }

@@ -5,10 +5,10 @@ import type { Tables } from "@/lib/database.types";
 import { buildCaseResumeHref } from "@/lib/cases";
 import { getProfileCompletion } from "@/lib/profile";
 import { formatCaseStatus } from "@/lib/case-state";
-import { legacyWorkspaceLinks } from "@/lib/legacy/site";
 import { dashboardNav, siteConfig } from "@/lib/site";
 import { formatReadinessStatus, getUseCaseDefinition } from "@/lib/case-workflows";
 import { LogoutButton } from "@/components/dashboard/logout-button";
+import { DashboardArchiveLinks } from "@/components/legacy/dashboard-archive-links";
 import { EventLink } from "@/components/site/event-link";
 import { buttonVariants } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -24,14 +24,9 @@ type DashboardShellProps = {
     reviewReadyCases: number;
     actionNeededCases: number;
   };
-  legacyCounts: {
-    assessments: number;
-    comparisons: number;
-    threads: number;
-  };
 };
 
-export function DashboardShell({ user, profile, recentCases, metrics, legacyCounts }: DashboardShellProps) {
+export function DashboardShell({ user, profile, recentCases, metrics }: DashboardShellProps) {
   const displayName =
     profile?.full_name ??
     (typeof user.user_metadata?.full_name === "string" && user.user_metadata.full_name.trim()
@@ -40,7 +35,6 @@ export function DashboardShell({ user, profile, recentCases, metrics, legacyCoun
   const userEmail = user.email ?? profile?.email ?? "No email available";
   const firstName = displayName.split(" ")[0] ?? displayName;
   const profileCompletion = getProfileCompletion(profile);
-  const legacyTotal = legacyCounts.assessments + legacyCounts.comparisons + legacyCounts.threads;
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-50">
@@ -233,52 +227,7 @@ export function DashboardShell({ user, profile, recentCases, metrics, legacyCoun
             </CardContent>
           </Card>
 
-          <Card className="border-slate-200 bg-slate-50/40 text-slate-950 shadow-none">
-            <CardHeader className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-              <div>
-                <CardTitle className="text-lg">Migration archive</CardTitle>
-                <CardDescription>
-                  Older assessment, comparison, and assistant-thread records remain available for migration continuity only. They are intentionally secondary to the active case workspace.
-                </CardDescription>
-              </div>
-              <Badge variant="secondary">
-                {legacyTotal} archived item{legacyTotal === 1 ? "" : "s"}
-              </Badge>
-            </CardHeader>
-            <CardContent>
-              <details className="rounded-2xl border border-dashed border-slate-300 bg-white/80">
-                <summary className="flex cursor-pointer list-none items-center justify-between gap-4 px-4 py-4 text-sm font-medium text-slate-950">
-                  <div>
-                    <p>Open migration archive links</p>
-                    <p className="mt-1 text-sm font-normal leading-6 text-slate-600">
-                      Use these only if you need earlier records from the pre-case workspace.
-                    </p>
-                  </div>
-                  <span className="text-xs uppercase tracking-[0.18em] text-slate-500">
-                    {legacyTotal === 0 ? "Empty" : "Secondary"}
-                  </span>
-                </summary>
-                <div className="grid gap-3 border-t border-slate-200 p-4 md:grid-cols-3">
-                  {legacyWorkspaceLinks.map((link) => (
-                    <Link
-                      className="rounded-2xl border border-dashed border-slate-300 bg-white p-4 transition-colors hover:border-slate-400 hover:bg-slate-50"
-                      href={link.href}
-                      key={link.href}
-                    >
-                      <p className="text-sm font-semibold text-slate-950">{link.label}</p>
-                      <p className="mt-2 text-sm leading-6 text-slate-600">
-                        {link.href === "/dashboard/assessments"
-                          ? `${legacyCounts.assessments} archived record${legacyCounts.assessments === 1 ? "" : "s"}`
-                          : link.href === "/dashboard/comparisons"
-                            ? `${legacyCounts.comparisons} archived record${legacyCounts.comparisons === 1 ? "" : "s"}`
-                            : `${legacyCounts.threads} archived thread${legacyCounts.threads === 1 ? "" : "s"}`}
-                      </p>
-                    </Link>
-                  ))}
-                </div>
-              </details>
-            </CardContent>
-          </Card>
+          <DashboardArchiveLinks />
         </main>
       </div>
     </div>

@@ -7,7 +7,13 @@ import { EventLink } from "@/components/site/event-link";
 import { buttonVariants } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { buildCaseSnapshotFacts, getCaseDetail, getCaseMaterialStatusCounts, getCaseReviewSnapshot } from "@/lib/cases";
+import {
+  buildCaseSnapshotFacts,
+  getCaseDetail,
+  getCaseHandoffIntelligenceSnapshot,
+  getCaseMaterialStatusCounts,
+  getCaseReviewSnapshot
+} from "@/lib/cases";
 import { formatDocumentStatus, formatReadinessStatus, getUseCaseDefinition } from "@/lib/case-workflows";
 
 type ReviewExportPageProps = {
@@ -36,6 +42,7 @@ export default async function ReviewExportPage({ params }: ReviewExportPageProps
 
   const useCase = getUseCaseDefinition(detail.caseRecord.use_case_slug);
   const latestReviewedAt = detail.latestReview?.created_at ?? detail.caseRecord.latest_reviewed_at;
+  const handoffIntelligence = getCaseHandoffIntelligenceSnapshot(detail.latestReview);
   const keyFacts = buildCaseSnapshotFacts(detail.caseRecord).slice(0, 6);
   const materialCounts = getCaseMaterialStatusCounts(detail.documents);
   const highRiskCount = review.riskFlags.filter((item) => item.severity === "high").length;
@@ -95,6 +102,25 @@ export default async function ReviewExportPage({ params }: ReviewExportPageProps
                 <p className="mt-3 text-slate-700">{review.timelineNote}</p>
               </div>
             </Section>
+
+            {handoffIntelligence ? (
+              <Section title="External review summary">
+                <div className="space-y-4">
+                  <div className="rounded-2xl border border-slate-200 bg-slate-50 p-5 text-sm leading-7 text-slate-700">
+                    <p className="font-semibold uppercase tracking-[0.18em] text-slate-500">Review-ready status</p>
+                    <p className="mt-2 text-base font-semibold text-slate-950">
+                      {formatReadinessStatus(handoffIntelligence.reviewReadyStatus)}
+                    </p>
+                    <p className="mt-3">{handoffIntelligence.externalSummary}</p>
+                  </div>
+                  <div className="grid gap-4 lg:grid-cols-3">
+                    <HandoffList title="Human review issues" items={handoffIntelligence.issuesNeedingHumanReview} />
+                    <HandoffList title="Escalation triggers" items={handoffIntelligence.escalationTriggers} />
+                    <HandoffList title="Supporting notes" items={handoffIntelligence.supportingNotes} />
+                  </div>
+                </div>
+              </Section>
+            ) : null}
 
             <div className="grid gap-8 lg:grid-cols-[1.05fr_0.95fr]">
               <Section title="Key case facts">
@@ -200,6 +226,42 @@ export default async function ReviewExportPage({ params }: ReviewExportPageProps
               </div>
             </Section>
 
+            {review.supportingContextNotes.length > 0 || review.officialReferenceLabels.length > 0 ? (
+              <div className="grid gap-8 lg:grid-cols-2">
+                <Section title="Supporting context notes">
+                  <div className="space-y-3">
+                    {review.supportingContextNotes.length > 0 ? (
+                      review.supportingContextNotes.map((item) => (
+                        <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm leading-6 text-slate-700" key={item}>
+                          {item}
+                        </div>
+                      ))
+                    ) : (
+                      <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm leading-6 text-slate-700">
+                        No supporting context notes were stored for this version.
+                      </div>
+                    )}
+                  </div>
+                </Section>
+
+                <Section title="Official reference labels">
+                  <div className="space-y-3">
+                    {review.officialReferenceLabels.length > 0 ? (
+                      review.officialReferenceLabels.map((item) => (
+                        <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm leading-6 text-slate-700" key={item}>
+                          {item}
+                        </div>
+                      ))
+                    ) : (
+                      <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm leading-6 text-slate-700">
+                        No official reference labels were stored for this version.
+                      </div>
+                    )}
+                  </div>
+                </Section>
+              </div>
+            ) : null}
+
             <Section title="Trust and use">
               <div className="rounded-2xl border border-slate-200 bg-slate-50 p-5 text-sm leading-7 text-slate-700">
                 This packet is a workflow summary for case preparation and discussion. Tideus is not a government service, law firm,
@@ -246,6 +308,21 @@ function SummaryCard({ label, value }: { label: string; value: string }) {
     <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
       <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">{label}</p>
       <p className="mt-2 text-lg font-semibold text-slate-950">{value}</p>
+    </div>
+  );
+}
+
+function HandoffList({ title, items }: { title: string; items: string[] }) {
+  return (
+    <div className="rounded-2xl border border-slate-200 bg-white p-4">
+      <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">{title}</p>
+      <div className="mt-3 space-y-2">
+        {items.map((item) => (
+          <p className="text-sm leading-6 text-slate-700" key={item}>
+            {item}
+          </p>
+        ))}
+      </div>
     </div>
   );
 }

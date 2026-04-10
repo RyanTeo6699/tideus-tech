@@ -51,8 +51,10 @@ export function HeroSection() {
                 <p className="mt-2 text-sm text-muted-foreground">Supported wedge workflows in the first release window.</p>
               </div>
               <div>
-                <p className="font-serif text-3xl text-foreground">6</p>
-                <p className="mt-2 text-sm text-muted-foreground">Structured review blocks: readiness, checklist, missing items, risks, timeline, next steps.</p>
+                <p className="font-serif text-3xl text-foreground">8</p>
+                <p className="mt-2 text-sm text-muted-foreground">
+                  Structured review blocks: readiness, checklist, missing items, risks, timeline, next steps, context, references.
+                </p>
               </div>
               <div>
                 <p className="font-serif text-3xl text-foreground">1</p>

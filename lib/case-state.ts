@@ -9,6 +9,7 @@ export const caseEventTypes = [
   "intake_started",
   "intake_completed",
   "materials_updated",
+  "material_action_requested",
   "review_generated",
   "review_regenerated",
   "case_resumed"

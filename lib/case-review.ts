@@ -33,6 +33,8 @@ export type CaseReviewResult = {
   missingItems: string[];
   riskFlags: CaseRiskFlag[];
   nextSteps: string[];
+  supportingContextNotes: string[];
+  officialReferenceLabels: string[];
 };
 
 export type CaseCreateInput = {
@@ -227,7 +229,9 @@ export function buildCaseReviewResult(
     checklist,
     missingItems,
     riskFlags,
-    nextSteps
+    nextSteps,
+    supportingContextNotes: [],
+    officialReferenceLabels: []
   };
 }
 

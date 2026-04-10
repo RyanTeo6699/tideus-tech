@@ -12,11 +12,6 @@ export type DashboardData = {
     reviewReadyCases: number;
     actionNeededCases: number;
   };
-  legacyCounts: {
-    assessments: number;
-    comparisons: number;
-    threads: number;
-  };
 };
 
 export async function getDashboardData(): Promise<DashboardData | null> {
@@ -29,16 +24,7 @@ export async function getDashboardData(): Promise<DashboardData | null> {
     return null;
   }
 
-  const [
-    profileResult,
-    recentCasesResult,
-    activeCasesResult,
-    reviewReadyCasesResult,
-    actionNeededCasesResult,
-    assessmentsCountResult,
-    comparisonsCountResult,
-    threadsCountResult
-  ] = await Promise.all([
+  const [profileResult, recentCasesResult, activeCasesResult, reviewReadyCasesResult, actionNeededCasesResult] = await Promise.all([
     supabase.from("profiles").select("*").eq("user_id", user.id).maybeSingle(),
     supabase.from("cases").select("*").eq("user_id", user.id).order("updated_at", { ascending: false }).limit(4),
     supabase
@@ -55,10 +41,7 @@ export async function getDashboardData(): Promise<DashboardData | null> {
       .from("cases")
       .select("id", { count: "exact", head: true })
       .eq("user_id", user.id)
-      .or("latest_readiness_status.is.null,latest_readiness_status.eq.not-ready,latest_readiness_status.eq.needs-attention"),
-    supabase.from("assessments").select("id", { count: "exact", head: true }).eq("user_id", user.id),
-    supabase.from("comparisons").select("id", { count: "exact", head: true }).eq("user_id", user.id),
-    supabase.from("copilot_threads").select("id", { count: "exact", head: true }).eq("user_id", user.id)
+      .or("latest_readiness_status.is.null,latest_readiness_status.eq.not-ready,latest_readiness_status.eq.needs-attention")
   ]);
 
   return {
@@ -69,11 +52,6 @@ export async function getDashboardData(): Promise<DashboardData | null> {
       activeCases: activeCasesResult.count ?? 0,
       reviewReadyCases: reviewReadyCasesResult.count ?? 0,
       actionNeededCases: actionNeededCasesResult.count ?? 0
-    },
-    legacyCounts: {
-      assessments: assessmentsCountResult.count ?? 0,
-      comparisons: comparisonsCountResult.count ?? 0,
-      threads: threadsCountResult.count ?? 0
     }
   };
 }

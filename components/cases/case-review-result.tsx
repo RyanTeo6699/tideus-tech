@@ -229,6 +229,50 @@ export function CaseReviewResult({
           </Card>
         ) : null}
       </div>
+
+      {review.supportingContextNotes.length > 0 || review.officialReferenceLabels.length > 0 ? (
+        <div className="grid gap-6 xl:grid-cols-2">
+          <Card>
+            <CardHeader>
+              <CardTitle>Supporting context</CardTitle>
+              <CardDescription>Internal knowledge notes used to sharpen the structured review.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {review.supportingContextNotes.length > 0 ? (
+                review.supportingContextNotes.map((item) => (
+                  <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm leading-6 text-slate-700" key={item}>
+                    {item}
+                  </div>
+                ))
+              ) : (
+                <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm leading-6 text-slate-700">
+                  No supporting context notes were stored for this version.
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Official context references</CardTitle>
+              <CardDescription>Reference labels retained for traceability, not as a public data portal.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {review.officialReferenceLabels.length > 0 ? (
+                review.officialReferenceLabels.map((item) => (
+                  <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm leading-6 text-slate-700" key={item}>
+                    {item}
+                  </div>
+                ))
+              ) : (
+                <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm leading-6 text-slate-700">
+                  No official reference labels were stored for this version.
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+      ) : null}
     </div>
   );
 }

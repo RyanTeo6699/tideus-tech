@@ -51,6 +51,10 @@ export async function POST(request: Request) {
     clientMetadata.reviewVersion = caseRecord.latest_review_version;
   }
 
+  if ((eventType === "book_demo_clicked" || eventType === "early_access_requested") && typeof clientMetadata.useCase !== "string") {
+    clientMetadata.useCase = "not-selected";
+  }
+
   const error = await recordAppEvent(supabase, {
     eventType,
     userId: user?.id ?? null,

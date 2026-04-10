@@ -12,7 +12,7 @@ Tideus is not positioned as:
 - a broad immigration platform
 - a generic immigration chatbot
 - a legal advice service
-- a tool menu centered on assessments, comparisons, or Copilot threads
+- a tool menu or content portal
 
 ## Current Product Shape
 
@@ -35,9 +35,12 @@ Structured review output stays narrow and repeatable:
 - risk flags
 - timeline note
 - next steps
+- supporting context notes
+- official reference labels
 
 The current handoff and conversion surfaces include:
 
+- a task-oriented AI front door at `/case-question` that returns structured scenario answers and can create a case workspace
 - a private case-material upload flow
 - a saved case workspace
 - a print/export-friendly review packet at `/review-results/[caseId]/export`
@@ -52,6 +55,7 @@ Public:
 - `/how-it-works`
 - `/use-cases`
 - `/use-cases/[slug]`
+- `/case-question`
 - `/start-case`
 - `/book-demo`
 - `/trust`
@@ -75,6 +79,9 @@ Primary APIs:
 - `/api/cases/[caseId]/documents`
 - `/api/cases/[caseId]/documents/[documentId]/upload`
 - `/api/cases/[caseId]/review`
+- `/api/case-question`
+- `/api/case-question/save`
+- `/api/cases/[caseId]/question`
 - `/api/events`
 - `/api/lead-requests`
 - `/api/profile`
@@ -89,6 +96,7 @@ app/
     page.tsx
     how-it-works/
     use-cases/
+    case-question/
     start-case/
     book-demo/
     trust/
@@ -100,6 +108,7 @@ app/
     upload-materials/
     review-results/
   api/
+    case-question/
     cases/
     events/
     lead-requests/
@@ -108,6 +117,7 @@ app/
 components/
   cases/
   dashboard/
+  legacy/
   profile/
   site/
   ui/
@@ -115,12 +125,14 @@ lib/
   app-events.ts
   case-events.ts
   case-knowledge.ts
+  case-question.ts
   case-files.ts
   case-review.ts
   case-state.ts
   case-workflows.ts
   cases.ts
   dashboard.ts
+  knowledge/
   lead-requests.ts
   profile.ts
   site.ts
@@ -142,7 +154,9 @@ Primary server-side domain modules:
 
 - `lib/cases.ts`: case reads, review snapshots, workspace facts, resume paths
 - `lib/case-review.ts`: deterministic wedge review output generation
-- `lib/case-knowledge.ts`: internal structured knowledge adapter for wedge review context
+- `lib/knowledge/`: internal structured knowledge adapter with scenario-specific modules for wedge review and question context
+- `lib/case-knowledge.ts`: compatibility facade for migration-safe knowledge adapter imports
+- `lib/case-question.ts`: typed parsing and metadata helpers for structured question-to-workspace flows
 - `lib/case-workflows.ts`: supported use-case definitions and document expectations
 - `lib/case-state.ts`: case status machine and history
 - `lib/case-events.ts`: structured case-event writes
@@ -220,8 +234,8 @@ Current `case_events` types:
 
 Current metadata examples:
 
-- `materials_updated`: changed material counts and current package-state counts
-- `review_generated`: readiness, missing-item count, risk count, checklist-ready counts
+- `materials_updated`: changed count, required-ready count, required-missing count, and current package-state counts
+- `review_generated`: readiness status, missing count, risk count, use case, and checklist-ready counts
 - `case_resumed`: source surface
 
 Tideus also records narrow public and conversion-path telemetry in `app_events`.
@@ -241,8 +255,8 @@ Current metadata examples:
 
 - CTA source surface
 - selected use case
-- current readiness status on export
-- review version on export and review-result CTAs
+- current readiness status and review version on export
+- source surface and use-case context on demo and early-access requests
 - case status and readiness on dashboard resume clicks
 - missing-item and risk counts on export
 - lead-request intent and stage on early-access requests
@@ -251,15 +265,17 @@ No analytics dashboard ships in this branch. The goal is clean future analysis v
 
 ## AI Workflow Embedding
 
-AI is embedded inside the case workflow only. Tideus does not expose a generic public Copilot surface, broad RAG search, or data portal as the primary product.
+AI is embedded inside the case workflow only. Tideus does not expose a generic public assistant, broad RAG search, or data portal as the primary product.
 
 Current AI-assisted workflow layers:
 
+- task-oriented AI front door: scenario questions return structured output and can become a saved case workspace
 - intake normalization: optional freeform intake notes are normalized into typed workflow signals and inferred fields where possible
-- material interpretation: material references, file names, statuses, and short notes are lightly classified without OCR or document-content claims
+- material interpretation: material references, file names, selected checklist types, statuses, and short notes are lightly classified without OCR or document-content claims
+- workspace material actions: case-only actions explain missing/review-needed materials, suggest supporting documents, and recommend whether review regeneration is useful
 - review enrichment: deterministic review generation remains the baseline, and AI can only refine structured review fields inside a strict schema
-- review delta: the latest review can be compared with the previous saved version to produce structured improvements, gaps, risks, and priority actions
-- handoff quality: export packets benefit from the structured review fields instead of separate AI prose
+- review delta: the latest review can be compared with the previous saved version to produce structured improvements, remaining gaps, new risks, removed risks, and priority actions
+- handoff intelligence: export packets include external-review summaries, human-review issues, supporting notes, and escalation triggers
 
 ## Internal Knowledge Adapter
 
@@ -270,9 +286,9 @@ Supported scenarios:
 - Visitor Record
 - Study Permit Extension
 
-The adapter borrows only the useful backend pattern from ImmiPilot-style systems: source-aware, versioned, freshness-conscious knowledge context. It does not import ImmiPilot public pages, data dashboards, broad RAG search, pathway comparison, or Copilot UX.
+The adapter borrows only the useful backend pattern from ImmiPilot-style systems: source-aware, versioned, freshness-conscious knowledge context. It does not import public pages, data dashboards, broad RAG search, pathway tools, or chat UX.
 
-Structured knowledge context is built in `lib/case-knowledge.ts` and passed into case review generation as internal workflow input:
+Structured knowledge context is built through `lib/knowledge/adapter.ts` and scenario modules, then passed into question answering and case review generation as internal workflow input:
 
 - `processingTimeNote`
 - `supportingContextNotes[]`
@@ -280,6 +296,19 @@ Structured knowledge context is built in `lib/case-knowledge.ts` and passed into
 - `scenarioSpecificWarnings[]`
 - `officialReferenceLabels[]`
 - `references[]`
+
+The public `/case-question` surface is a task-oriented front door, not a generic chat product. It supports only Visitor Record and Study Permit Extension questions and returns:
+
+- `summary`
+- `whyThisMatters`
+- `supportingContextNotes[]`
+- `scenarioSpecificWarnings[]`
+- `nextSteps[]`
+- `trackerActions[]`
+
+When a user saves the result, Tideus creates a case-first workspace with seeded expected materials and stores the structured question trace in `cases.metadata.aiWorkflow.caseQuestionAnswers`.
+
+The workspace-level question panel calls `/api/cases/[caseId]/question`, verifies case ownership, grounds the answer in the current case state and latest review, and appends the structured trace to the same case metadata path.
 
 The review pipeline now combines:
 
@@ -289,6 +318,8 @@ The review pipeline now combines:
 4. optional AI material interpretation
 5. internal structured knowledge context
 6. optional AI review enrichment inside a strict schema
+7. optional case-context question answering and material workspace actions inside strict schemas
+8. optional review delta and handoff intelligence inside strict schemas
 
 If AI enrichment is unavailable, the route still uses the knowledge-enhanced deterministic review baseline. If a future live knowledge provider is unavailable, this adapter can return unavailable context without breaking review generation.
 
@@ -296,6 +327,7 @@ Knowledge traceability is stored in existing review metadata:
 
 - `case_review_versions.metadata.knowledgeAdapter`
 - `case_review_versions.metadata.aiWorkflow.reviewGeneration.inputSnapshot.knowledgeContext`
+- `cases.metadata.aiWorkflow.caseQuestionAnswers`
 
 Each knowledge context includes:
 
@@ -312,8 +344,49 @@ AI traceability is stored in existing JSON metadata rather than new product surf
 
 - `cases.metadata.aiWorkflow.intakeNormalization`
 - `cases.metadata.aiWorkflow.materialInterpretation`
+- `cases.metadata.aiWorkflow.caseQuestionAnswers`
+- `cases.metadata.aiWorkflow.materialWorkspaceActions`
 - `case_review_versions.metadata.aiWorkflow.reviewGeneration`
 - `case_review_versions.metadata.aiWorkflow.reviewDelta`
+- `case_review_versions.metadata.aiWorkflow.handoffIntelligence`
+
+Material interpretation output is stored after material updates and stays workflow-oriented:
+
+- `likelyDocumentType`
+- `confidence`
+- `possibleIssues[]`
+- `likelySupportingDocsNeeded[]`
+- `recommendedMaterialStatus`
+- `suggestedNextAction`
+- `reasoningSummary`
+
+Workspace material actions are available only inside the case workspace and are tied to a selected case document:
+
+- `explain-missing`
+- `explain-review-needed`
+- `suggest-next-action`
+- `suggest-regenerate-review`
+- `suggest-supporting-docs`
+
+These actions return the same structured material fields plus `regenerateReviewRecommendation` and `readinessImpact`.
+
+Review delta output is stored with the latest review version when a previous version exists:
+
+- `improvedAreas[]`
+- `remainingGaps[]`
+- `newRisks[]`
+- `removedRisks[]`
+- `priorityActions[]`
+
+Handoff intelligence is stored with each generated review version:
+
+- `externalSummary`
+- `reviewReadyStatus`
+- `issuesNeedingHumanReview[]`
+- `supportingNotes[]`
+- `escalationTriggers[]`
+
+Both layers preserve review-version input snapshots through their AI envelopes and fall back to deterministic output if AI is unavailable.
 
 Each AI envelope includes:
 
@@ -436,4 +509,4 @@ Archive tables:
 - `copilot_threads`
 - `copilot_messages`
 
-Legacy-only helpers sit behind `lib/legacy/`, including migration-era decision-support logic, Copilot helpers, and archive navigation.
+Legacy-only helpers sit behind `lib/legacy/`, and legacy-only UI sits behind `components/legacy/`. This includes migration-era decision-support logic, assistant helpers, archive navigation, and archive dashboard affordances.

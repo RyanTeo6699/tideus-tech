@@ -5,7 +5,7 @@ import type { Tables } from "@/lib/database.types";
 import { buildProfileSummaryFacts, getProfileCompletion } from "@/lib/profile";
 import { getCopilotStructuredResponse, getCopilotUserMessageMetadata } from "@/lib/legacy/tool-results";
 import { siteConfig } from "@/lib/site";
-import { CopilotComposer } from "@/components/copilot/copilot-composer";
+import { CopilotComposer } from "@/components/legacy/copilot/copilot-composer";
 import { buttonVariants } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
