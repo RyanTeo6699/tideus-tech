@@ -3,9 +3,10 @@ import { NextResponse } from "next/server";
 
 import { recordCaseEvent } from "@/lib/case-events";
 import { normalizeCaseStatus } from "@/lib/case-state";
-import { buildHandoffPacketSnapshot, parseHandoffRequestRecord } from "@/lib/handoffs";
+import { parseHandoffRequestRecord } from "@/lib/handoffs";
 import { getCurrentLocale } from "@/lib/i18n/server";
 import { pickLocale } from "@/lib/i18n/workspace";
+import { buildHandoffPacketSnapshot } from "@/lib/server/handoffs";
 import { createClient } from "@/lib/supabase/server";
 
 type CaseHandoffRouteProps = {

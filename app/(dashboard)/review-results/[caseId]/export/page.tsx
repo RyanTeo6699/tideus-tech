@@ -16,7 +16,7 @@ import {
   getCaseMaterialStatusCounts,
   getCaseReviewSnapshot
 } from "@/lib/cases";
-import { getLatestClientHandoffRequestForCase } from "@/lib/handoffs";
+import { getLatestClientHandoffRequestForCase } from "@/lib/server/handoffs";
 import { formatCaseStatus } from "@/lib/case-state";
 import { formatDocumentStatus, formatReadinessStatus, getUseCaseDefinition } from "@/lib/case-workflows";
 import { formatAppDateTime } from "@/lib/i18n/format";

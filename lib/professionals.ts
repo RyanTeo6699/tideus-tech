@@ -1,9 +1,12 @@
+import "server-only";
+
 import type { User } from "@supabase/supabase-js";
 
 import type { Tables } from "@/lib/database.types";
-import { getProfessionalHandoffInbox, type HandoffRequestRecord } from "@/lib/handoffs";
+import type { HandoffRequestRecord } from "@/lib/handoffs";
 import type { AppLocale } from "@/lib/i18n/config";
 import { pickLocale } from "@/lib/i18n/workspace";
+import { getProfessionalHandoffInbox } from "@/lib/server/handoffs";
 import { createClient } from "@/lib/supabase/server";
 
 export type ProfessionalMembershipRecord = Tables<"organization_members"> & {
