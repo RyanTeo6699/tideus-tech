@@ -47,8 +47,8 @@ export function CaseIntakeForm({ useCase, initialValues, profileFacts }: CaseInt
   const [status, setStatus] = useState<"idle" | "loading" | "error">("idle");
   const [message, setMessage] = useState(
     locale === "zh-TW"
-      ? "這份 intake 會建立可保存的案件，並初始化對應的預期材料清單。"
-      : "这份 intake 会建立可保存的案件，并初始化对应的预期材料清单。"
+      ? "這份資料收集會建立可保存的案件，並初始化對應的預期材料清單。"
+      : "这份资料收集会建立可保存的案件，并初始化对应的预期材料清单。"
   );
 
   function validate() {
@@ -139,11 +139,11 @@ export function CaseIntakeForm({ useCase, initialValues, profileFacts }: CaseInt
             <p className="mt-2">
               {profileFacts.length > 0
                 ? locale === "zh-TW"
-                  ? "已保存的資料檔案事實會直接幫助塑造這份 intake，讓工作流程不需要重複詢問同樣的核心背景。"
-                  : "已保存的资料档案事实会直接帮助塑造这份 intake，让工作流不需要重复询问同样的核心背景。"
+                  ? "已保存的資料檔案事實會直接幫助塑造這份資料收集，讓工作流程不需要重複詢問同樣的核心背景。"
+                  : "已保存的资料档案事实会直接帮助塑造这份资料收集，让工作流不需要重复询问同样的核心背景。"
                 : locale === "zh-TW"
-                  ? "沒有保存資料檔案也可以完成案件，但資料檔案頁面能讓未來的 intake 更短。"
-                  : "没有保存资料档案也可以完成案件，但资料档案页面能让未来的 intake 更短。"}
+                  ? "沒有保存資料檔案也可以完成案件，但資料檔案頁面能讓未來的資料收集更短。"
+                  : "没有保存资料档案也可以完成案件，但资料档案页面能让未来的资料收集更短。"}
             </p>
           </div>
 
@@ -228,8 +228,8 @@ export function CaseIntakeForm({ useCase, initialValues, profileFacts }: CaseInt
               ? "正在建立案件..."
               : "正在建立案件..."
             : locale === "zh-TW"
-              ? "保存 intake 並繼續"
-              : "保存 intake 并继续"}
+              ? "保存資料收集並繼續"
+              : "保存资料收集并继续"}
         </Button>
       </form>
     </FormShell>

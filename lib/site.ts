@@ -53,7 +53,7 @@ const localizedContent: Record<
         eyebrow: "保存型工作流",
         title: "从中断处继续案件",
         description:
-          "每个案件都会把 intake 答案、材料状态、审查版本和下一步动作保存在同一个工作台里。"
+          "每个案件都会把资料收集回答、材料状态、审查版本和下一步动作保存在同一个工作台里。"
       }
     ],
     workflowSteps: [
@@ -64,7 +64,7 @@ const localizedContent: Record<
       },
       {
         eyebrow: "02",
-        title: "完成案件 intake",
+        title: "完成案件资料收集",
         description: "只采集会实质影响资料包的事实，例如时间、资金、当前身份和解释压力。"
       },
       {
@@ -127,7 +127,7 @@ const localizedContent: Record<
         eyebrow: "保存型工作流程",
         title: "從中斷處繼續案件",
         description:
-          "每個案件都會把 intake 答案、材料狀態、審查版本和下一步動作保存在同一個工作台裡。"
+          "每個案件都會把資料收集回答、材料狀態、審查版本和下一步動作保存在同一個工作台裡。"
       }
     ],
     workflowSteps: [
@@ -138,7 +138,7 @@ const localizedContent: Record<
       },
       {
         eyebrow: "02",
-        title: "完成案件 intake",
+        title: "完成案件資料收集",
         description: "只蒐集會實質影響資料包的事實，例如時間、資金、目前身分和解釋壓力。"
       },
       {

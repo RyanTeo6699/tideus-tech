@@ -25,8 +25,8 @@ export default async function DashboardAssessmentsPage() {
       ]}
       description={pickLocale(
         locale,
-        "这些较早的结构化 intake 仅为迁移连续性而保留在归档中，不再属于主要产品工作流。",
-        "這些較早的結構化 intake 僅為遷移連續性而保留在歸檔中，不再屬於主要產品工作流。"
+        "这些较早的结构化资料收集记录仅为迁移连续性而保留在归档中，不再属于主要产品工作流。",
+        "這些較早的結構化資料收集紀錄僅為遷移連續性而保留在歸檔中，不再屬於主要產品工作流。"
       )}
       eyebrow={pickLocale(locale, "迁移归档", "遷移歸檔")}
       title={pickLocale(locale, "评估迁移归档", "評估遷移歸檔")}

@@ -35,8 +35,8 @@ export default async function DashboardComparisonsPage() {
         <div className="rounded-[24px] border border-dashed border-slate-200 bg-slate-50 p-6 text-sm leading-6 text-slate-600">
           {pickLocale(
             locale,
-            "迁移归档中暂时没有比较记录。当前产品流程优先围绕案件 intake、材料跟踪和审查版本。",
-            "遷移歸檔中暫時沒有比較紀錄。目前產品流程優先圍繞案件 intake、材料追蹤和審查版本。"
+            "迁移归档中暂时没有比较记录。当前产品流程优先围绕案件资料收集、材料跟踪和审查版本。",
+            "遷移歸檔中暫時沒有比較紀錄。目前產品流程優先圍繞案件資料收集、材料追蹤和審查版本。"
           )}
         </div>
       ) : (

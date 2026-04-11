@@ -50,7 +50,7 @@ export function normalizeCaseStatus(value: string | null | undefined): CaseStatu
 export function formatCaseStatus(status: CaseStatus | string, locale: AppLocale = defaultLocale) {
   const caseStatusLabels: Record<CaseStatus, string> = {
     draft: pickLocale(locale, "草稿", "草稿"),
-    "intake-complete": pickLocale(locale, "已完成 intake", "已完成 intake"),
+    "intake-complete": pickLocale(locale, "已完成资料收集", "已完成資料收集"),
     "materials-updated": pickLocale(locale, "已更新材料", "已更新材料"),
     reviewed: pickLocale(locale, "已完成审查", "已完成審查")
   };

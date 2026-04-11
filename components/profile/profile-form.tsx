@@ -45,8 +45,8 @@ export function ProfileForm({ initialValues, email, updatedAt }: ProfileFormProp
   const [message, setMessage] = useState(
     pickLocale(
       locale,
-      "资料档案只需要保存一次，Tideus 就会在案件 intake 与审查工作流中重复使用。",
-      "資料檔案只需要儲存一次，Tideus 就會在案件 intake 與審查工作流中重複使用。"
+      "资料档案只需要保存一次，Tideus 就会在案件资料收集与审查工作流中重复使用。",
+      "資料檔案只需要儲存一次，Tideus 就會在案件資料收集與審查工作流中重複使用。"
     )
   );
   const [lastSavedLabel, setLastSavedLabel] = useState(updatedAt ? formatAppDateTime(updatedAt, locale) : pickLocale(locale, "尚未保存", "尚未儲存"));
@@ -216,7 +216,7 @@ export function ProfileForm({ initialValues, email, updatedAt }: ProfileFormProp
               <SelectField error={fieldErrors.englishTestStatus} label={pickLocale(locale, "英语考试状态", "英語考試狀態")} name="englishTestStatus" onChange={setValues} options={optionSets.englishTestStatus} value={values.englishTestStatus} selectOne={messages.common.selectOne} />
               <SelectField error={fieldErrors.canadianExperience} label={pickLocale(locale, "加拿大经历", "加拿大經歷")} name="canadianExperience" onChange={setValues} options={optionSets.experience} value={values.canadianExperience} selectOne={messages.common.selectOne} />
               <SelectField error={fieldErrors.foreignExperience} label={pickLocale(locale, "海外经历", "海外經歷")} name="foreignExperience" onChange={setValues} options={optionSets.experience} value={values.foreignExperience} selectOne={messages.common.selectOne} />
-              <SelectField error={fieldErrors.jobOfferSupport} label={pickLocale(locale, "工作 offer 支持", "工作 offer 支援")} name="jobOfferSupport" onChange={setValues} options={optionSets.jobOfferSupport} value={values.jobOfferSupport} selectOne={messages.common.selectOne} />
+              <SelectField error={fieldErrors.jobOfferSupport} label={pickLocale(locale, "工作录用支持", "工作錄用支持")} name="jobOfferSupport" onChange={setValues} options={optionSets.jobOfferSupport} value={values.jobOfferSupport} selectOne={messages.common.selectOne} />
               <Field
                 error={fieldErrors.provincePreference}
                 label={pickLocale(locale, "省份偏好", "省份偏好")}
@@ -245,14 +245,14 @@ export function ProfileForm({ initialValues, email, updatedAt }: ProfileFormProp
             <CardDescription>
               {pickLocale(
                 locale,
-                "已保存的资料档案会回填案件 intake，并让材料与审查工作流聚焦在真实包件，而不是重复背景问题。",
-                "已儲存的資料檔案會回填案件 intake，並讓材料與審查工作流聚焦在真實包件，而不是重複背景問題。"
+                "已保存的资料档案会回填案件资料收集，并让材料与审查工作流聚焦在真实包件，而不是重复背景问题。",
+                "已儲存的資料檔案會回填案件資料收集，並讓材料與審查工作流聚焦在真實包件，而不是重複背景問題。"
               )}
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="grid gap-3 sm:grid-cols-3">
-              <UsageItem label={pickLocale(locale, "案件 intake", "案件 intake")} value={pickLocale(locale, "自动预填已保存字段", "自動預填已儲存欄位")} />
+              <UsageItem label={pickLocale(locale, "案件资料收集", "案件資料收集")} value={pickLocale(locale, "自动预填已保存字段", "自動預填已儲存欄位")} />
               <UsageItem label={pickLocale(locale, "材料工作台", "材料工作台")} value={pickLocale(locale, "保持包件脉络完整", "保持包件脈絡完整")} />
               <UsageItem label={pickLocale(locale, "结构化审查", "結構化審查")} value={pickLocale(locale, "支持更清晰的交接", "支援更清晰的交接")} />
             </div>

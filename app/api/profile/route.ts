@@ -67,8 +67,8 @@ export async function PATCH(request: Request) {
   return NextResponse.json({
     message: pickLocale(
       locale,
-      "资料档案已保存。新的案件 intake 与审查步骤会使用这份更新后的上下文。",
-      "資料檔案已儲存。新的案件 intake 與審查步驟會使用這份更新後的脈絡。"
+      "资料档案已保存。新的案件资料收集与审查步骤会使用这份更新后的上下文。",
+      "資料檔案已儲存。新的案件資料收集與審查步驟會使用這份更新後的脈絡。"
     )
   });
 }

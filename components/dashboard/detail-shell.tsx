@@ -24,6 +24,7 @@ type DetailShellProps = {
   facts: DetailFact[];
   sections: DetailSection[];
   snapshotTitle: string;
+  snapshotDescription: string;
   snapshotFacts: DetailFact[];
   notesLabel: string;
   notes: string;
@@ -41,6 +42,7 @@ export function DetailShell({
   facts,
   sections,
   snapshotTitle,
+  snapshotDescription,
   snapshotFacts,
   notesLabel,
   notes,
@@ -114,7 +116,7 @@ export function DetailShell({
         <Card className="border-white/10 bg-white text-slate-950">
           <CardHeader>
             <CardTitle>{snapshotTitle}</CardTitle>
-            <CardDescription>Saved inputs stay visible here so the recommendation can be reviewed in context.</CardDescription>
+            <CardDescription>{snapshotDescription}</CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
             <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">

@@ -1972,8 +1972,8 @@ function buildDeterministicCaseQuestionAnswer(input: CaseQuestionAiInput): CaseQ
         )
       : pickLocale(
           input.language,
-          "这很重要，因为在 Tideus 里，只有当问题转化为 intake 事实、预期材料、清单动作或可保存的审查路径时，它才真正有价值。",
-          "這很重要，因為在 Tideus 裡，只有當問題轉化為 intake 事實、預期材料、清單動作或可儲存的審查路徑時，它才真正有價值。"
+          "这很重要，因为在 Tideus 里，只有当问题转化为资料收集事实、预期材料、清单动作或可保存的审查路径时，它才真正有价值。",
+          "這很重要，因為在 Tideus 裡，只有當問題轉化為資料收集事實、預期材料、清單動作或可儲存的審查路徑時，它才真正有價值。"
         ),
     supportingContextNotes,
     scenarioSpecificWarnings,

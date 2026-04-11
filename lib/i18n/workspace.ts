@@ -88,8 +88,8 @@ export function getWorkspaceCopy(locale: AppLocale) {
       welcome: pickLocale(locale, "欢迎回来", "歡迎回來"),
       description: pickLocale(
         locale,
-        "继续推进受支持案件工作流，让 intake、材料状态与结构化审查版本保持一致。",
-        "繼續推進受支援案件工作流，讓 intake、材料狀態與結構化審查版本保持一致。"
+        "继续推进受支持案件工作流，让资料收集、材料状态与结构化审查版本保持一致。",
+        "繼續推進受支援案件工作流，讓資料收集、材料狀態與結構化審查版本保持一致。"
       ),
       activeCases: pickLocale(locale, "进行中案件", "進行中案件"),
       activeCasesDetail: pickLocale(
@@ -117,14 +117,14 @@ export function getWorkspaceCopy(locale: AppLocale) {
       ),
       noCases: pickLocale(
         locale,
-        "还没有保存的案件。先从受支持场景开始，Tideus 会把 intake、材料和审查版本保存在同一条记录里。",
-        "還沒有儲存的案件。先從受支援場景開始，Tideus 會把 intake、材料和審查版本保存在同一條記錄裡。"
+        "还没有保存的案件。先从受支持场景开始，Tideus 会把资料收集结果、材料和审查版本保存在同一条记录里。",
+        "還沒有儲存的案件。先從受支援場景開始，Tideus 會把資料收集結果、材料和審查版本保存在同一條記錄裡。"
       ),
       latestReviewNote: pickLocale(locale, "最新审查备注", "最新審查備註"),
       defaultReviewNote: pickLocale(
         locale,
-        "intake 已保存。继续到材料页生成第一版审查结果。",
-        "intake 已儲存。繼續到材料頁生成第一版審查結果。"
+        "资料收集已保存。继续到材料页生成第一版审查结果。",
+        "資料收集已儲存。繼續到材料頁生成第一版審查結果。"
       ),
       profileCoverage: pickLocale(locale, "资料档案完整度", "資料檔案完整度"),
       lastSaved: pickLocale(locale, "最近保存", "最近儲存")
@@ -160,14 +160,14 @@ export function getWorkspaceCopy(locale: AppLocale) {
       title: pickLocale(locale, "管理已保存资料档案", "管理已儲存資料檔案"),
       description: pickLocale(
         locale,
-        "把核心背景信息集中保存，让案件 intake 更短，并让审查工作流复用相同背景脉络。",
-        "把核心背景資訊集中儲存，讓案件 intake 更短，並讓審查工作流重用相同背景脈絡。"
+        "把核心背景信息集中保存，让案件资料收集更短，并让审查工作流复用相同背景脉络。",
+        "把核心背景資訊集中儲存，讓案件資料收集更短，並讓審查工作流重用相同背景脈絡。"
       ),
       savedProfileTitle: pickLocale(locale, "已保存的移民资料档案", "已儲存的移民資料檔案"),
       savedProfileDescription: pickLocale(
         locale,
-        "把核心事实保存一次，Tideus 就能在案件 intake 与审查工作流中重复使用，而不用每次重问。",
-        "把核心事實儲存一次，Tideus 就能在案件 intake 與審查工作流中重複使用，而不用每次重問。"
+        "把核心事实保存一次，Tideus 就能在案件资料收集与审查工作流中重复使用，而不用每次重问。",
+        "把核心事實儲存一次，Tideus 就能在案件資料收集與審查工作流中重複使用，而不用每次重問。"
       )
     },
     materials: {

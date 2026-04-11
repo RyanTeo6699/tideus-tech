@@ -69,7 +69,7 @@ export default async function CaseDetailPage({ params }: CaseDetailPageProps) {
         { href: "/dashboard/cases", label: copy.actions.backToCases, variant: "outline" },
         { href: buildCaseResumeHref(detail.caseRecord), label: review ? copy.actions.resumeFromReview : copy.actions.resumeCase }
       ]}
-      description={pickLocale(locale, "在这里查看已保存的 intake、当前材料包状态与审查历史。", "在這裡查看已儲存的 intake、目前材料包狀態與審查歷史。")}
+      description={pickLocale(locale, "在这里查看已保存的资料收集、当前材料包状态与审查历史。", "在這裡查看已儲存的資料收集、目前材料包狀態與審查歷史。")}
       eyebrow={copy.shell.caseDetailEyebrow}
       title={detail.caseRecord.title}
     >
@@ -169,7 +169,7 @@ export default async function CaseDetailPage({ params }: CaseDetailPageProps) {
             <CardContent className="space-y-4">
               <div className="rounded-2xl border border-slate-200 bg-slate-50 p-5 text-sm leading-7 text-slate-700">
                 {detail.caseRecord.latest_review_summary ||
-                  pickLocale(locale, "还没有保存的审查版本。intake 已就位，但材料包仍需要完成第一轮审查。", "還沒有儲存的審查版本。intake 已就位，但材料包仍需要完成第一輪審查。")}
+                  pickLocale(locale, "还没有保存的审查版本。资料收集已就位，但材料包仍需要完成第一轮审查。", "還沒有儲存的審查版本。資料收集已就位，但材料包仍需要完成第一輪審查。")}
               </div>
               <div className="grid gap-4 md:grid-cols-2">
                 <InfoCard
@@ -326,8 +326,8 @@ export default async function CaseDetailPage({ params }: CaseDetailPageProps) {
         <div className="grid gap-6 xl:grid-cols-[1fr_0.9fr]">
           <Card>
             <CardHeader>
-              <CardTitle>{pickLocale(locale, "Intake 快照", "Intake 快照")}</CardTitle>
-              <CardDescription>{pickLocale(locale, "保存的 intake 事实会一直显示在这里，方便在完整脉络中审阅案件。", "儲存的 intake 事實會一直顯示在這裡，方便在完整脈絡中審閱案件。")}</CardDescription>
+              <CardTitle>{pickLocale(locale, "资料收集快照", "資料收集快照")}</CardTitle>
+              <CardDescription>{pickLocale(locale, "保存的资料收集事实会一直显示在这里，方便在完整脉络中审阅案件。", "儲存的資料收集事實會一直顯示在這裡，方便在完整脈絡中審閱案件。")}</CardDescription>
             </CardHeader>
             <CardContent className="grid gap-4 md:grid-cols-2">
               {buildCaseSnapshotFacts(detail.caseRecord, locale).map((fact) => (
@@ -342,7 +342,7 @@ export default async function CaseDetailPage({ params }: CaseDetailPageProps) {
           <Card>
             <CardHeader>
               <CardTitle>{pickLocale(locale, "案件备注", "案件備註")}</CardTitle>
-              <CardDescription>{pickLocale(locale, "这些备注来自 intake，并会随案件记录一起保留。", "這些備註來自 intake，並會隨案件記錄一起保留。")}</CardDescription>
+              <CardDescription>{pickLocale(locale, "这些备注来自资料收集，并会随案件记录一起保留。", "這些備註來自資料收集，並會隨案件記錄一起保留。")}</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="rounded-2xl border border-slate-200 bg-slate-50 p-5 text-sm leading-7 text-slate-700">
@@ -350,7 +350,7 @@ export default async function CaseDetailPage({ params }: CaseDetailPageProps) {
               </div>
               {intakeNormalization && intakeNormalization.reviewNotes.length > 0 ? (
                 <div className="mt-4 space-y-3">
-                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">{pickLocale(locale, "结构化 intake 信号", "結構化 intake 訊號")}</p>
+                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">{pickLocale(locale, "结构化资料收集信号", "結構化資料收集訊號")}</p>
                   {intakeNormalization.reviewNotes.slice(0, 3).map((item) => (
                     <div className="rounded-2xl border border-slate-200 bg-white p-4 text-sm leading-6 text-slate-700" key={item}>
                       {item}

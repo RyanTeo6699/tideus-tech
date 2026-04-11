@@ -63,17 +63,22 @@ export default async function AssessmentDetailPage({ params }: AssessmentDetailP
         { label: pickLocale(locale, "英语考试", "英語考試"), value: formatValue(readSnapshotString(snapshot, "englishTestStatus"), locale) },
         { label: pickLocale(locale, "加拿大经历", "加拿大經歷"), value: formatValue(readSnapshotString(snapshot, "canadianExperience"), locale) },
         { label: pickLocale(locale, "海外经历", "海外經歷"), value: formatValue(readSnapshotString(snapshot, "foreignExperience"), locale) },
-        { label: pickLocale(locale, "工作 offer 支持", "工作 offer 支持"), value: formatValue(readSnapshotString(snapshot, "jobOfferSupport"), locale) },
+        { label: pickLocale(locale, "工作录用支持", "工作錄用支持"), value: formatValue(readSnapshotString(snapshot, "jobOfferSupport"), locale) },
         {
           label: pickLocale(locale, "拒签历史", "拒簽歷史"),
           value: readSnapshotBoolean(snapshot, "refusalHistoryFlag") ? pickLocale(locale, "是", "是") : pickLocale(locale, "否", "否")
         }
       ]}
       snapshotTitle={pickLocale(locale, "评估资料快照", "評估資料快照")}
+      snapshotDescription={pickLocale(
+        locale,
+        "已保存的输入会持续显示在这里，方便结合完整背景审阅这条旧评估记录。",
+        "已儲存的輸入會持續顯示在這裡，方便結合完整背景審閱這條舊評估紀錄。"
+      )}
       subtitle={pickLocale(
         locale,
-        "在同一页面查看迁移阶段保存的 intake、结构化建议和下一步动作。",
-        "在同一頁面查看遷移階段儲存的 intake、結構化建議和下一步動作。"
+        "在同一页面查看迁移阶段保存的案件资料收集、结构化建议和下一步动作。",
+        "在同一頁面查看遷移階段儲存的案件資料收集、結構化建議和下一步動作。"
       )}
       summary={detail.record.result_summary}
       title={`${formatValue(detail.record.current_status, locale)} ${pickLocale(locale, "到", "到")} ${formatValue(detail.record.goal, locale)}`}

@@ -91,7 +91,7 @@ const localizedOptions = {
       { label: "3 年以上", value: "3-plus-years" }
     ],
     jobOfferSupportOptions: [
-      { label: "已有明确 job offer 支持", value: "confirmed" },
+      { label: "已有明确工作录用支持", value: "confirmed" },
       { label: "正在沟通中", value: "in-discussion" },
       { label: "目前没有支持", value: "none" }
     ],
@@ -110,7 +110,7 @@ const localizedOptions = {
       englishTestStatus: "英语考试",
       canadianExperience: "加拿大经验",
       foreignExperience: "海外经验",
-      jobOfferSupport: "Job offer 支持",
+      jobOfferSupport: "工作录用支持",
       provincePreference: "省份偏好",
       refusalHistory: "拒签历史"
     },
@@ -126,7 +126,7 @@ const localizedOptions = {
       englishTestStatus: "请选择英语考试状态。",
       canadianExperience: "请选择加拿大经验。",
       foreignExperience: "请选择海外经验。",
-      jobOfferSupport: "请选择 job offer 支持状态。",
+      jobOfferSupport: "请选择工作录用支持状态。",
       provincePreference: "请输入省份偏好。",
       refusalHistoryFlag: "请选择拒签历史。"
     }
@@ -179,7 +179,7 @@ const localizedOptions = {
       { label: "3 年以上", value: "3-plus-years" }
     ],
     jobOfferSupportOptions: [
-      { label: "已有明確 job offer 支持", value: "confirmed" },
+      { label: "已有明確工作錄用支持", value: "confirmed" },
       { label: "正在討論中", value: "in-discussion" },
       { label: "目前沒有支持", value: "none" }
     ],
@@ -198,7 +198,7 @@ const localizedOptions = {
       englishTestStatus: "英語考試",
       canadianExperience: "加拿大經驗",
       foreignExperience: "海外經驗",
-      jobOfferSupport: "Job offer 支持",
+      jobOfferSupport: "工作錄用支持",
       provincePreference: "省份偏好",
       refusalHistory: "拒簽歷史"
     },
@@ -214,7 +214,7 @@ const localizedOptions = {
       englishTestStatus: "請選擇英語考試狀態。",
       canadianExperience: "請選擇加拿大經驗。",
       foreignExperience: "請選擇海外經驗。",
-      jobOfferSupport: "請選擇 job offer 支持狀態。",
+      jobOfferSupport: "請選擇工作錄用支持狀態。",
       provincePreference: "請輸入省份偏好。",
       refusalHistoryFlag: "請選擇拒簽歷史。"
     }

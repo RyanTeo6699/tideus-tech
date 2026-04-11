@@ -483,7 +483,7 @@ function buildRiskFlags(
       riskFlags.push({
         label: pickLocale(locale, "支持来源不清楚", "支援來源不清楚"),
         severity: "medium",
-        detail: pickLocale(locale, "看起来此次停留依赖邀请方或家人支持，但 intake 中并未清楚写明支持主体。", "看起來此次停留依賴邀請方或家人支援，但 intake 中並未清楚寫明支援主體。")
+        detail: pickLocale(locale, "看起来此次停留依赖邀请方或家人支持，但资料收集中并未清楚写明支持主体。", "看起來此次停留依賴邀請方或家人支援，但資料收集中並未清楚寫明支援主體。")
       });
     }
 
@@ -557,7 +557,7 @@ function buildTimelineNote(intake: CaseIntakeValues, locale: AppLocale = default
   }
 
   if (daysUntilExpiry <= 60) {
-    return pickLocale(locale, "仍有时间收紧案件，但材料包应尽快从 intake 进入补齐阶段。", "仍有時間收緊案件，但材料包應盡快從 intake 進入補齊階段。");
+    return pickLocale(locale, "仍有时间收紧案件，但材料包应尽快从资料收集进入补齐阶段。", "仍有時間收緊案件，但材料包應盡快從資料收集進入補齊階段。");
   }
 
   return pickLocale(locale, "案件仍有操作时间，因此在进入交接前应优先追求完整度。", "案件仍有操作時間，因此在進入交接前應優先追求完整度。");

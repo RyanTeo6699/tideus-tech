@@ -59,6 +59,11 @@ export default async function ComparisonDetailPage({ params }: ComparisonDetailP
         { label: pickLocale(locale, "方案 B 时间匹配", "方案 B 時間匹配"), value: formatValue(readSnapshotString(snapshot, "optionBTimelineFit"), locale) }
       ]}
       snapshotTitle={pickLocale(locale, "比较输入快照", "比較輸入快照")}
+      snapshotDescription={pickLocale(
+        locale,
+        "已保存的输入会持续显示在这里，方便结合完整背景审阅这条旧比较记录。",
+        "已儲存的輸入會持續顯示在這裡，方便結合完整背景審閱這條舊比較紀錄。"
+      )}
       subtitle={pickLocale(
         locale,
         "在同一页面查看迁移阶段保存的权衡记录、主建议和备用逻辑。",

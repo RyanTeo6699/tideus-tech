@@ -279,7 +279,7 @@ const zhCnMessages: AppMessages = {
     tagline: "面向延期准备的案件工作台",
     footerTagline: "聚焦案件准备工作台",
     footerDescription:
-      "Tideus 帮助用户围绕高频、材料密集型案件准备工作整理资料、保存 intake、跟踪材料状态，并生成结构化审查结果。",
+      "Tideus 帮助用户围绕高频、材料密集型案件准备工作整理资料、保存资料收集结果、跟踪材料状态，并生成结构化审查结果。",
     mainNav: [
       { label: "如何运作", href: "/how-it-works" },
       { label: "适用场景", href: "/use-cases" },
@@ -320,7 +320,7 @@ const zhCnMessages: AppMessages = {
     stats: [
       { value: "2", label: "首个发布窗口仅支持两个高频楔形工作流。" },
       { value: "8", label: "结构化审查模块：就绪度、清单、缺失项、风险、时间提醒、后续动作、上下文、参考标签。" },
-      { value: "1", label: "一个保存 intake、材料和审查版本的案件工作台。" }
+      { value: "1", label: "一个保存资料收集结果、材料和审查版本的案件工作台。" }
     ],
     exampleBadge: "审查结果示例",
     exampleTitle: "聚焦型案件工作台应该给人的感受",
@@ -332,7 +332,7 @@ const zhCnMessages: AppMessages = {
     exampleNextStepLabel: "下一步",
     exampleNextStepValue: "先收紧解释信并更新证据清单，再进入下一轮审查。",
     materialsLabel: "材料跟踪",
-    materialsDescription: "预期材料始终可见，案件可以从 intake 平稳推进到资料审查，而不是靠记忆。",
+    materialsDescription: "预期材料始终可见，案件可以从资料收集平稳推进到资料审查，而不是靠记忆。",
     reviewHistoryLabel: "审查版本",
     reviewHistoryDescription: "每一轮都会保存就绪度快照、风险和下一步，而不是变成一次性的 AI 对话。"
   },
@@ -340,7 +340,7 @@ const zhCnMessages: AppMessages = {
     badge: "聚焦且便于交接",
     title: "从受支持的案件类型开始，把资料包一步步整理干净。",
     description:
-      "Tideus 聚焦在结构化案件准备：intake、材料跟踪、审查输出，以及能让下一次专业沟通更快进入上下文的保存型工作台。",
+      "Tideus 聚焦在结构化案件准备：资料收集、材料跟踪、审查输出，以及能让下一次专业沟通更快进入上下文的保存型工作台。",
     startCase: "开始案件",
     bookDemo: "预约演示"
   },
@@ -356,7 +356,7 @@ const zhCnMessages: AppMessages = {
     viewWorkflow: "查看工作流",
     workflowEyebrow: "工作流",
     workflowTitle: "产品被设计成让一个案件沿着一条审查路径推进。",
-    workflowDescription: "流程刻意保持收敛：选择案件类型、完成 intake、标记材料，并生成可保存的审查结果。",
+    workflowDescription: "流程刻意保持收敛：选择案件类型、完成资料收集、标记材料，并生成可保存的审查结果。",
     trustEyebrow: "信任边界",
     trustTitle: "真正有帮助的案件准备，必须清楚说明它不是什么。",
     trustCardTitle: "边界",
@@ -370,7 +370,7 @@ const zhCnMessages: AppMessages = {
   howItWorks: {
     eyebrow: "如何运作",
     title: "产品的目标，是在真正的人工审查开始前把案件资料包整理清楚。",
-    description: "Tideus 被设计成一条窄而清晰的路径：intake、材料、结构化审查，以及可保存的后续跟进。",
+    description: "Tideus 被设计成一条窄而清晰的路径：资料收集、材料、结构化审查，以及可保存的后续跟进。",
     startCase: "开始案件",
     bookDemo: "预约演示",
     structuredOutputEyebrow: "结构化输出",
@@ -415,7 +415,7 @@ const zhCnMessages: AppMessages = {
   startCase: {
     eyebrow: "开始案件",
     title: "选择与你当前案件准备任务相匹配的工作流。",
-    description: "选择一个受支持的案件类型，进入 intake，并开始建立可随时继续的案件记录。",
+    description: "选择一个受支持的案件类型，进入资料收集，并开始建立可随时继续的案件记录。",
     bookDemo: "预约演示",
     openWorkspace: "打开案件工作台",
     loginToSave: "登录后保存案件",
@@ -508,11 +508,11 @@ const zhCnMessages: AppMessages = {
     loginHighlights: [
       "邮箱和密码登录后即可进入案件工作台。",
       "只有有效会话才能打开仪表盘与工作流页面。",
-      "登录后，已保存的 intake、材料和审查历史都会出现在工作台中。"
+      "登录后，已保存的资料收集结果、材料和审查历史都会出现在工作台中。"
     ],
     signupBadge: "注册",
-    signupTitle: "创建账户，从第一次 intake 开始就保存案件准备工作。",
-    signupDescription: "创建账户后，intake 答案、材料跟踪和结构化审查结果都会保存在同一个工作台中。",
+    signupTitle: "创建账户，从第一次资料收集开始就保存案件准备工作。",
+    signupDescription: "创建账户后，资料收集回答、材料跟踪和结构化审查结果都会保存在同一个工作台中。",
     signupHighlights: [
       "表单包含校验、加载、成功和错误状态。",
       "启用后，新账户可以走邮箱确认流程。",
@@ -578,7 +578,7 @@ const zhTwMessages: AppMessages = {
     tagline: "面向延期準備的案件工作台",
     footerTagline: "聚焦案件準備工作台",
     footerDescription:
-      "Tideus 幫助使用者圍繞高頻、材料密集型案件準備工作整理資料、保存 intake、追蹤材料狀態，並產生結構化審查結果。",
+      "Tideus 幫助使用者圍繞高頻、材料密集型案件準備工作整理資料、保存資料收集結果、追蹤材料狀態，並產生結構化審查結果。",
     mainNav: [
       { label: "如何運作", href: "/how-it-works" },
       { label: "適用情境", href: "/use-cases" },
@@ -620,7 +620,7 @@ const zhTwMessages: AppMessages = {
     stats: [
       { value: "2", label: "首個發布視窗僅支援兩個高頻楔形工作流程。" },
       { value: "8", label: "結構化審查模組：就緒度、清單、缺失項、風險、時間提醒、後續動作、脈絡、參考標籤。" },
-      { value: "1", label: "一個保存 intake、材料和審查版本的案件工作台。" }
+      { value: "1", label: "一個保存資料收集結果、材料和審查版本的案件工作台。" }
     ],
     exampleBadge: "審查結果示例",
     exampleTitle: "聚焦型案件工作台應該帶來的感受",
@@ -632,7 +632,7 @@ const zhTwMessages: AppMessages = {
     exampleNextStepLabel: "下一步",
     exampleNextStepValue: "先收緊解釋信並更新證據清單，再進入下一輪審查。",
     materialsLabel: "材料追蹤",
-    materialsDescription: "預期材料始終可見，案件可以從 intake 平順推進到資料審查，而不是靠記憶。",
+    materialsDescription: "預期材料始終可見，案件可以從資料收集平順推進到資料審查，而不是靠記憶。",
     reviewHistoryLabel: "審查版本",
     reviewHistoryDescription: "每一輪都會保存就緒度快照、風險和下一步，而不是變成一次性的 AI 對話。"
   },
@@ -641,7 +641,7 @@ const zhTwMessages: AppMessages = {
     badge: "聚焦且便於交接",
     title: "從受支援的案件類型開始，把資料包一步步整理乾淨。",
     description:
-      "Tideus 聚焦在結構化案件準備：intake、材料追蹤、審查輸出，以及能讓下一次專業溝通更快進入脈絡的保存型工作台。",
+      "Tideus 聚焦在結構化案件準備：資料收集、材料追蹤、審查輸出，以及能讓下一次專業溝通更快進入脈絡的保存型工作台。",
     startCase: "開始案件",
     bookDemo: "預約示範"
   },
@@ -658,7 +658,7 @@ const zhTwMessages: AppMessages = {
     viewWorkflow: "查看工作流程",
     workflowEyebrow: "工作流程",
     workflowTitle: "產品被設計成讓一個案件沿著一條審查路徑推進。",
-    workflowDescription: "流程刻意保持收斂：選擇案件類型、完成 intake、標記材料，並產生可保存的審查結果。",
+    workflowDescription: "流程刻意保持收斂：選擇案件類型、完成資料收集、標記材料，並產生可保存的審查結果。",
     trustEyebrow: "信任邊界",
     trustTitle: "真正有幫助的案件準備，必須清楚說明它不是什麼。",
     trustCardTitle: "邊界",
@@ -673,7 +673,7 @@ const zhTwMessages: AppMessages = {
     ...zhCnMessages.howItWorks,
     eyebrow: "如何運作",
     title: "產品的目標，是在真正的人工審查開始前把案件資料包整理清楚。",
-    description: "Tideus 被設計成一條窄而清晰的路徑：intake、材料、結構化審查，以及可保存的後續追蹤。",
+    description: "Tideus 被設計成一條窄而清晰的路徑：資料收集、材料、結構化審查，以及可保存的後續追蹤。",
     startCase: "開始案件",
     bookDemo: "預約示範",
     structuredOutputEyebrow: "結構化輸出",
@@ -721,7 +721,7 @@ const zhTwMessages: AppMessages = {
     ...zhCnMessages.startCase,
     eyebrow: "開始案件",
     title: "選擇與你目前案件準備任務相匹配的工作流程。",
-    description: "選擇一個受支援的案件類型，進入 intake，並開始建立可隨時繼續的案件紀錄。",
+    description: "選擇一個受支援的案件類型，進入資料收集，並開始建立可隨時繼續的案件紀錄。",
     bookDemo: "預約示範",
     openWorkspace: "開啟案件工作台",
     loginToSave: "登入後保存案件",
@@ -818,11 +818,11 @@ const zhTwMessages: AppMessages = {
     loginHighlights: [
       "電子郵件與密碼登入後即可進入案件工作台。",
       "只有有效工作階段才能開啟儀表板與工作流程頁面。",
-      "登入後，已保存的 intake、材料和審查歷史都會出現在工作台中。"
+      "登入後，已保存的資料收集結果、材料和審查歷史都會出現在工作台中。"
     ],
     signupBadge: "註冊",
-    signupTitle: "建立帳戶，從第一次 intake 開始就保存案件準備工作。",
-    signupDescription: "建立帳戶後，intake 答案、材料追蹤和結構化審查結果都會保存在同一個工作台中。",
+    signupTitle: "建立帳戶，從第一次資料收集開始就保存案件準備工作。",
+    signupDescription: "建立帳戶後，資料收集回答、材料追蹤和結構化審查結果都會保存在同一個工作台中。",
     signupHighlights: [
       "表單包含驗證、載入、成功和錯誤狀態。",
       "啟用後，新帳戶可以走電子郵件確認流程。",

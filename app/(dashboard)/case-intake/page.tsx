@@ -35,7 +35,7 @@ export default async function CaseIntakePage({ searchParams }: CaseIntakePagePro
         { href: "/start-case", label: locale === "zh-TW" ? "返回使用情境" : "返回使用场景", variant: "outline" },
         { href: "/dashboard", label: locale === "zh-TW" ? "開啟工作台" : "打开工作台", variant: "outline" }
       ]}
-      description={locale === "zh-TW" ? "這份 intake 會建立可保存的案件紀錄，並為後續工作流程提供基礎。" : "这份 intake 会建立可保存的案件记录，并为后续工作流提供基础。"}
+      description={locale === "zh-TW" ? "這份資料收集會建立可保存的案件紀錄，並為後續工作流程提供基礎。" : "这份资料收集会建立可保存的案件记录，并为后续工作流提供基础。"}
       eyebrow={locale === "zh-TW" ? "案件資料收集" : "案件资料收集"}
       title={locale === "zh-TW" ? `${useCase.shortTitle} 資料收集` : `${useCase.shortTitle} 资料收集`}
     >
