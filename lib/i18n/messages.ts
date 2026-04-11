@@ -240,7 +240,6 @@ export type AppMessages = {
     fullNameLabel: string;
     fullNamePlaceholder: string;
     emailLabel: string;
-    emailPlaceholder: string;
     passwordLabel: string;
     passwordPlaceholder: string;
     workingButton: string;
@@ -284,6 +283,8 @@ const zhCnMessages: AppMessages = {
       { label: "如何运作", href: "/how-it-works" },
       { label: "适用场景", href: "/use-cases" },
       { label: "提问入口", href: "/case-question" },
+      { label: "方案与升级", href: "/pricing" },
+      { label: "专业端", href: "/for-professionals" },
       { label: "开始案件", href: "/start-case" },
       { label: "信任与边界", href: "/trust" },
       { label: "案件工作台", href: "/dashboard" }
@@ -295,6 +296,8 @@ const zhCnMessages: AppMessages = {
           { label: "如何运作", href: "/how-it-works" },
           { label: "适用场景", href: "/use-cases" },
           { label: "提问入口", href: "/case-question" },
+          { label: "方案与升级", href: "/pricing" },
+          { label: "专业端", href: "/for-professionals" },
           { label: "开始案件", href: "/start-case" },
           { label: "案件工作台", href: "/dashboard" }
         ]
@@ -538,7 +541,6 @@ const zhCnMessages: AppMessages = {
     fullNameLabel: "姓名",
     fullNamePlaceholder: "王小明",
     emailLabel: "邮箱",
-    emailPlaceholder: "you@example.com",
     passwordLabel: "密码",
     passwordPlaceholder: "至少 8 个字符",
     workingButton: "处理中...",
@@ -583,6 +585,8 @@ const zhTwMessages: AppMessages = {
       { label: "如何運作", href: "/how-it-works" },
       { label: "適用情境", href: "/use-cases" },
       { label: "提問入口", href: "/case-question" },
+      { label: "方案與升級", href: "/pricing" },
+      { label: "專業端", href: "/for-professionals" },
       { label: "開始案件", href: "/start-case" },
       { label: "信任與邊界", href: "/trust" },
       { label: "案件工作台", href: "/dashboard" }
@@ -594,6 +598,8 @@ const zhTwMessages: AppMessages = {
           { label: "如何運作", href: "/how-it-works" },
           { label: "適用情境", href: "/use-cases" },
           { label: "提問入口", href: "/case-question" },
+          { label: "方案與升級", href: "/pricing" },
+          { label: "專業端", href: "/for-professionals" },
           { label: "開始案件", href: "/start-case" },
           { label: "案件工作台", href: "/dashboard" }
         ]
@@ -849,7 +855,6 @@ const zhTwMessages: AppMessages = {
     fullNameLabel: "姓名",
     fullNamePlaceholder: "王小明",
     emailLabel: "電子郵件",
-    emailPlaceholder: "you@example.com",
     passwordLabel: "密碼",
     passwordPlaceholder: "至少 8 個字元",
     workingButton: "處理中...",

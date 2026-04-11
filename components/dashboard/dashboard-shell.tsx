@@ -5,6 +5,7 @@ import type { Tables } from "@/lib/database.types";
 import { buildCaseResumeHref } from "@/lib/cases";
 import { formatCaseStatus } from "@/lib/case-state";
 import { getProfileCompletion } from "@/lib/profile";
+import { formatConsumerPlanName, getConsumerPlanDefinitions, getConsumerPlanState } from "@/lib/plans";
 import { formatReadinessStatus, getUseCaseDefinition } from "@/lib/case-workflows";
 import { formatAppDate } from "@/lib/i18n/format";
 import { getCurrentLocale } from "@/lib/i18n/server";
@@ -41,6 +42,9 @@ export async function DashboardShell({ user, profile, recentCases, metrics }: Da
   const firstName = displayName.split(" ")[0] ?? displayName;
   const userEmail = user.email ?? profile?.email ?? copy.common.notSet;
   const profileCompletion = getProfileCompletion(profile);
+  const planState = getConsumerPlanState(profile);
+  const proPlan = getConsumerPlanDefinitions(locale).find((item) => item.tier === "pro");
+  const planHighlights = proPlan?.features.slice(0, 3) ?? [];
 
   const navItems = dashboardNav.map((item) => ({
     ...item,
@@ -132,6 +136,66 @@ export async function DashboardShell({ user, profile, recentCases, metrics }: Da
               >
                 {copy.actions.manageProfile}
               </Link>
+            </div>
+
+            <div className="mt-8 rounded-[24px] border border-amber-400/20 bg-amber-400/10 p-4">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="text-xs uppercase tracking-[0.2em] text-amber-200">
+                    {pickLocale(locale, "当前 C 端方案", "目前 C 端方案")}
+                  </p>
+                  <p className="mt-2 text-lg font-semibold">{formatConsumerPlanName(planState.tier, locale)}</p>
+                  <p className="mt-2 text-sm leading-6 text-slate-300">
+                    {planState.tier === "pro"
+                      ? pickLocale(
+                          locale,
+                          "已启用持续 AI 协作、审查变化对比和更强的交接摘要层。",
+                          "已啟用持續 AI 協作、審查變化對比和更強的交接摘要層。"
+                        )
+                      : pickLocale(
+                          locale,
+                          "当前保留案件、材料和基础审查工作流。连续 AI 追问、材料动作和交接增强层属于 Pro。",
+                          "目前保留案件、材料和基礎審查工作流程。連續 AI 追問、材料動作和交接增強層屬於 Pro。"
+                        )}
+                  </p>
+                </div>
+                <Badge variant="secondary">{formatConsumerPlanName(planState.tier, locale)}</Badge>
+              </div>
+
+              <div className="mt-4 space-y-2 text-sm leading-6 text-slate-100">
+                {planHighlights.map((item) => (
+                  <div className="rounded-2xl border border-white/10 bg-white/5 px-3 py-2" key={item}>
+                    {item}
+                  </div>
+                ))}
+              </div>
+
+              <div className="mt-5 flex flex-col gap-3">
+                <Link
+                  className={cn(
+                    buttonVariants({ variant: planState.tier === "pro" ? "outline" : "secondary", size: "sm" }),
+                    planState.tier === "pro" ? "border-white/15 bg-white/5 text-white hover:bg-white/10" : ""
+                  )}
+                  href="/pricing"
+                >
+                  {planState.tier === "pro"
+                    ? pickLocale(locale, "查看方案详情", "查看方案詳情")
+                    : pickLocale(locale, "查看 Free / Pro 差异", "查看 Free / Pro 差異")}
+                </Link>
+                {planState.tier === "free" ? (
+                  <EventLink
+                    className={buttonVariants({ variant: "outline", size: "sm" })}
+                    eventType="book_demo_clicked"
+                    href="/book-demo"
+                    metadata={{
+                      sourceSurface: "dashboard-plan-card",
+                      requestedPlan: "pro"
+                    }}
+                  >
+                    {pickLocale(locale, "预约升级 Pro", "預約升級 Pro")}
+                  </EventLink>
+                ) : null}
+              </div>
             </div>
           </div>
         </aside>

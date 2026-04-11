@@ -5,7 +5,8 @@ import type {
 } from "@/lib/case-workflows";
 import type { AppLocale } from "@/lib/i18n/config";
 
-export const CASE_KNOWLEDGE_ADAPTER_VERSION = "tideus-case-knowledge-adapter-v3";
+export const CASE_KNOWLEDGE_ADAPTER_VERSION = "tideus-case-knowledge-adapter-v4";
+export const CASE_KNOWLEDGE_PACK_VERSION = 1;
 export const CASE_KNOWLEDGE_REFRESH_EVENT_TYPE = "knowledge_refresh_completed";
 
 export type CaseKnowledgeTrustLevel = "official-context" | "scenario-workflow" | "case-derived";
@@ -14,7 +15,7 @@ export type CaseKnowledgeReference = {
   label: string;
   referenceType: "official-context" | "processing-time" | "materials-guidance";
   trustLevel: CaseKnowledgeTrustLevel;
-  freshness: "static-adapter" | "live-check-required";
+  freshness: "seed-pack" | "live-check-required";
 };
 
 export type CaseKnowledgeProcessingTimeNote = {
@@ -36,9 +37,11 @@ export type CaseKnowledgeContext = {
   source: "tideus-internal-knowledge-adapter";
   sourceVersion: string;
   adapterVersion: typeof CASE_KNOWLEDGE_ADAPTER_VERSION;
-  sourceKind: "static-adapter" | "refreshed-snapshot";
+  sourceKind: "seed-pack" | "refreshed-pack";
   scenarioTag: SupportedUseCaseSlug;
   language: AppLocale;
+  packVersion: number;
+  packLabel: string;
   generatedAt: string;
   refreshedAt: string | null;
   processingTimeNote: CaseKnowledgeProcessingTimeNote | null;
@@ -96,16 +99,7 @@ export type CaseKnowledgeInput = {
   materialInterpretation: CaseKnowledgeMaterialInterpretation | null;
 };
 
-export type CaseScenarioKnowledge = {
-  processingTimeNote: CaseKnowledgeProcessingTimeNote | null;
-  references: CaseKnowledgeReference[];
-  supportingContextNotes: string[];
-  materialsGuidanceNotes: CaseKnowledgeMaterialGuidanceNote[];
-  scenarioSpecificWarnings: string[];
-  officialReferenceLabels?: string[];
-};
-
-export type CaseKnowledgeRefreshPayload = {
+export type CaseKnowledgePackLocalePayload = {
   processingTimeNote: CaseKnowledgeProcessingTimeNote | null;
   supportingContextNotes: string[];
   materialsGuidanceNotes: CaseKnowledgeMaterialGuidanceNote[];
@@ -114,10 +108,15 @@ export type CaseKnowledgeRefreshPayload = {
   references: CaseKnowledgeReference[];
 };
 
-export type CaseKnowledgeRefreshSnapshot = {
+export type CaseKnowledgeRefreshPayload = CaseKnowledgePackLocalePayload;
+
+export type CaseKnowledgePack = {
+  packVersion: typeof CASE_KNOWLEDGE_PACK_VERSION;
   scenarioTag: SupportedUseCaseSlug;
   sourceVersion: string;
   sourceLabel: string;
   refreshedAt: string;
-  localizedKnowledge: Partial<Record<AppLocale, CaseKnowledgeRefreshPayload>>;
+  localizedKnowledge: Record<AppLocale, CaseKnowledgePackLocalePayload>;
 };
+
+export type CaseKnowledgeRefreshSnapshot = CaseKnowledgePack;

@@ -1,10 +1,12 @@
 import type { Json, TablesInsert } from "@/lib/database.types";
-import { appLocales, defaultLocale, isAppLocale, type AppLocale } from "@/lib/i18n/config";
+import { appLocales, defaultLocale, type AppLocale } from "@/lib/i18n/config";
 import { createClient } from "@/lib/supabase/server";
 import type { SupportedUseCaseSlug } from "@/lib/case-workflows";
 import {
+  CASE_KNOWLEDGE_PACK_VERSION,
   CASE_KNOWLEDGE_REFRESH_EVENT_TYPE,
   type CaseKnowledgeMaterialGuidanceNote,
+  type CaseKnowledgePack,
   type CaseKnowledgeProcessingTimeNote,
   type CaseKnowledgeReference,
   type CaseKnowledgeRefreshPayload,
@@ -23,13 +25,7 @@ type ParseFailure = {
 
 type ParseResult<T> = ParseSuccess<T> | ParseFailure;
 
-type SaveKnowledgeRefreshInput = {
-  scenarioTag: SupportedUseCaseSlug;
-  sourceVersion: string;
-  sourceLabel: string;
-  refreshedAt: string;
-  localizedKnowledge: Record<AppLocale, CaseKnowledgeRefreshPayload>;
-};
+type SaveKnowledgeRefreshInput = CaseKnowledgeRefreshSnapshot;
 
 export async function readLatestKnowledgeRefreshSnapshot(
   scenarioTag: SupportedUseCaseSlug
@@ -63,6 +59,8 @@ export async function saveKnowledgeRefreshSnapshot(input: SaveKnowledgeRefreshIn
     event_type: CASE_KNOWLEDGE_REFRESH_EVENT_TYPE,
     path: "/api/internal/knowledge/refresh",
     metadata: {
+      knowledgePack: input as Json,
+      packVersion: input.packVersion,
       scenarioTag: input.scenarioTag,
       sourceVersion: input.sourceVersion,
       sourceLabel: input.sourceLabel,
@@ -85,16 +83,25 @@ export function parseKnowledgeRefreshRequest(value: unknown): ParseResult<SaveKn
     };
   }
 
-  const scenarioTag = typeof body.scenarioTag === "string" ? body.scenarioTag.trim() : "";
-  const sourceVersion = typeof body.sourceVersion === "string" ? body.sourceVersion.trim() : "";
-  const sourceLabel = typeof body.sourceLabel === "string" ? body.sourceLabel.trim() : "";
-  const refreshedAt = typeof body.refreshedAt === "string" && body.refreshedAt.trim() ? body.refreshedAt.trim() : new Date().toISOString();
-  const localizedKnowledgeRecord = readRecord(body.localizedKnowledge);
+  const inputRecord = readRecord(body.knowledgePack) ?? body;
+  const packVersion = readPackVersion(inputRecord.packVersion) ?? CASE_KNOWLEDGE_PACK_VERSION;
+  const scenarioTag = readScenarioTag(inputRecord.scenarioTag);
+  const sourceVersion = readString(inputRecord.sourceVersion);
+  const sourceLabel = readString(inputRecord.sourceLabel);
+  const refreshedAt = readString(inputRecord.refreshedAt) || new Date().toISOString();
+  const localizedKnowledgeRecord = readRecord(inputRecord.localizedKnowledge);
 
-  if (scenarioTag !== "visitor-record" && scenarioTag !== "study-permit-extension") {
+  if (!scenarioTag) {
     return {
       success: false,
       message: "只支持访客记录与学签延期的知识刷新。"
+    };
+  }
+
+  if (packVersion !== CASE_KNOWLEDGE_PACK_VERSION) {
+    return {
+      success: false,
+      message: "知识包版本不受支持。"
     };
   }
 
@@ -119,81 +126,90 @@ export function parseKnowledgeRefreshRequest(value: unknown): ParseResult<SaveKn
     };
   }
 
-  const localizedKnowledge = {} as Record<AppLocale, CaseKnowledgeRefreshPayload>;
+  const zhCnPayload = parseKnowledgeRefreshPayload(localizedKnowledgeRecord["zh-CN"]);
+  const zhTwPayload = parseKnowledgeRefreshPayload(localizedKnowledgeRecord["zh-TW"]);
 
-  for (const locale of appLocales) {
-    const payload = parseKnowledgeRefreshPayload(localizedKnowledgeRecord[locale]);
+  if (!zhCnPayload) {
+    return {
+      success: false,
+      message: "缺少简体中文的结构化知识内容。"
+    };
+  }
 
-    if (!payload) {
-      return {
-        success: false,
-        message: locale === "zh-TW" ? "缺少繁體中文的結構化知識內容。" : "缺少简体中文的结构化知识内容。"
-      };
-    }
-
-    localizedKnowledge[locale] = payload;
+  if (!zhTwPayload) {
+    return {
+      success: false,
+      message: "缺少繁體中文的結構化知識內容。"
+    };
   }
 
   return {
     success: true,
     data: {
+      packVersion,
       scenarioTag,
       sourceVersion,
       sourceLabel,
       refreshedAt,
-      localizedKnowledge
+      localizedKnowledge: {
+        "zh-CN": zhCnPayload,
+        "zh-TW": zhTwPayload
+      }
     }
   };
 }
 
 export function getKnowledgeRefreshPayloadForLocale(
-  snapshot: CaseKnowledgeRefreshSnapshot | null,
+  snapshot: Pick<CaseKnowledgePack, "localizedKnowledge"> | null,
   locale: AppLocale = defaultLocale
 ): CaseKnowledgeRefreshPayload | null {
   if (!snapshot) {
     return null;
   }
 
-  return snapshot.localizedKnowledge[locale] ?? null;
+  return snapshot.localizedKnowledge[locale] ?? snapshot.localizedKnowledge[defaultLocale] ?? null;
 }
 
 function parseKnowledgeRefreshSnapshot(value: Json | null | undefined, createdAt: string | null): CaseKnowledgeRefreshSnapshot | null {
   const record = readRecord(value);
-  const scenarioTag = typeof record?.scenarioTag === "string" ? record.scenarioTag.trim() : "";
-  const sourceVersion = typeof record?.sourceVersion === "string" ? record.sourceVersion.trim() : "";
-  const sourceLabel = typeof record?.sourceLabel === "string" ? record.sourceLabel.trim() : "";
-  const refreshedAt = typeof record?.refreshedAt === "string" && record.refreshedAt.trim() ? record.refreshedAt.trim() : createdAt ?? new Date().toISOString();
-  const localizedKnowledgeRecord = readRecord(record?.localizedKnowledge);
 
-  if (
-    (scenarioTag !== "visitor-record" && scenarioTag !== "study-permit-extension") ||
-    !sourceVersion ||
-    !sourceLabel ||
-    !localizedKnowledgeRecord
-  ) {
+  if (!record) {
     return null;
   }
 
-  const localizedKnowledge: Partial<Record<AppLocale, CaseKnowledgeRefreshPayload>> = {};
+  return parseKnowledgePackRecord(readRecord(record.knowledgePack) ?? record, createdAt);
+}
 
-  for (const [localeKey, localeValue] of Object.entries(localizedKnowledgeRecord)) {
-    if (!isAppLocale(localeKey)) {
-      continue;
-    }
+function parseKnowledgePackRecord(value: Record<string, unknown>, createdAt: string | null): CaseKnowledgeRefreshSnapshot | null {
+  const scenarioTag = readScenarioTag(value.scenarioTag);
+  const sourceVersion = readString(value.sourceVersion);
+  const sourceLabel = readString(value.sourceLabel);
+  const refreshedAt = readString(value.refreshedAt) || createdAt || new Date().toISOString();
+  const packVersion = readPackVersion(value.packVersion) ?? CASE_KNOWLEDGE_PACK_VERSION;
+  const localizedKnowledgeRecord = readRecord(value.localizedKnowledge);
 
-    const payload = parseKnowledgeRefreshPayload(localeValue);
+  if (!scenarioTag || !sourceVersion || !sourceLabel || !localizedKnowledgeRecord) {
+    return null;
+  }
 
-    if (payload) {
-      localizedKnowledge[localeKey] = payload;
-    }
+  const zhCnPayload = parseKnowledgeRefreshPayload(localizedKnowledgeRecord["zh-CN"]);
+  const zhTwPayload = parseKnowledgeRefreshPayload(localizedKnowledgeRecord["zh-TW"]);
+  const fallbackPayload = zhCnPayload ?? zhTwPayload;
+
+  if (!fallbackPayload) {
+    return null;
   }
 
   return {
+    packVersion,
     scenarioTag,
     sourceVersion,
     sourceLabel,
     refreshedAt,
-    localizedKnowledge
+    localizedKnowledge: {
+      "zh-CN": zhCnPayload ?? fallbackPayload,
+      "zh-TW": zhTwPayload ?? fallbackPayload
+    }
   };
 }
 
@@ -277,13 +293,13 @@ function readReferences(value: unknown): CaseKnowledgeReference[] {
     const label = readString(record?.label);
     const referenceType = readString(record?.referenceType);
     const trustLevel = readString(record?.trustLevel);
-    const freshness = readString(record?.freshness);
+    const freshness = normalizeReferenceFreshness(record?.freshness);
 
     if (
       !label ||
       (referenceType !== "official-context" && referenceType !== "processing-time" && referenceType !== "materials-guidance") ||
       (trustLevel !== "official-context" && trustLevel !== "scenario-workflow" && trustLevel !== "case-derived") ||
-      (freshness !== "static-adapter" && freshness !== "live-check-required")
+      !freshness
     ) {
       return [];
     }
@@ -297,6 +313,18 @@ function readReferences(value: unknown): CaseKnowledgeReference[] {
       }
     ];
   });
+}
+
+function normalizeReferenceFreshness(value: unknown): CaseKnowledgeReference["freshness"] | null {
+  if (value === "seed-pack" || value === "live-check-required") {
+    return value;
+  }
+
+  if (value === "static-adapter") {
+    return "seed-pack";
+  }
+
+  return null;
 }
 
 function readRecord(value: unknown) {
@@ -318,3 +346,13 @@ function readStringArray(value: unknown) {
 
   return value.flatMap((item) => (typeof item === "string" && item.trim() ? [item.trim()] : []));
 }
+
+function readScenarioTag(value: unknown): SupportedUseCaseSlug | null {
+  return value === "visitor-record" || value === "study-permit-extension" ? value : null;
+}
+
+function readPackVersion(value: unknown): typeof CASE_KNOWLEDGE_PACK_VERSION | null {
+  return value === CASE_KNOWLEDGE_PACK_VERSION ? CASE_KNOWLEDGE_PACK_VERSION : null;
+}
+
+export { appLocales };

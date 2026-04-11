@@ -3,7 +3,9 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 
 import { PrintReviewButton } from "@/components/cases/print-review-button";
+import { ProfessionalReviewRequestCard } from "@/components/cases/professional-review-request-card";
 import { EventLink } from "@/components/site/event-link";
+import { PlanUpgradeCard } from "@/components/site/plan-upgrade-card";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -14,11 +16,13 @@ import {
   getCaseMaterialStatusCounts,
   getCaseReviewSnapshot
 } from "@/lib/cases";
+import { getLatestClientHandoffRequestForCase } from "@/lib/handoffs";
 import { formatCaseStatus } from "@/lib/case-state";
 import { formatDocumentStatus, formatReadinessStatus, getUseCaseDefinition } from "@/lib/case-workflows";
 import { formatAppDateTime } from "@/lib/i18n/format";
 import { getCurrentLocale } from "@/lib/i18n/server";
-import { formatRiskSeverityLabel, getWorkspaceCopy } from "@/lib/i18n/workspace";
+import { formatRiskSeverityLabel, getWorkspaceCopy, pickLocale } from "@/lib/i18n/workspace";
+import { hasConsumerPlanCapability } from "@/lib/plans";
 
 type ReviewExportPageProps = {
   params: Promise<{
@@ -51,6 +55,8 @@ export default async function ReviewExportPage({ params }: ReviewExportPageProps
   const handoffIntelligence = getCaseHandoffIntelligenceSnapshot(detail.latestReview);
   const keyFacts = buildCaseSnapshotFacts(detail.caseRecord, locale).slice(0, 6);
   const materialCounts = getCaseMaterialStatusCounts(detail.documents);
+  const canUseHandoffIntelligence = hasConsumerPlanCapability(detail.profile, "handoff_intelligence");
+  const latestHandoffRequest = await getLatestClientHandoffRequestForCase(caseId);
   const riskSummary = {
     high: review.riskFlags.filter((item) => item.severity === "high").length,
     medium: review.riskFlags.filter((item) => item.severity === "medium").length,
@@ -77,7 +83,7 @@ export default async function ReviewExportPage({ params }: ReviewExportPageProps
                 reviewVersion: detail.latestReview?.version_number ?? detail.caseRecord.latest_review_version
               }}
             >
-              预约演示
+              {pickLocale(locale, "预约演示", "預約示範")}
             </EventLink>
           </div>
           <PrintReviewButton />
@@ -95,11 +101,16 @@ export default async function ReviewExportPage({ params }: ReviewExportPageProps
             <div className="mt-6 grid gap-4 md:grid-cols-3">
               <FactCard label={copy.export.caseType} value={useCase?.shortTitle || detail.caseRecord.use_case_slug} />
               <FactCard label={copy.export.readinessStatus} value={formatReadinessStatus(review.readinessStatus, locale)} />
-              <FactCard label={copy.export.latestReviewTimestamp} value={latestReviewedAt ? formatAppDateTime(latestReviewedAt, locale) : copy.common.notAvailable} />
+              <FactCard
+                label={copy.export.latestReviewTimestamp}
+                value={latestReviewedAt ? formatAppDateTime(latestReviewedAt, locale) : pickLocale(locale, "暂无", "暫無")}
+              />
             </div>
           </header>
 
           <section className="mt-8 space-y-8">
+            <ProfessionalReviewRequestCard caseId={caseId} initialHandoffRequest={latestHandoffRequest} />
+
             <Section title={copy.export.readinessSnapshot}>
               <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-5 text-sm leading-7 text-slate-900">
                 <p className="font-semibold">{review.readinessSummary}</p>
@@ -108,7 +119,7 @@ export default async function ReviewExportPage({ params }: ReviewExportPageProps
               </div>
             </Section>
 
-            {handoffIntelligence ? (
+            {canUseHandoffIntelligence && handoffIntelligence ? (
               <Section title={copy.export.externalReviewSummary}>
                 <div className="space-y-4">
                   <div className="rounded-2xl border border-slate-200 bg-slate-50 p-5 text-sm leading-7 text-slate-700">
@@ -119,12 +130,33 @@ export default async function ReviewExportPage({ params }: ReviewExportPageProps
                     <p className="mt-3">{handoffIntelligence.externalSummary}</p>
                   </div>
                   <div className="grid gap-4 lg:grid-cols-3">
-                    <PacketList empty={copy.common.noItems} items={handoffIntelligence.issuesNeedingHumanReview} title={copy.export.humanReviewIssues} />
-                    <PacketList empty={copy.common.noItems} items={handoffIntelligence.escalationTriggers} title={copy.export.escalationTriggers} />
-                    <PacketList empty={copy.common.noItems} items={handoffIntelligence.supportingNotes} title={copy.export.supportingNotes} />
+                    <PacketList
+                      empty={pickLocale(locale, "暂无内容", "暫無內容")}
+                      items={handoffIntelligence.issuesNeedingHumanReview}
+                      title={copy.export.humanReviewIssues}
+                    />
+                    <PacketList
+                      empty={pickLocale(locale, "暂无内容", "暫無內容")}
+                      items={handoffIntelligence.escalationTriggers}
+                      title={copy.export.escalationTriggers}
+                    />
+                    <PacketList
+                      empty={pickLocale(locale, "暂无内容", "暫無內容")}
+                      items={handoffIntelligence.supportingNotes}
+                      title={copy.export.supportingNotes}
+                    />
                   </div>
                 </div>
               </Section>
+            ) : !canUseHandoffIntelligence ? (
+              <PlanUpgradeCard
+                capability="handoff_intelligence"
+                caseId={caseId}
+                className="print:hidden"
+                locale={locale}
+                sourceSurface="review-export-handoff-intelligence"
+                useCase={detail.caseRecord.use_case_slug}
+              />
             ) : null}
 
             <div className="grid gap-8 lg:grid-cols-[1.05fr_0.95fr]">

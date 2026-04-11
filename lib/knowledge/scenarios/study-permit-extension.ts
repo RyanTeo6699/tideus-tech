@@ -1,15 +1,16 @@
-import type { CaseKnowledgeInput, CaseScenarioKnowledge } from "@/lib/knowledge/types";
+import type { CaseKnowledgeInput, CaseKnowledgePackLocalePayload } from "@/lib/knowledge/types";
 import type { CaseDocumentStatus } from "@/lib/case-workflows";
+import type { AppLocale } from "@/lib/i18n/config";
 import { pickLocale } from "@/lib/i18n/workspace";
 
-export function buildStudyPermitExtensionKnowledge(input: CaseKnowledgeInput): CaseScenarioKnowledge {
+export function buildStudyPermitExtensionKnowledgePackLocale(locale: AppLocale): CaseKnowledgePackLocalePayload {
   return {
     processingTimeNote: {
-      label: pickLocale(input.language, "官方处理时间需复核", "官方處理時間需複核"),
+      label: pickLocale(locale, "官方处理时间需复核", "官方處理時間需複核"),
       note: pickLocale(
-        input.language,
-        "在最终交接前，请复核 IRCC 当前处理时间。Tideus 仅把它作为工作流提醒，不把它当作实时官方数据。",
-        "在最終交接前，請複核 IRCC 目前處理時間。Tideus 只把它作為工作流程提醒，不把它當作即時官方資料。"
+        locale,
+        "在最终交接前，请复核 IRCC 当前处理时间。Tideus 只把它作为内部工作流提醒，不把它当作实时官方数据。",
+        "在最終交接前，請複核 IRCC 目前處理時間。Tideus 只把它作為內部工作流程提醒，不把它當作即時官方資料。"
       ),
       referenceLabel: "IRCC: Check processing times",
       freshness: "live-check-required"
@@ -25,13 +26,13 @@ export function buildStudyPermitExtensionKnowledge(input: CaseKnowledgeInput): C
         label: "IRCC: Extend your study permit",
         referenceType: "official-context",
         trustLevel: "official-context",
-        freshness: "static-adapter"
+        freshness: "seed-pack"
       },
       {
         label: "IRCC: Study permit extension document checklist",
         referenceType: "materials-guidance",
         trustLevel: "official-context",
-        freshness: "static-adapter"
+        freshness: "seed-pack"
       }
     ],
     officialReferenceLabels: [
@@ -41,22 +42,27 @@ export function buildStudyPermitExtensionKnowledge(input: CaseKnowledgeInput): C
     ],
     supportingContextNotes: [
       pickLocale(
-        input.language,
+        locale,
         "学签延期案件应把在学状态、学习进度、资金与延期时间线整理成同一个干净记录。",
         "學簽延期案件應把在學狀態、學習進度、資金與延期時間線整理成同一個乾淨記錄。"
       ),
       pickLocale(
-        input.language,
+        locale,
         "学校文件与资金证明应真正支撑申请中的延期周期，而不只是证明手上有一些材料。",
         "學校文件與資金證明應真正支撐申請中的延期週期，而不只是證明手上有一些材料。"
+      ),
+      pickLocale(
+        locale,
+        "内部知识层只服务学签延期工作流、审查输出和交接准备，不把这个场景扩展成公共信息门户。",
+        "內部知識層只服務學簽延期工作流程、審查輸出和交接準備，不把這個場景擴展成公共資訊入口。"
       )
     ],
     materialsGuidanceNotes: [
       {
         documentKey: "enrolment-letter",
-        label: pickLocale(input.language, "在学证明", "在學證明"),
+        label: pickLocale(locale, "在学证明", "在學證明"),
         note: pickLocale(
-          input.language,
+          locale,
           "内部知识提示：在学证明应是最新版本，并与申请中的延期周期保持一致。",
           "內部知識提示：在學證明應是最新版本，並與申請中的延期週期保持一致。"
         ),
@@ -64,9 +70,9 @@ export function buildStudyPermitExtensionKnowledge(input: CaseKnowledgeInput): C
       },
       {
         documentKey: "transcript-or-progress",
-        label: pickLocale(input.language, "成绩单或学习进度材料", "成績單或學習進度材料"),
+        label: pickLocale(locale, "成绩单或学习进度材料", "成績單或學習進度材料"),
         note: pickLocale(
-          input.language,
+          locale,
           "内部知识提示：进度材料应让学业状态与任何延误原因都能被快速理解。",
           "內部知識提示：進度材料應讓學業狀態與任何延誤原因都能被快速理解。"
         ),
@@ -74,9 +80,9 @@ export function buildStudyPermitExtensionKnowledge(input: CaseKnowledgeInput): C
       },
       {
         documentKey: "proof-of-funds",
-        label: pickLocale(input.language, "资金证明", "資金證明"),
+        label: pickLocale(locale, "资金证明", "資金證明"),
         note: pickLocale(
-          input.language,
+          locale,
           "内部知识提示：资金证明应覆盖剩余学习周期与生活成本，而不只是补充学校文件。",
           "內部知識提示：資金證明應覆蓋剩餘學習週期與生活成本，而不只是補充學校文件。"
         ),
@@ -84,20 +90,26 @@ export function buildStudyPermitExtensionKnowledge(input: CaseKnowledgeInput): C
       },
       {
         documentKey: "extension-explanation",
-        label: pickLocale(input.language, "延期说明信", "延期說明信"),
+        label: pickLocale(locale, "延期说明信", "延期說明信"),
         note: pickLocale(
-          input.language,
+          locale,
           "内部知识提示：说明信应把课程时间线、资金、当前身份与延期原因串联成一体。",
           "內部知識提示：說明信應把課程時間線、資金、目前身分與延期原因串聯成一體。"
         ),
         appliesToStatuses: ["missing", "collecting", "needs-refresh", "ready"] satisfies CaseDocumentStatus[]
       }
     ],
-    scenarioSpecificWarnings: buildStudyPermitExtensionWarnings(input)
+    scenarioSpecificWarnings: [
+      pickLocale(
+        locale,
+        "学签延期工作流聚焦当前学习身份下的延期准备，不替代更广泛的长期路径规划。",
+        "學簽延期工作流程聚焦目前學習身分下的延期準備，不取代更廣泛的長期路徑規劃。"
+      )
+    ]
   };
 }
 
-function buildStudyPermitExtensionWarnings(input: CaseKnowledgeInput) {
+export function buildStudyPermitExtensionScenarioWarnings(input: CaseKnowledgeInput) {
   const { intake } = input;
   const warnings: string[] = [];
 

@@ -14,7 +14,8 @@ export const caseEventTypes = [
   "material_action_requested",
   "review_generated",
   "review_regenerated",
-  "case_resumed"
+  "case_resumed",
+  "professional_review_requested"
 ] as const;
 
 export type CaseEventType = (typeof caseEventTypes)[number];

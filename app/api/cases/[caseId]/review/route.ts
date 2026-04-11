@@ -21,6 +21,7 @@ import { getCurrentLocale } from "@/lib/i18n/server";
 import { pickLocale } from "@/lib/i18n/workspace";
 import { appendCaseStatusHistory, getNextCaseStatus, normalizeCaseStatus } from "@/lib/case-state";
 import type { SupportedUseCaseSlug } from "@/lib/case-workflows";
+import { getConsumerPlanState, hasConsumerPlanCapability } from "@/lib/plans";
 import { createClient } from "@/lib/supabase/server";
 
 type CaseReviewRouteProps = {
@@ -44,15 +45,21 @@ export async function POST(_request: Request, { params }: CaseReviewRouteProps) 
     );
   }
 
-  const { data: caseRecord, error: caseError } = await supabase
-    .from("cases")
-    .select("*")
-    .eq("user_id", user.id)
-    .eq("id", caseId)
-    .maybeSingle();
+  const [{ data: caseRecord, error: caseError }, { data: profile, error: profileError }] = await Promise.all([
+    supabase.from("cases").select("*").eq("user_id", user.id).eq("id", caseId).maybeSingle(),
+    supabase.from("profiles").select("metadata").eq("user_id", user.id).maybeSingle()
+  ]);
 
-  if (caseError) {
-    return NextResponse.json({ message: caseError.message }, { status: 500 });
+  if (caseError || profileError) {
+    return NextResponse.json(
+      {
+        message:
+          caseError?.message ||
+          profileError?.message ||
+          pickLocale(locale, "暂时无法加载案件方案状态。", "暫時無法載入案件方案狀態。")
+      },
+      { status: 500 }
+    );
   }
 
   if (!caseRecord) {
@@ -90,6 +97,9 @@ export async function POST(_request: Request, { params }: CaseReviewRouteProps) 
 
   const deterministicReview = await buildLatestReviewForCase(caseRecord, documents ?? [], locale);
   const previousReview = latestReviewRow?.[0] ? getCaseReviewSnapshot(latestReviewRow[0]) : null;
+  const planState = getConsumerPlanState(profile ?? null);
+  const canUseReviewDelta = hasConsumerPlanCapability(planState, "review_delta");
+  const canUseHandoffIntelligence = hasConsumerPlanCapability(planState, "handoff_intelligence");
   const intake = readCaseIntake(caseRecord.intake_answers);
   const materialSnapshots = buildCaseMaterialSnapshots(documents ?? []);
   const intakeNormalization = parseStoredIntakeNormalization(caseRecord.metadata);
@@ -114,7 +124,7 @@ export async function POST(_request: Request, { params }: CaseReviewRouteProps) 
     knowledgeContext
   });
   const review = aiReview.review;
-  const reviewDelta = previousReview
+  const reviewDelta = canUseReviewDelta && previousReview
     ? await buildCaseReviewDeltaWithAi({
         language: locale,
         useCaseSlug: caseRecord.use_case_slug as SupportedUseCaseSlug,
@@ -123,14 +133,16 @@ export async function POST(_request: Request, { params }: CaseReviewRouteProps) 
       })
     : null;
   const nextVersion = (latestReviewRow?.[0]?.version_number ?? 0) + 1;
-  const handoffIntelligence = await buildCaseHandoffIntelligenceWithAi({
-    language: locale,
-    useCaseSlug: caseRecord.use_case_slug as SupportedUseCaseSlug,
-    caseTitle: caseRecord.title,
-    reviewVersion: nextVersion,
-    latestReview: review,
-    knowledgeContext
-  });
+  const handoffIntelligence = canUseHandoffIntelligence
+    ? await buildCaseHandoffIntelligenceWithAi({
+        language: locale,
+        useCaseSlug: caseRecord.use_case_slug as SupportedUseCaseSlug,
+        caseTitle: caseRecord.title,
+        reviewVersion: nextVersion,
+        latestReview: review,
+        knowledgeContext
+      })
+    : null;
   const now = new Date().toISOString();
   const nextStatus = getNextCaseStatus(currentStatus, "reviewed");
   const eventType = nextVersion > 1 ? "review_regenerated" : "review_generated";
@@ -162,10 +174,10 @@ export async function POST(_request: Request, { params }: CaseReviewRouteProps) 
       aiWorkflow: {
         reviewGeneration: aiReview.trace as Json,
         reviewDelta: reviewDelta as Json | null,
-        handoffIntelligence: handoffIntelligence as Json
+        handoffIntelligence: handoffIntelligence as Json | null
       },
       reviewDelta: (reviewDelta?.output ?? null) as Json | null,
-      handoffIntelligence: handoffIntelligence.output as Json
+      handoffIntelligence: (handoffIntelligence?.output ?? null) as Json | null
     }
   };
 
@@ -220,13 +232,16 @@ export async function POST(_request: Request, { params }: CaseReviewRouteProps) 
       reviewGenerationSource: aiReview.trace.source,
       reviewPromptVersion: aiReview.trace.promptVersion,
       deltaGenerated: Boolean(reviewDelta),
+      deltaCapabilityEnabled: canUseReviewDelta,
       deltaSource: reviewDelta?.source ?? null,
       deltaPromptVersion: reviewDelta?.promptVersion ?? null,
       deltaRemovedRiskCount: reviewDelta?.output.removedRisks.length ?? 0,
-      handoffIntelligenceSource: handoffIntelligence.source,
-      handoffIntelligencePromptVersion: handoffIntelligence.promptVersion,
-      handoffEscalationTriggerCount: handoffIntelligence.output.escalationTriggers.length,
-      handoffHumanReviewIssueCount: handoffIntelligence.output.issuesNeedingHumanReview.length
+      handoffIntelligenceGenerated: Boolean(handoffIntelligence),
+      handoffCapabilityEnabled: canUseHandoffIntelligence,
+      handoffIntelligenceSource: handoffIntelligence?.source ?? null,
+      handoffIntelligencePromptVersion: handoffIntelligence?.promptVersion ?? null,
+      handoffEscalationTriggerCount: handoffIntelligence?.output.escalationTriggers.length ?? 0,
+      handoffHumanReviewIssueCount: handoffIntelligence?.output.issuesNeedingHumanReview.length ?? 0
     },
     createdAt: now
   });

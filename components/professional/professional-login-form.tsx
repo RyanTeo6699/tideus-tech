@@ -1,60 +1,49 @@
 "use client";
 
 import Link from "next/link";
-import { startTransition, useState } from "react";
+import { startTransition, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Badge } from "@/components/ui/badge";
 import { useLocaleContext } from "@/lib/i18n/client";
 import { pickLocale } from "@/lib/i18n/workspace";
 import { cn } from "@/lib/utils";
 
-type AuthMode = "login" | "signup";
-
-type AuthFormProps = {
-  mode: AuthMode;
-};
-
-export function AuthForm({ mode }: AuthFormProps) {
+export function ProfessionalLoginForm() {
   const { locale, messages } = useLocaleContext();
   const router = useRouter();
   const searchParams = useSearchParams();
-  const nextHref = searchParams.get("next") || "/dashboard";
-  const errorCode = searchParams.get("error");
+  const nextHref = searchParams.get("next") || "/professional/dashboard";
   const [values, setValues] = useState({
-    fullName: "",
     email: "",
     password: ""
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
-  const [status, setStatus] = useState<"idle" | "loading" | "error" | "success">(
-    errorCode === "auth-callback" ? "error" : "idle"
+  const [status, setStatus] = useState<"idle" | "loading" | "error" | "success">("idle");
+  const initialMessage = useMemo(
+    () =>
+      pickLocale(
+        locale,
+        "登录后可查看专业档案壳、组织骨架和未来审阅/交接工作流占位。",
+        "登入後可查看專業檔案殼、組織骨架和未來審閱／交接工作流程占位。"
+      ),
+    [locale]
   );
-  const [message, setMessage] = useState(
-    errorCode === "auth-callback"
-      ? messages.authForm.callbackError
-      : mode === "login"
-        ? messages.authForm.loginIntro
-        : messages.authForm.signupIntro
-  );
+  const [message, setMessage] = useState(initialMessage);
 
   function validate() {
     const nextErrors: Record<string, string> = {};
 
-    if (mode === "signup" && !values.fullName.trim()) {
-      nextErrors.fullName = messages.authForm.fullNameRequired;
-    }
-
-    if (!/^\S+@\S+\.\S+$/.test(values.email)) {
-      nextErrors.email = messages.authForm.invalidEmail;
+    if (!/^\S+@\S+\.\S+$/.test(values.email.trim())) {
+      nextErrors.email = pickLocale(locale, "请输入有效邮箱地址。", "請輸入有效電子郵件地址。");
     }
 
     if (values.password.trim().length < 8) {
-      nextErrors.password = messages.authForm.passwordLength;
+      nextErrors.password = pickLocale(locale, "密码至少需要 8 个字符。", "密碼至少需要 8 個字元。");
     }
 
     setErrors(nextErrors);
@@ -66,51 +55,59 @@ export function AuthForm({ mode }: AuthFormProps) {
 
     if (!validate()) {
       setStatus("error");
-      setMessage(messages.authForm.fixFields);
+      setMessage(pickLocale(locale, "请先修正高亮字段，再继续。", "請先修正高亮欄位，再繼續。"));
       return;
     }
 
     setStatus("loading");
-    setMessage(mode === "login" ? messages.authForm.signingIn : messages.authForm.creatingAccount);
+    setMessage(pickLocale(locale, "正在登录专业端...", "正在登入專業端..."));
 
     try {
-      const response = await fetch(`/api/auth/${mode}`, {
+      const response = await fetch("/api/auth/login", {
         method: "POST",
         headers: {
           "Content-Type": "application/json"
         },
         body: JSON.stringify({
-          fullName: values.fullName,
           email: values.email,
           password: values.password,
           next: nextHref
         })
       });
 
-      const data = (await response.json()) as {
+      const data = (await response.json().catch(() => null)) as {
         message?: string;
         redirectTo?: string;
-        requiresEmailConfirmation?: boolean;
-      };
+      } | null;
 
       if (!response.ok) {
-        throw new Error(data.message || messages.authForm.authFailed);
+        throw new Error(
+          data?.message ||
+            pickLocale(locale, "暂时无法登录专业端。", "暫時無法登入專業端。")
+        );
       }
 
       setStatus("success");
-      setMessage(data.message || messages.authForm.authComplete);
+      setMessage(
+        data?.message ||
+          pickLocale(
+            locale,
+            "专业端入口已打开，正在跳转到专业仪表板。",
+            "專業端入口已打開，正在跳轉到專業儀表板。"
+          )
+      );
 
-      const redirectTo = data.redirectTo;
-
-      if (redirectTo) {
-        startTransition(() => {
-          router.push(redirectTo);
-          router.refresh();
-        });
-      }
+      startTransition(() => {
+        router.push(data?.redirectTo ?? nextHref);
+        router.refresh();
+      });
     } catch (error) {
       setStatus("error");
-      setMessage(error instanceof Error ? error.message : messages.authForm.authFailed);
+      setMessage(
+        error instanceof Error
+          ? error.message
+          : pickLocale(locale, "暂时无法登录专业端。", "暫時無法登入專業端。")
+      );
     }
   }
 
@@ -118,32 +115,24 @@ export function AuthForm({ mode }: AuthFormProps) {
     <Card className="border-white/10 bg-white/95 text-slate-950">
       <CardHeader>
         <Badge variant="secondary" className="w-fit">
-          {messages.authForm.badge}
+          {pickLocale(locale, "专业端登录", "專業端登入")}
         </Badge>
-        <CardTitle className="text-2xl">{mode === "login" ? messages.authForm.loginTitle : messages.authForm.signupTitle}</CardTitle>
-        <CardDescription>{messages.authForm.description}</CardDescription>
+        <CardTitle className="text-2xl">{pickLocale(locale, "登录专业仪表板", "登入專業儀表板")}</CardTitle>
+        <CardDescription>
+          {pickLocale(
+            locale,
+            "当前只开放专业档案、组织和未来审阅壳层，不开放完整专业工作流。",
+            "目前只開放專業檔案、組織和未來審閱殼層，不開放完整專業工作流程。"
+          )}
+        </CardDescription>
       </CardHeader>
       <CardContent>
         <form className="space-y-5" noValidate onSubmit={handleSubmit}>
-          {mode === "signup" ? (
-            <div className="space-y-2">
-              <Label htmlFor="fullName">{messages.authForm.fullNameLabel}</Label>
-              <Input
-                aria-invalid={Boolean(errors.fullName)}
-                id="fullName"
-                onChange={(event) => setValues((current) => ({ ...current, fullName: event.target.value }))}
-                placeholder={messages.authForm.fullNamePlaceholder}
-                value={values.fullName}
-              />
-              {errors.fullName ? <p className="text-sm font-medium text-red-600">{errors.fullName}</p> : null}
-            </div>
-          ) : null}
-
           <div className="space-y-2">
-            <Label htmlFor="email">{messages.authForm.emailLabel}</Label>
+            <Label htmlFor="professional-email">{messages.authForm.emailLabel}</Label>
             <Input
               aria-invalid={Boolean(errors.email)}
-              id="email"
+              id="professional-email"
               onChange={(event) => setValues((current) => ({ ...current, email: event.target.value }))}
               placeholder={pickLocale(locale, "例如：zhangsan@example.com", "例如：zhangsan@example.com")}
               type="email"
@@ -153,10 +142,10 @@ export function AuthForm({ mode }: AuthFormProps) {
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="password">{messages.authForm.passwordLabel}</Label>
+            <Label htmlFor="professional-password">{messages.authForm.passwordLabel}</Label>
             <Input
               aria-invalid={Boolean(errors.password)}
-              id="password"
+              id="professional-password"
               onChange={(event) => setValues((current) => ({ ...current, password: event.target.value }))}
               placeholder={messages.authForm.passwordPlaceholder}
               type="password"
@@ -167,10 +156,8 @@ export function AuthForm({ mode }: AuthFormProps) {
 
           <Button className="w-full" disabled={status === "loading"} type="submit">
             {status === "loading"
-              ? messages.authForm.workingButton
-              : mode === "login"
-                ? messages.authForm.loginButton
-                : messages.authForm.signupButton}
+              ? pickLocale(locale, "正在登录...", "正在登入...")
+              : pickLocale(locale, "进入专业仪表板", "進入專業儀表板")}
           </Button>
 
           <div
@@ -188,15 +175,17 @@ export function AuthForm({ mode }: AuthFormProps) {
                     ? messages.common.saved
                     : messages.common.error}
             </p>
-            <p className="mt-2">{message}</p>
+            <p className="mt-2">{status === "idle" ? initialMessage : message}</p>
           </div>
 
-          <p className="text-sm text-slate-600">
-            {mode === "login" ? messages.authForm.needAccount : messages.authForm.haveAccount}{" "}
-            <Link className="font-semibold text-slate-950 underline underline-offset-4" href={mode === "login" ? "/signup" : "/login"}>
-              {mode === "login" ? messages.authForm.createOne : messages.authForm.loginLink}
+          <div className="flex flex-col gap-2 text-sm text-slate-600">
+            <Link className="font-semibold text-slate-950 underline underline-offset-4" href="/for-professionals">
+              {pickLocale(locale, "先查看专业端定位", "先查看專業端定位")}
             </Link>
-          </p>
+            <Link className="font-semibold text-slate-950 underline underline-offset-4" href="/login">
+              {pickLocale(locale, "使用消费者入口登录", "使用消費者入口登入")}
+            </Link>
+          </div>
         </form>
       </CardContent>
     </Card>

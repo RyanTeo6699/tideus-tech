@@ -394,7 +394,7 @@ function SelectField({
   name: keyof ProfileFormValues;
   value: string;
   onChange: Dispatch<SetStateAction<ProfileFormValues>>;
-  options: Array<{ label: string; value: string }>;
+  options: ReadonlyArray<{ label: string; value: string }>;
   error?: string;
   selectOne: string;
 }) {

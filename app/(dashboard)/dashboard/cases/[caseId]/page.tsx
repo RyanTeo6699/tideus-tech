@@ -5,6 +5,7 @@ import { CaseReviewResult } from "@/components/cases/case-review-result";
 import { MaterialWorkspaceActions } from "@/components/cases/material-workspace-actions";
 import { WorkspaceShell } from "@/components/dashboard/workspace-shell";
 import { EventLink } from "@/components/site/event-link";
+import { PlanUpgradeCard } from "@/components/site/plan-upgrade-card";
 import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -25,6 +26,7 @@ import { formatReadinessStatus, getUseCaseDefinition, type SupportedUseCaseSlug 
 import { formatAppDateTime } from "@/lib/i18n/format";
 import { getCurrentLocale } from "@/lib/i18n/server";
 import { getWorkspaceCopy, pickLocale } from "@/lib/i18n/workspace";
+import { hasConsumerPlanCapability } from "@/lib/plans";
 
 type CaseDetailPageProps = {
   params: Promise<{
@@ -62,6 +64,9 @@ export default async function CaseDetailPage({ params }: CaseDetailPageProps) {
     ? formatReadinessStatus(detail.caseRecord.latest_readiness_status, locale)
     : copy.common.noReviewYet;
   const latestReviewVersion = detail.latestReview?.version_number ?? detail.caseRecord.latest_review_version;
+  const canUseWorkspaceQuestions = hasConsumerPlanCapability(detail.profile, "workspace_case_questions");
+  const canUseMaterialActions = hasConsumerPlanCapability(detail.profile, "workspace_material_actions");
+  const canUseReviewDelta = hasConsumerPlanCapability(detail.profile, "review_delta");
 
   return (
     <WorkspaceShell
@@ -211,17 +216,27 @@ export default async function CaseDetailPage({ params }: CaseDetailPageProps) {
                 </div>
               ) : null}
 
-              {reviewDelta ? (
-                <div className="space-y-3">
-                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">{pickLocale(locale, "审查变化对比", "審查變化對比")}</p>
-                  <div className="grid gap-3 md:grid-cols-2">
-                    <DeltaBlock locale={locale} items={reviewDelta.improvedAreas} title={pickLocale(locale, "改善点", "改善點")} />
-                    <DeltaBlock locale={locale} items={reviewDelta.remainingGaps} title={pickLocale(locale, "仍存缺口", "仍存缺口")} />
-                    <DeltaBlock locale={locale} items={reviewDelta.newRisks} title={pickLocale(locale, "新增风险", "新增風險")} />
-                    <DeltaBlock locale={locale} items={reviewDelta.removedRisks} title={pickLocale(locale, "已消失风险", "已消失風險")} />
-                    <DeltaBlock locale={locale} items={reviewDelta.priorityActions} title={pickLocale(locale, "优先动作", "優先動作")} />
+              {canUseReviewDelta ? (
+                reviewDelta ? (
+                  <div className="space-y-3">
+                    <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">{pickLocale(locale, "审查变化对比", "審查變化對比")}</p>
+                    <div className="grid gap-3 md:grid-cols-2">
+                      <DeltaBlock locale={locale} items={reviewDelta.improvedAreas} title={pickLocale(locale, "改善点", "改善點")} />
+                      <DeltaBlock locale={locale} items={reviewDelta.remainingGaps} title={pickLocale(locale, "仍存缺口", "仍存缺口")} />
+                      <DeltaBlock locale={locale} items={reviewDelta.newRisks} title={pickLocale(locale, "新增风险", "新增風險")} />
+                      <DeltaBlock locale={locale} items={reviewDelta.removedRisks} title={pickLocale(locale, "已消失风险", "已消失風險")} />
+                      <DeltaBlock locale={locale} items={reviewDelta.priorityActions} title={pickLocale(locale, "优先动作", "優先動作")} />
+                    </div>
                   </div>
-                </div>
+                ) : null
+              ) : review ? (
+                <PlanUpgradeCard
+                  capability="review_delta"
+                  caseId={caseId}
+                  locale={locale}
+                  sourceSurface="case-detail-review-delta"
+                  useCase={detail.caseRecord.use_case_slug}
+                />
               ) : null}
             </CardContent>
           </Card>
@@ -281,26 +296,46 @@ export default async function CaseDetailPage({ params }: CaseDetailPageProps) {
           </Card>
         </div>
 
-        <MaterialWorkspaceActions
-          caseId={caseId}
-          documents={detail.documents.map((item) => ({
-            id: item.id,
-            label: item.label,
-            status: item.status,
-            required: item.required,
-            fileName: item.file_name,
-            materialReference: item.material_reference,
-            notes: item.notes
-          }))}
-        />
+        {canUseMaterialActions ? (
+          <MaterialWorkspaceActions
+            caseId={caseId}
+            documents={detail.documents.map((item) => ({
+              id: item.id,
+              label: item.label,
+              status: item.status,
+              required: item.required,
+              fileName: item.file_name,
+              materialReference: item.material_reference,
+              notes: item.notes
+            }))}
+          />
+        ) : (
+          <PlanUpgradeCard
+            capability="workspace_material_actions"
+            caseId={caseId}
+            locale={locale}
+            sourceSurface="case-detail-material-actions"
+            useCase={detail.caseRecord.use_case_slug}
+          />
+        )}
 
-        <CaseQuestionPanel
-          caseId={caseId}
-          caseTitle={detail.caseRecord.title}
-          latestReviewSummary={detail.caseRecord.latest_review_summary}
-          useCaseSlug={detail.caseRecord.use_case_slug as SupportedUseCaseSlug}
-          useCaseTitle={useCase?.shortTitle || detail.caseRecord.use_case_slug}
-        />
+        {canUseWorkspaceQuestions ? (
+          <CaseQuestionPanel
+            caseId={caseId}
+            caseTitle={detail.caseRecord.title}
+            latestReviewSummary={detail.caseRecord.latest_review_summary}
+            useCaseSlug={detail.caseRecord.use_case_slug as SupportedUseCaseSlug}
+            useCaseTitle={useCase?.shortTitle || detail.caseRecord.use_case_slug}
+          />
+        ) : (
+          <PlanUpgradeCard
+            capability="workspace_case_questions"
+            caseId={caseId}
+            locale={locale}
+            sourceSurface="case-detail-case-question"
+            useCase={detail.caseRecord.use_case_slug}
+          />
+        )}
 
         {review ? (
           <CaseReviewResult

@@ -213,6 +213,70 @@ const caseQuestionTrackerActionTypes = [
   "continue-workspace"
 ] as const;
 
+type CaseAiTaskKey =
+  | "intakeNormalization"
+  | "materialInterpretation"
+  | "materialWorkspaceAction"
+  | "reviewEnrichment"
+  | "reviewDelta"
+  | "handoffIntelligence"
+  | "caseQuestionAnswer";
+
+function getCaseAiTaskLabel(task: CaseAiTaskKey, locale: AppLocale) {
+  switch (task) {
+    case "intakeNormalization":
+      return pickLocale(locale, "资料收集规范化", "資料收集規範化");
+    case "materialInterpretation":
+      return pickLocale(locale, "材料解读", "材料解讀");
+    case "materialWorkspaceAction":
+      return pickLocale(locale, "材料工作台动作建议", "材料工作台動作建議");
+    case "reviewEnrichment":
+      return pickLocale(locale, "审查增强", "審查增強");
+    case "reviewDelta":
+      return pickLocale(locale, "审查变化分析", "審查變化分析");
+    case "handoffIntelligence":
+      return pickLocale(locale, "交接摘要增强", "交接摘要增強");
+    case "caseQuestionAnswer":
+      return pickLocale(locale, "案件问题回答", "案件問題回答");
+  }
+}
+
+function getCaseAiMissingConfigurationMessage(locale: AppLocale) {
+  return pickLocale(locale, "AI 服务暂未配置。", "AI 服務暫未設定。");
+}
+
+function getCaseAiNoFreeformNotesMessage(locale: AppLocale) {
+  return pickLocale(locale, "未提供可用于规范化的自由说明。", "未提供可用於規範化的自由說明。");
+}
+
+function getCaseAiNoMaterialContextMessage(locale: AppLocale) {
+  return pickLocale(locale, "未提供可供解读的材料参考、文件名或备注。", "未提供可供解讀的材料參考、檔名或備註。");
+}
+
+function getCaseAiTimeoutMessage(task: CaseAiTaskKey, locale: AppLocale) {
+  return pickLocale(
+    locale,
+    `${getCaseAiTaskLabel(task, locale)}请求超时。`,
+    `${getCaseAiTaskLabel(task, locale)}請求逾時。`
+  );
+}
+
+function getCaseAiSchemaMismatchMessage(task: CaseAiTaskKey, locale: AppLocale) {
+  return pickLocale(
+    locale,
+    `${getCaseAiTaskLabel(task, locale)}结果暂时无法解析。`,
+    `${getCaseAiTaskLabel(task, locale)}結果暫時無法解析。`
+  );
+}
+
+function getCaseAiRequestFailedMessage(task: CaseAiTaskKey, locale: AppLocale) {
+  return pickLocale(
+    locale,
+    `${getCaseAiTaskLabel(task, locale)}暂时不可用，请稍后重试。`,
+    `${getCaseAiTaskLabel(task, locale)}暫時無法使用，請稍後再試。`
+  );
+}
+
 const intakeNormalizationResponseFormat = {
   type: "json_schema",
   name: "case_intake_normalization",
@@ -672,13 +736,13 @@ export async function normalizeCaseIntakeWithAi(
     });
 
   if (!intake.notes.trim()) {
-    return fallback("No freeform intake notes were provided.");
+    return fallback(getCaseAiNoFreeformNotesMessage(language));
   }
 
   const client = getOpenAIClient();
 
   if (!client) {
-    return fallback("OpenAI API key not configured.");
+    return fallback(getCaseAiMissingConfigurationMessage(language));
   }
 
   const model = getOpenAIModel();
@@ -693,7 +757,7 @@ export async function normalizeCaseIntakeWithAi(
           format: intakeNormalizationResponseFormat
         }
       }),
-      rejectAfter(OPENAI_TIMEOUT_MS, "OpenAI intake normalization request timed out.")
+      rejectAfter(OPENAI_TIMEOUT_MS, getCaseAiTimeoutMessage("intakeNormalization", language))
     ])) as {
       output_text?: string | null;
     };
@@ -701,7 +765,7 @@ export async function normalizeCaseIntakeWithAi(
     const output = parseIntakeNormalizationOutput(parsed, useCaseSlug);
 
     if (!output) {
-      return fallback("OpenAI intake normalization response did not match the required schema.");
+      return fallback(getCaseAiSchemaMismatchMessage("intakeNormalization", language));
     }
 
     return buildEnvelope({
@@ -713,7 +777,8 @@ export async function normalizeCaseIntakeWithAi(
       fallbackReason: null
     });
   } catch (error) {
-    return fallback(error instanceof Error ? error.message : "OpenAI intake normalization request failed.");
+    void error;
+    return fallback(getCaseAiRequestFailedMessage("intakeNormalization", language));
   }
 }
 
@@ -735,13 +800,13 @@ export async function interpretCaseMaterialsWithAi(
   const hasMaterialContext = documents.some((item) => item.materialReference || item.notes || item.fileName);
 
   if (!hasMaterialContext) {
-    return fallback("No material reference, file name, or material notes were provided.");
+    return fallback(getCaseAiNoMaterialContextMessage(language));
   }
 
   const client = getOpenAIClient();
 
   if (!client) {
-    return fallback("OpenAI API key not configured.");
+    return fallback(getCaseAiMissingConfigurationMessage(language));
   }
 
   const model = getOpenAIModel();
@@ -756,7 +821,7 @@ export async function interpretCaseMaterialsWithAi(
           format: materialInterpretationResponseFormat
         }
       }),
-      rejectAfter(OPENAI_TIMEOUT_MS, "OpenAI material interpretation request timed out.")
+      rejectAfter(OPENAI_TIMEOUT_MS, getCaseAiTimeoutMessage("materialInterpretation", language))
     ])) as {
       output_text?: string | null;
     };
@@ -764,7 +829,7 @@ export async function interpretCaseMaterialsWithAi(
     const output = parseMaterialInterpretationOutput(parsed, documents, language);
 
     if (!output) {
-      return fallback("OpenAI material interpretation response did not match the required schema.");
+      return fallback(getCaseAiSchemaMismatchMessage("materialInterpretation", language));
     }
 
     return buildEnvelope({
@@ -776,7 +841,8 @@ export async function interpretCaseMaterialsWithAi(
       fallbackReason: null
     });
   } catch (error) {
-    return fallback(error instanceof Error ? error.message : "OpenAI material interpretation request failed.");
+    void error;
+    return fallback(getCaseAiRequestFailedMessage("materialInterpretation", language));
   }
 }
 
@@ -796,7 +862,7 @@ export async function buildCaseMaterialWorkspaceActionWithAi(
   const client = getOpenAIClient();
 
   if (!client) {
-    return fallback("OpenAI API key not configured.");
+    return fallback(getCaseAiMissingConfigurationMessage(input.language));
   }
 
   const model = getOpenAIModel();
@@ -811,7 +877,7 @@ export async function buildCaseMaterialWorkspaceActionWithAi(
           format: materialWorkspaceActionResponseFormat
         }
       }),
-      rejectAfter(OPENAI_TIMEOUT_MS, "OpenAI material workspace action request timed out.")
+      rejectAfter(OPENAI_TIMEOUT_MS, getCaseAiTimeoutMessage("materialWorkspaceAction", input.language))
     ])) as {
       output_text?: string | null;
     };
@@ -819,7 +885,7 @@ export async function buildCaseMaterialWorkspaceActionWithAi(
     const aiAction = parseMaterialWorkspaceActionOutput(parsed, input.document);
 
     if (!aiAction) {
-      return fallback("OpenAI material workspace action response did not match the required schema.");
+      return fallback(getCaseAiSchemaMismatchMessage("materialWorkspaceAction", input.language));
     }
 
     return buildEnvelope({
@@ -831,7 +897,8 @@ export async function buildCaseMaterialWorkspaceActionWithAi(
       fallbackReason: null
     });
   } catch (error) {
-    return fallback(error instanceof Error ? error.message : "OpenAI material workspace action request failed.");
+    void error;
+    return fallback(getCaseAiRequestFailedMessage("materialWorkspaceAction", input.language));
   }
 }
 
@@ -853,7 +920,7 @@ export async function enrichCaseReviewWithAi(input: CaseReviewAiInput): Promise<
   const client = getOpenAIClient();
 
   if (!client) {
-    return fallback("OpenAI API key not configured.");
+    return fallback(getCaseAiMissingConfigurationMessage(input.language));
   }
 
   const model = getOpenAIModel();
@@ -868,7 +935,7 @@ export async function enrichCaseReviewWithAi(input: CaseReviewAiInput): Promise<
           format: reviewEnrichmentResponseFormat
         }
       }),
-      rejectAfter(OPENAI_TIMEOUT_MS, "OpenAI review enrichment request timed out.")
+      rejectAfter(OPENAI_TIMEOUT_MS, getCaseAiTimeoutMessage("reviewEnrichment", input.language))
     ])) as {
       output_text?: string | null;
     };
@@ -876,7 +943,7 @@ export async function enrichCaseReviewWithAi(input: CaseReviewAiInput): Promise<
     const aiReview = parseCaseReviewOutput(parsed, input.baselineReview);
 
     if (!aiReview) {
-      return fallback("OpenAI review enrichment response did not match the required schema.");
+      return fallback(getCaseAiSchemaMismatchMessage("reviewEnrichment", input.language));
     }
 
     const review = mergeCaseReviewOutputs(input.baselineReview, aiReview);
@@ -893,7 +960,8 @@ export async function enrichCaseReviewWithAi(input: CaseReviewAiInput): Promise<
       })
     };
   } catch (error) {
-    return fallback(error instanceof Error ? error.message : "OpenAI review enrichment request failed.");
+    void error;
+    return fallback(getCaseAiRequestFailedMessage("reviewEnrichment", input.language));
   }
 }
 
@@ -911,7 +979,7 @@ export async function buildCaseReviewDeltaWithAi(input: CaseReviewDeltaInput): P
   const client = getOpenAIClient();
 
   if (!client) {
-    return fallback("OpenAI API key not configured.");
+    return fallback(getCaseAiMissingConfigurationMessage(input.language));
   }
 
   const model = getOpenAIModel();
@@ -926,7 +994,7 @@ export async function buildCaseReviewDeltaWithAi(input: CaseReviewDeltaInput): P
           format: reviewDeltaResponseFormat
         }
       }),
-      rejectAfter(OPENAI_TIMEOUT_MS, "OpenAI review delta request timed out.")
+      rejectAfter(OPENAI_TIMEOUT_MS, getCaseAiTimeoutMessage("reviewDelta", input.language))
     ])) as {
       output_text?: string | null;
     };
@@ -934,7 +1002,7 @@ export async function buildCaseReviewDeltaWithAi(input: CaseReviewDeltaInput): P
     const aiDelta = parseReviewDeltaOutput(parsed, input.language);
 
     if (!aiDelta) {
-      return fallback("OpenAI review delta response did not match the required schema.");
+      return fallback(getCaseAiSchemaMismatchMessage("reviewDelta", input.language));
     }
 
     return buildEnvelope({
@@ -946,7 +1014,8 @@ export async function buildCaseReviewDeltaWithAi(input: CaseReviewDeltaInput): P
       fallbackReason: null
     });
   } catch (error) {
-    return fallback(error instanceof Error ? error.message : "OpenAI review delta request failed.");
+    void error;
+    return fallback(getCaseAiRequestFailedMessage("reviewDelta", input.language));
   }
 }
 
@@ -966,7 +1035,7 @@ export async function buildCaseHandoffIntelligenceWithAi(
   const client = getOpenAIClient();
 
   if (!client) {
-    return fallback("OpenAI API key not configured.");
+    return fallback(getCaseAiMissingConfigurationMessage(input.language));
   }
 
   const model = getOpenAIModel();
@@ -981,7 +1050,7 @@ export async function buildCaseHandoffIntelligenceWithAi(
           format: handoffIntelligenceResponseFormat
         }
       }),
-      rejectAfter(OPENAI_TIMEOUT_MS, "OpenAI handoff intelligence request timed out.")
+      rejectAfter(OPENAI_TIMEOUT_MS, getCaseAiTimeoutMessage("handoffIntelligence", input.language))
     ])) as {
       output_text?: string | null;
     };
@@ -989,7 +1058,7 @@ export async function buildCaseHandoffIntelligenceWithAi(
     const aiHandoff = parseHandoffIntelligenceOutput(parsed);
 
     if (!aiHandoff) {
-      return fallback("OpenAI handoff intelligence response did not match the required schema.");
+      return fallback(getCaseAiSchemaMismatchMessage("handoffIntelligence", input.language));
     }
 
     return buildEnvelope({
@@ -1001,7 +1070,8 @@ export async function buildCaseHandoffIntelligenceWithAi(
       fallbackReason: null
     });
   } catch (error) {
-    return fallback(error instanceof Error ? error.message : "OpenAI handoff intelligence request failed.");
+    void error;
+    return fallback(getCaseAiRequestFailedMessage("handoffIntelligence", input.language));
   }
 }
 
@@ -1019,7 +1089,7 @@ export async function answerCaseQuestionWithAi(input: CaseQuestionAiInput): Prom
   const client = getOpenAIClient();
 
   if (!client) {
-    return fallback("OpenAI API key not configured.");
+    return fallback(getCaseAiMissingConfigurationMessage(input.language));
   }
 
   const model = getOpenAIModel();
@@ -1034,7 +1104,7 @@ export async function answerCaseQuestionWithAi(input: CaseQuestionAiInput): Prom
           format: caseQuestionAnswerResponseFormat
         }
       }),
-      rejectAfter(OPENAI_TIMEOUT_MS, "OpenAI case question request timed out.")
+      rejectAfter(OPENAI_TIMEOUT_MS, getCaseAiTimeoutMessage("caseQuestionAnswer", input.language))
     ])) as {
       output_text?: string | null;
     };
@@ -1042,7 +1112,7 @@ export async function answerCaseQuestionWithAi(input: CaseQuestionAiInput): Prom
     const aiAnswer = parseCaseQuestionAnswerOutput(parsed);
 
     if (!aiAnswer) {
-      return fallback("OpenAI case question response did not match the required schema.");
+      return fallback(getCaseAiSchemaMismatchMessage("caseQuestionAnswer", input.language));
     }
 
     return buildEnvelope({
@@ -1054,7 +1124,8 @@ export async function answerCaseQuestionWithAi(input: CaseQuestionAiInput): Prom
       fallbackReason: null
     });
   } catch (error) {
-    return fallback(error instanceof Error ? error.message : "OpenAI case question request failed.");
+    void error;
+    return fallback(getCaseAiRequestFailedMessage("caseQuestionAnswer", input.language));
   }
 }
 
@@ -1148,7 +1219,7 @@ function buildIntakeNormalizationPrompt(useCaseSlug: SupportedUseCaseSlug, intak
     JSON.stringify(allowedFieldValues),
     "",
     "Current intake:",
-    JSON.stringify(buildIntakeNormalizationSnapshot(useCaseSlug, intake))
+    JSON.stringify(buildIntakeNormalizationSnapshot(useCaseSlug, intake, language))
   ].join("\n");
 }
 
@@ -1168,7 +1239,7 @@ function buildMaterialInterpretationPrompt(
     "",
     `Use case: ${useCase?.shortTitle ?? useCaseSlug}`,
     "Material metadata:",
-    JSON.stringify(buildMaterialInterpretationSnapshot(useCaseSlug, documents))
+    JSON.stringify(buildMaterialInterpretationSnapshot(useCaseSlug, documents, language))
   ].join("\n");
 }
 

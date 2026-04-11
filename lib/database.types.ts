@@ -78,6 +78,156 @@ export type Database = {
         };
         Relationships: [];
       };
+      organizations: {
+        Row: {
+          id: string;
+          name: string;
+          slug: string;
+          status: string;
+          metadata: Json;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          name: string;
+          slug: string;
+          status?: string;
+          metadata?: Json;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          name?: string;
+          slug?: string;
+          status?: string;
+          metadata?: Json;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      professional_profiles: {
+        Row: {
+          user_id: string;
+          organization_id: string | null;
+          display_name: string | null;
+          professional_title: string | null;
+          service_regions: string[];
+          intake_status: string;
+          metadata: Json;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          user_id: string;
+          organization_id?: string | null;
+          display_name?: string | null;
+          professional_title?: string | null;
+          service_regions?: string[];
+          intake_status?: string;
+          metadata?: Json;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          user_id?: string;
+          organization_id?: string | null;
+          display_name?: string | null;
+          professional_title?: string | null;
+          service_regions?: string[];
+          intake_status?: string;
+          metadata?: Json;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      organization_members: {
+        Row: {
+          id: string;
+          organization_id: string;
+          user_id: string;
+          role: string;
+          status: string;
+          metadata: Json;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          organization_id: string;
+          user_id: string;
+          role?: string;
+          status?: string;
+          metadata?: Json;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          organization_id?: string;
+          user_id?: string;
+          role?: string;
+          status?: string;
+          metadata?: Json;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      handoff_requests: {
+        Row: {
+          id: string;
+          case_id: string;
+          client_user_id: string;
+          professional_user_id: string | null;
+          organization_id: string | null;
+          status: string;
+          client_locale: string;
+          requested_review_version: number;
+          requested_readiness_status: string;
+          request_note: string | null;
+          export_snapshot: Json;
+          metadata: Json;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          case_id: string;
+          client_user_id: string;
+          professional_user_id?: string | null;
+          organization_id?: string | null;
+          status?: string;
+          client_locale: string;
+          requested_review_version: number;
+          requested_readiness_status: string;
+          request_note?: string | null;
+          export_snapshot?: Json;
+          metadata?: Json;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          case_id?: string;
+          client_user_id?: string;
+          professional_user_id?: string | null;
+          organization_id?: string | null;
+          status?: string;
+          client_locale?: string;
+          requested_review_version?: number;
+          requested_readiness_status?: string;
+          request_note?: string | null;
+          export_snapshot?: Json;
+          metadata?: Json;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
       cases: {
         Row: {
           id: string;

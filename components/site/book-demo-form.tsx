@@ -123,7 +123,7 @@ export function BookDemoForm({ initialEmail = "" }: BookDemoFormProps) {
                 aria-invalid={Boolean(errors.email)}
                 id="lead-email"
                 onChange={(event) => setValues((current) => ({ ...current, email: event.target.value }))}
-                placeholder="you@example.com"
+                placeholder={pickLocale(locale, "例如：zhangsan@example.com", "例如：zhangsan@example.com")}
                 type="email"
                 value={values.email}
               />

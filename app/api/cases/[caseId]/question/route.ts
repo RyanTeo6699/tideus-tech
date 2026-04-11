@@ -21,6 +21,7 @@ import { getCurrentLocale } from "@/lib/i18n/server";
 import { pickLocale } from "@/lib/i18n/workspace";
 import type { SupportedUseCaseSlug } from "@/lib/case-workflows";
 import { buildKnowledgeContext, summarizeKnowledgeContext } from "@/lib/knowledge/adapter";
+import { getConsumerCapabilityAccessDeniedMessage, getConsumerPlanState, hasConsumerPlanCapability } from "@/lib/plans";
 import { createClient } from "@/lib/supabase/server";
 
 type CaseQuestionRouteProps = {
@@ -51,21 +52,36 @@ export async function POST(request: Request, { params }: CaseQuestionRouteProps)
     );
   }
 
-  const { data: caseRecord, error: caseError } = await supabase
-    .from("cases")
-    .select("*")
-    .eq("user_id", user.id)
-    .eq("id", caseId)
-    .maybeSingle();
+  const [{ data: caseRecord, error: caseError }, { data: profile, error: profileError }] = await Promise.all([
+    supabase.from("cases").select("*").eq("user_id", user.id).eq("id", caseId).maybeSingle(),
+    supabase.from("profiles").select("metadata").eq("user_id", user.id).maybeSingle()
+  ]);
 
-  if (caseError) {
-    return NextResponse.json({ message: caseError.message }, { status: 500 });
+  if (caseError || profileError) {
+    return NextResponse.json(
+      {
+        message:
+          caseError?.message ||
+          profileError?.message ||
+          pickLocale(locale, "暂时无法加载案件提问权限。", "暫時無法載入案件提問權限。")
+      },
+      { status: 500 }
+    );
   }
 
   if (!caseRecord) {
     return NextResponse.json(
       { message: pickLocale(locale, "找不到所选案件。", "找不到所選案件。") },
       { status: 404 }
+    );
+  }
+
+  const planState = getConsumerPlanState(profile ?? null);
+
+  if (!hasConsumerPlanCapability(planState, "workspace_case_questions")) {
+    return NextResponse.json(
+      { message: getConsumerCapabilityAccessDeniedMessage("workspace_case_questions", locale) },
+      { status: 403 }
     );
   }
 

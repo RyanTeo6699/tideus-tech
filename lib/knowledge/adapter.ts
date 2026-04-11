@@ -1,17 +1,22 @@
 import type { CaseReviewResult } from "@/lib/case-review";
 import { getUseCaseDefinition, type CaseDocumentStatus } from "@/lib/case-workflows";
 import { pickLocale } from "@/lib/i18n/workspace";
-import { readLatestKnowledgeRefreshSnapshot, getKnowledgeRefreshPayloadForLocale } from "@/lib/knowledge/refresh";
-import { buildStudyPermitExtensionKnowledge } from "@/lib/knowledge/scenarios/study-permit-extension";
-import { buildVisitorRecordKnowledge } from "@/lib/knowledge/scenarios/visitor-record";
+import {
+  buildScenarioKnowledgeWarnings,
+  buildSeedKnowledgePack,
+  mergeKnowledgePacks
+} from "@/lib/knowledge/packs";
+import {
+  getKnowledgeRefreshPayloadForLocale,
+  readLatestKnowledgeRefreshSnapshot
+} from "@/lib/knowledge/refresh";
 import {
   CASE_KNOWLEDGE_ADAPTER_VERSION,
+  CASE_KNOWLEDGE_PACK_VERSION,
   type CaseKnowledgeContext,
   type CaseKnowledgeInput,
   type CaseKnowledgeMaterialGuidanceNote,
-  type CaseKnowledgeProcessingTimeNote,
-  type CaseKnowledgeRefreshPayload,
-  type CaseScenarioKnowledge
+  type CaseKnowledgeProcessingTimeNote
 } from "@/lib/knowledge/types";
 
 export { CASE_KNOWLEDGE_ADAPTER_VERSION };
@@ -37,9 +42,11 @@ export async function buildKnowledgeContext(input: CaseKnowledgeInput): Promise<
       source: "tideus-internal-knowledge-adapter",
       sourceVersion: CASE_KNOWLEDGE_ADAPTER_VERSION,
       adapterVersion: CASE_KNOWLEDGE_ADAPTER_VERSION,
-      sourceKind: "static-adapter",
+      sourceKind: "seed-pack",
       scenarioTag: input.useCaseSlug,
       language: input.language,
+      packVersion: CASE_KNOWLEDGE_PACK_VERSION,
+      packLabel: "unsupported-scenario",
       generatedAt,
       refreshedAt: null,
       processingTimeNote: null,
@@ -51,23 +58,48 @@ export async function buildKnowledgeContext(input: CaseKnowledgeInput): Promise<
     };
   }
 
-  const baseScenarioKnowledge = getScenarioKnowledge(input);
+  const seedPack = buildSeedKnowledgePack(input.useCaseSlug);
   const refreshedSnapshot = await readLatestKnowledgeRefreshSnapshot(input.useCaseSlug);
-  const refreshedKnowledge = getKnowledgeRefreshPayloadForLocale(refreshedSnapshot, input.language);
-  const mergedScenarioKnowledge = mergeScenarioKnowledge(baseScenarioKnowledge, refreshedKnowledge);
-  const references = mergedScenarioKnowledge.references;
-  const processingTimeNote = mergedScenarioKnowledge.processingTimeNote;
+  const activePack = mergeKnowledgePacks(seedPack, refreshedSnapshot);
+  const localizedKnowledge = getKnowledgeRefreshPayloadForLocale(activePack, input.language);
+
+  if (!localizedKnowledge) {
+    return {
+      status: "unavailable",
+      source: "tideus-internal-knowledge-adapter",
+      sourceVersion: activePack.sourceVersion,
+      adapterVersion: CASE_KNOWLEDGE_ADAPTER_VERSION,
+      sourceKind: refreshedSnapshot ? "refreshed-pack" : "seed-pack",
+      scenarioTag: input.useCaseSlug,
+      language: input.language,
+      packVersion: activePack.packVersion,
+      packLabel: activePack.sourceLabel,
+      generatedAt,
+      refreshedAt: activePack.refreshedAt,
+      processingTimeNote: null,
+      supportingContextNotes: [],
+      materialsGuidanceNotes: [],
+      scenarioSpecificWarnings: [],
+      officialReferenceLabels: [],
+      references: []
+    };
+  }
+
+  const references = localizedKnowledge.references;
+  const processingTimeNote = localizedKnowledge.processingTimeNote;
 
   return {
     status: "available",
     source: "tideus-internal-knowledge-adapter",
-    sourceVersion: refreshedSnapshot?.sourceVersion ?? CASE_KNOWLEDGE_ADAPTER_VERSION,
+    sourceVersion: activePack.sourceVersion,
     adapterVersion: CASE_KNOWLEDGE_ADAPTER_VERSION,
-    sourceKind: refreshedKnowledge ? "refreshed-snapshot" : "static-adapter",
+    sourceKind: refreshedSnapshot ? "refreshed-pack" : "seed-pack",
     scenarioTag: input.useCaseSlug,
     language: input.language,
+    packVersion: activePack.packVersion,
+    packLabel: activePack.sourceLabel,
     generatedAt,
-    refreshedAt: refreshedSnapshot?.refreshedAt ?? null,
+    refreshedAt: activePack.refreshedAt,
     processingTimeNote,
     supportingContextNotes: dedupeStrings([
       pickLocale(
@@ -75,24 +107,25 @@ export async function buildKnowledgeContext(input: CaseKnowledgeInput): Promise<
         "这些知识上下文只用于 Tideus 内部工作流生成，不会把产品扩展成公共门户、数据页或广泛搜索入口。",
         "這些知識上下文只用於 Tideus 內部工作流程生成，不會把產品擴展成公共入口、資料頁或廣泛搜尋入口。"
       ),
-      ...mergedScenarioKnowledge.supportingContextNotes,
+      ...localizedKnowledge.supportingContextNotes,
       input.intakeNormalization?.reviewNotes[0] ?? "",
       input.materialInterpretation?.items.some((item) => readMaterialIssues(item).length > 0)
         ? input.materialInterpretation.summary
         : ""
     ]).slice(0, 6),
     materialsGuidanceNotes: dedupeMaterialGuidanceNotes([
-      ...mergedScenarioKnowledge.materialsGuidanceNotes,
+      ...localizedKnowledge.materialsGuidanceNotes,
       ...buildAiMaterialGuidanceNotes(input),
       ...buildMetadataMaterialGuidanceNotes(input)
     ]).slice(0, 10),
     scenarioSpecificWarnings: dedupeStrings([
       ...buildSharedScenarioWarnings(input),
-      ...mergedScenarioKnowledge.scenarioSpecificWarnings
+      ...buildScenarioKnowledgeWarnings(input),
+      ...localizedKnowledge.scenarioSpecificWarnings
     ]).slice(0, 6),
     officialReferenceLabels: dedupeStrings(
-      mergedScenarioKnowledge.officialReferenceLabels?.length
-        ? mergedScenarioKnowledge.officialReferenceLabels
+      localizedKnowledge.officialReferenceLabels.length > 0
+        ? localizedKnowledge.officialReferenceLabels
         : references.map((item) => item.label)
     ).slice(0, 8),
     references
@@ -153,6 +186,8 @@ export function summarizeKnowledgeContext(context: CaseKnowledgeContext) {
     sourceKind: context.sourceKind,
     scenarioTag: context.scenarioTag,
     language: context.language,
+    packVersion: context.packVersion,
+    packLabel: context.packLabel,
     generatedAt: context.generatedAt,
     refreshedAt: context.refreshedAt,
     processingTimeReferenceLabel: context.processingTimeNote?.referenceLabel ?? null,
@@ -160,36 +195,6 @@ export function summarizeKnowledgeContext(context: CaseKnowledgeContext) {
     materialsGuidanceNoteCount: context.materialsGuidanceNotes.length,
     scenarioWarningCount: context.scenarioSpecificWarnings.length,
     officialReferenceCount: context.officialReferenceLabels.length
-  };
-}
-
-function getScenarioKnowledge(input: CaseKnowledgeInput): CaseScenarioKnowledge {
-  if (input.useCaseSlug === "visitor-record") {
-    return buildVisitorRecordKnowledge(input);
-  }
-
-  return buildStudyPermitExtensionKnowledge(input);
-}
-
-function mergeScenarioKnowledge(
-  base: CaseScenarioKnowledge,
-  refreshed: CaseKnowledgeRefreshPayload | null
-): CaseScenarioKnowledge {
-  if (!refreshed) {
-    return base;
-  }
-
-  return {
-    processingTimeNote: refreshed.processingTimeNote ?? base.processingTimeNote,
-    references: refreshed.references.length > 0 ? refreshed.references : base.references,
-    supportingContextNotes:
-      refreshed.supportingContextNotes.length > 0 ? refreshed.supportingContextNotes : base.supportingContextNotes,
-    materialsGuidanceNotes:
-      refreshed.materialsGuidanceNotes.length > 0 ? refreshed.materialsGuidanceNotes : base.materialsGuidanceNotes,
-    scenarioSpecificWarnings:
-      refreshed.scenarioSpecificWarnings.length > 0 ? refreshed.scenarioSpecificWarnings : base.scenarioSpecificWarnings,
-    officialReferenceLabels:
-      refreshed.officialReferenceLabels.length > 0 ? refreshed.officialReferenceLabels : base.officialReferenceLabels
   };
 }
 

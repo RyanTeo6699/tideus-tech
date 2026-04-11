@@ -1,7 +1,7 @@
 import Link from "next/link";
 
 import { getCurrentProfileContext } from "@/lib/profile-server";
-import { getCaseStartHref, supportedUseCases } from "@/lib/case-workflows";
+import { getCaseStartHref, getSupportedUseCases } from "@/lib/case-workflows";
 import { EventLink } from "@/components/site/event-link";
 import { PageHero } from "@/components/site/page-hero";
 import { SectionContainer } from "@/components/site/section-container";

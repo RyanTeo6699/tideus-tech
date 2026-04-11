@@ -7,6 +7,14 @@ import { Button } from "@/components/ui/button";
 import { useLocaleContext } from "@/lib/i18n/client";
 
 export function LogoutButton() {
+  return <LogoutButtonWithRedirect />;
+}
+
+type LogoutButtonProps = {
+  redirectTo?: string;
+};
+
+export function LogoutButtonWithRedirect({ redirectTo = "/login" }: LogoutButtonProps = {}) {
   const { locale } = useLocaleContext();
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
@@ -21,7 +29,7 @@ export function LogoutButton() {
       const data = (await response.json().catch(() => null)) as { redirectTo?: string } | null;
 
       startTransition(() => {
-        router.push(data?.redirectTo ?? "/login");
+        router.push(redirectTo ?? data?.redirectTo ?? "/login");
         router.refresh();
       });
     } finally {
