@@ -1,4 +1,5 @@
 import { notFound, redirect } from "next/navigation";
+import Link from "next/link";
 
 import { CaseQuestionPanel } from "@/components/cases/case-question-panel";
 import { CaseReviewResult } from "@/components/cases/case-review-result";
@@ -22,6 +23,7 @@ import {
   getCaseReviewSnapshot,
   getReviewHistoryFacts
 } from "@/lib/cases";
+import { formatCaseStatus } from "@/lib/case-state";
 import { formatReadinessStatus, getUseCaseDefinition, type SupportedUseCaseSlug } from "@/lib/case-workflows";
 import { formatAppDateTime } from "@/lib/i18n/format";
 import { getCurrentLocale } from "@/lib/i18n/server";
@@ -67,6 +69,8 @@ export default async function CaseDetailPage({ params }: CaseDetailPageProps) {
   const canUseWorkspaceQuestions = hasConsumerPlanCapability(detail.profile, "workspace_case_questions");
   const canUseMaterialActions = hasConsumerPlanCapability(detail.profile, "workspace_material_actions");
   const canUseReviewDelta = hasConsumerPlanCapability(detail.profile, "review_delta");
+  const missingItemCount = review?.missingItems.length ?? 0;
+  const riskFlagCount = review?.riskFlags.length ?? 0;
 
   return (
     <WorkspaceShell
@@ -152,6 +156,57 @@ export default async function CaseDetailPage({ params }: CaseDetailPageProps) {
           </CardContent>
         </Card>
 
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+          <WorkspaceSignal
+            actionHref={buildCaseResumeHref(detail.caseRecord)}
+            actionLabel="继续处理"
+            label="案件 / 任务"
+            value={detail.caseRecord.title}
+          />
+          <WorkspaceSignal
+            actionHref="/dashboard/cases"
+            actionLabel="查看全部"
+            label="当前状态"
+            value={formatCaseStatus(detail.caseRecord.status, "zh-CN")}
+          />
+          <WorkspaceSignal
+            actionHref={`/upload-materials/${caseId}`}
+            actionLabel="更新材料"
+            label="材料摘要"
+            value={`${materialCounts.requiredReady}/${materialCounts.requiredTotal} 个必需项已就绪，${materialCounts.requiredActionCount} 个仍需处理`}
+          />
+          <WorkspaceSignal
+            actionHref={review ? `/review-results/${caseId}/export` : `/upload-materials/${caseId}`}
+            actionLabel={review ? "导出 / 交接" : "先生成审查"}
+            label="最新审查"
+            value={review ? `${latestReadinessLabel}，${missingItemCount} 个缺失项，${riskFlagCount} 个风险标记` : "还没有审查"}
+          />
+          <WorkspaceSignal
+            actionHref={`/dashboard/cases/${caseId}#missing-and-risks`}
+            actionLabel="查看详情"
+            label="缺失项"
+            value={`${missingItemCount} 个`}
+          />
+          <WorkspaceSignal
+            actionHref={`/dashboard/cases/${caseId}#missing-and-risks`}
+            actionLabel="查看详情"
+            label="风险标记"
+            value={`${riskFlagCount} 个`}
+          />
+          <WorkspaceSignal
+            actionHref={`/dashboard/cases/${caseId}#review-history`}
+            actionLabel="查看历史"
+            label="审查历史"
+            value={`已保存 ${detail.reviewHistory.length} 个版本`}
+          />
+          <WorkspaceSignal
+            actionHref={`/dashboard/cases/${caseId}#case-ai-panel`}
+            actionLabel="问 AI"
+            label="下一步"
+            value={nextAction.label}
+          />
+        </div>
+
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
           {buildCaseFacts(detail.caseRecord, detail.documents, locale).map((fact) => (
             <Card className="border-slate-200 bg-slate-50 shadow-none" key={`${fact.label}-${fact.value}`}>
@@ -198,7 +253,7 @@ export default async function CaseDetailPage({ params }: CaseDetailPageProps) {
               </div>
 
               {reviewHistoryFacts.length > 0 ? (
-                <div className="space-y-3">
+                <div className="space-y-3" id="review-history">
                   <div className="flex flex-col gap-1">
                     <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">{pickLocale(locale, "最近审查版本", "最近審查版本")}</p>
                     <p className="text-sm leading-6 text-slate-600">
@@ -319,44 +374,48 @@ export default async function CaseDetailPage({ params }: CaseDetailPageProps) {
           />
         )}
 
-        {canUseWorkspaceQuestions ? (
-          <CaseQuestionPanel
-            caseId={caseId}
-            caseTitle={detail.caseRecord.title}
-            latestReviewSummary={detail.caseRecord.latest_review_summary}
-            useCaseSlug={detail.caseRecord.use_case_slug as SupportedUseCaseSlug}
-            useCaseTitle={useCase?.shortTitle || detail.caseRecord.use_case_slug}
-          />
-        ) : (
-          <PlanUpgradeCard
-            capability="workspace_case_questions"
-            caseId={caseId}
-            locale={locale}
-            sourceSurface="case-detail-case-question"
-            useCase={detail.caseRecord.use_case_slug}
-          />
-        )}
+        <div id="case-ai-panel">
+          {canUseWorkspaceQuestions ? (
+            <CaseQuestionPanel
+              caseId={caseId}
+              caseTitle={detail.caseRecord.title}
+              latestReviewSummary={detail.caseRecord.latest_review_summary}
+              useCaseSlug={detail.caseRecord.use_case_slug as SupportedUseCaseSlug}
+              useCaseTitle={useCase?.shortTitle || detail.caseRecord.use_case_slug}
+            />
+          ) : (
+            <PlanUpgradeCard
+              capability="workspace_case_questions"
+              caseId={caseId}
+              locale={locale}
+              sourceSurface="case-detail-case-question"
+              useCase={detail.caseRecord.use_case_slug}
+            />
+          )}
+        </div>
 
-        {review ? (
-          <CaseReviewResult
-            caseId={caseId}
-            caseTitle={detail.caseRecord.title}
-            latestReviewedAt={detail.latestReview?.created_at ?? detail.caseRecord.latest_reviewed_at}
-            latestReviewVersion={latestReviewVersion}
-            review={review}
-            reviewHistoryFacts={reviewHistoryFacts}
-            sourceSurface="case-detail-page"
-            useCaseSlug={detail.caseRecord.use_case_slug}
-            useCaseTitle={useCase?.shortTitle || detail.caseRecord.use_case_slug}
-          />
-        ) : (
-          <Card>
-            <CardHeader>
-              <CardTitle>{copy.common.noReviewYet}</CardTitle>
-              <CardDescription>{pickLocale(locale, "完成材料页后即可生成第一版审查输出。", "完成材料頁後即可生成第一版審查輸出。")}</CardDescription>
-            </CardHeader>
-          </Card>
-        )}
+        <div id="missing-and-risks">
+          {review ? (
+            <CaseReviewResult
+              caseId={caseId}
+              caseTitle={detail.caseRecord.title}
+              latestReviewedAt={detail.latestReview?.created_at ?? detail.caseRecord.latest_reviewed_at}
+              latestReviewVersion={latestReviewVersion}
+              review={review}
+              reviewHistoryFacts={reviewHistoryFacts}
+              sourceSurface="case-detail-page"
+              useCaseSlug={detail.caseRecord.use_case_slug}
+              useCaseTitle={useCase?.shortTitle || detail.caseRecord.use_case_slug}
+            />
+          ) : (
+            <Card>
+              <CardHeader>
+                <CardTitle>{copy.common.noReviewYet}</CardTitle>
+                <CardDescription>{pickLocale(locale, "完成材料页后即可生成第一版审查输出。", "完成材料頁後即可生成第一版審查輸出。")}</CardDescription>
+              </CardHeader>
+            </Card>
+          )}
+        </div>
 
         <div className="grid gap-6 xl:grid-cols-[1fr_0.9fr]">
           <Card>
@@ -398,6 +457,32 @@ export default async function CaseDetailPage({ params }: CaseDetailPageProps) {
         </div>
       </div>
     </WorkspaceShell>
+  );
+}
+
+function WorkspaceSignal({
+  label,
+  value,
+  actionHref,
+  actionLabel
+}: {
+  label: string;
+  value: string;
+  actionHref: string;
+  actionLabel: string;
+}) {
+  return (
+    <Card className="border-slate-200 bg-white shadow-none">
+      <CardHeader>
+        <CardDescription>{label}</CardDescription>
+        <CardTitle className="text-lg">{value}</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <Link className="text-sm font-semibold text-slate-950 underline underline-offset-4" href={actionHref}>
+          {actionLabel}
+        </Link>
+      </CardContent>
+    </Card>
   );
 }
 

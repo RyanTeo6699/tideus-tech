@@ -269,7 +269,7 @@ function getComparisonLabel(
     case "structured-review":
       return pickLocale(locale, "结构化审查与基础导出摘要", "結構化審查與基礎匯出摘要");
     case "workspace-case-questions":
-      return pickLocale(locale, "案件内 AI 提问、原因解释与下一步建议", "案件內 AI 提問、原因解釋與下一步建議");
+      return pickLocale(locale, "案件内 AI 提问、原因解释与下一步建议", "案件内 AI 提问、原因解释与下一步建议");
     case "workspace-material-actions":
       return pickLocale(locale, "材料工作动作建议与补充材料提示", "材料工作動作建議與補充材料提示");
     case "review-delta":

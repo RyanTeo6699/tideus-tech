@@ -13,7 +13,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { useLocaleContext } from "@/lib/i18n/client";
 import { cn } from "@/lib/utils";
 
 type CaseQuestionEntryProps = {
@@ -27,15 +26,55 @@ type CaseQuestionEntryProps = {
 type AskStatus = "idle" | "loading" | "success" | "error";
 type SaveStatus = "idle" | "loading" | "success" | "error";
 
+const copy = {
+  initialMessage: "选择场景，输入一个具体案件问题。回答会按工作流输出，不做泛化聊天。",
+  tooShortQuestion: "请先输入至少 8 个字符的问题。",
+  generating: "正在读取场景知识并生成结构化回答...",
+  generateError: "暂时无法生成回答。",
+  answerReady: "结构化回答已生成。可以保存到工作台继续推进。",
+  saveBeforeGenerate: "请先生成回答，再保存到工作台。",
+  creatingWorkspace: "正在创建或更新工作台记录...",
+  signInToSave: "登录后保存到工作台",
+  saveError: "暂时无法保存到工作台。",
+  savedWorkspace: "已保存到工作台。",
+  taskBadge: "任务入口",
+  title: "问一个案件问题",
+  description: "围绕当前支持场景提问，得到摘要、公开信息提示和下一步动作。",
+  scenarioLabel: "场景",
+  questionLabel: "问题",
+  questionPlaceholder: "例如：我的访客身份 30 天内到期，但资金证明还不完整，应该先补什么？",
+  questionHelper: "越具体越好。可以写到期时间、当前身份、已准备材料和你最担心的风险。",
+  working: "处理中",
+  error: "错误",
+  ready: "已就绪",
+  saved: "已保存",
+  actionNeeded: "需要处理",
+  caseQuestionLabel: "案件问题",
+  generatingButton: "正在生成...",
+  generateButton: "生成结构化回答",
+  workspaceTitle: "把回答变成工作流",
+  workspaceDescription: "保存后会进入案件工作台，可继续材料、审查、导出或交接。",
+  openSavedWorkspace: "打开已保存工作台",
+  emptyTitle: "先生成一个回答",
+  emptyDescription: "右侧会显示回答摘要、重要性、公开信息提示、下一步和可保存动作。",
+  structuredAnswerTitle: "回答摘要",
+  whyMattersTitle: "为什么重要",
+  publicGuidanceTitle: "相关公开信息提示",
+  scenarioWarningsTitle: "场景提醒",
+  nextStepsTitle: "下一步",
+  trackerActionsTitle: "建议写入工作台的动作",
+  emptyItems: "当前没有可显示的项目。",
+  emptyWarnings: "当前没有额外场景提醒。"
+};
+
 export function CaseQuestionEntry({ useCases }: CaseQuestionEntryProps) {
-  const { messages } = useLocaleContext();
   const router = useRouter();
   const [useCase, setUseCase] = useState<SupportedUseCaseSlug>(useCases[0]?.slug ?? "visitor-record");
   const [question, setQuestion] = useState("");
   const [answer, setAnswer] = useState<CaseQuestionAnswer | null>(null);
   const [askStatus, setAskStatus] = useState<AskStatus>("idle");
   const [saveStatus, setSaveStatus] = useState<SaveStatus>("idle");
-  const [message, setMessage] = useState(messages.caseQuestionEntry.initialMessage);
+  const [message, setMessage] = useState(copy.initialMessage);
   const [saveMessage, setSaveMessage] = useState("");
   const [nextHref, setNextHref] = useState<string | null>(null);
   const [loginHref, setLoginHref] = useState<string | null>(null);
@@ -58,12 +97,12 @@ export function CaseQuestionEntry({ useCases }: CaseQuestionEntryProps) {
 
     if (question.trim().length < 8) {
       setAskStatus("error");
-      setMessage(messages.caseQuestionEntry.tooShortQuestion);
+      setMessage(copy.tooShortQuestion);
       return;
     }
 
     setAskStatus("loading");
-    setMessage(messages.caseQuestionEntry.generating);
+    setMessage(copy.generating);
 
     try {
       const response = await fetch("/api/case-question", {
@@ -84,27 +123,27 @@ export function CaseQuestionEntry({ useCases }: CaseQuestionEntryProps) {
         | null;
 
       if (!response.ok || !data?.answer) {
-        throw new Error(data?.message || messages.caseQuestionEntry.generateError);
+        throw new Error(data?.message || copy.generateError);
       }
 
       setAnswer(data.answer);
       setAskStatus("success");
-      setMessage(messages.caseQuestionEntry.answerReady);
+      setMessage(copy.answerReady);
     } catch (error) {
       setAskStatus("error");
-      setMessage(error instanceof Error ? error.message : messages.caseQuestionEntry.generateError);
+      setMessage(error instanceof Error ? error.message : copy.generateError);
     }
   }
 
   async function handleSave(action: CaseQuestionSaveAction) {
     if (!answer) {
       setSaveStatus("error");
-      setSaveMessage(messages.caseQuestionEntry.saveBeforeGenerate);
+      setSaveMessage(copy.saveBeforeGenerate);
       return;
     }
 
     setSaveStatus("loading");
-    setSaveMessage(messages.caseQuestionEntry.creatingWorkspace);
+    setSaveMessage(copy.creatingWorkspace);
     setLoginHref(null);
 
     try {
@@ -130,18 +169,18 @@ export function CaseQuestionEntry({ useCases }: CaseQuestionEntryProps) {
 
       if (response.status === 401) {
         setLoginHref(`/login?next=${encodeURIComponent("/case-question")}`);
-        throw new Error(data?.message || messages.caseQuestionEntry.signInToSave);
+        throw new Error(data?.message || copy.signInToSave);
       }
 
       if (!response.ok || !data?.caseId || typeof data.nextHref !== "string") {
-        throw new Error(data?.message || messages.caseQuestionEntry.saveError);
+        throw new Error(data?.message || copy.saveError);
       }
 
       const savedNextHref = data.nextHref;
 
       setNextHref(savedNextHref);
       setSaveStatus("success");
-      setSaveMessage(messages.caseQuestionEntry.savedWorkspace);
+      setSaveMessage(copy.savedWorkspace);
 
       if (action === "continue-in-case-workspace") {
         startTransition(() => {
@@ -151,7 +190,7 @@ export function CaseQuestionEntry({ useCases }: CaseQuestionEntryProps) {
       }
     } catch (error) {
       setSaveStatus("error");
-      setSaveMessage(error instanceof Error ? error.message : messages.caseQuestionEntry.saveError);
+      setSaveMessage(error instanceof Error ? error.message : copy.saveError);
     }
   }
 
@@ -160,15 +199,15 @@ export function CaseQuestionEntry({ useCases }: CaseQuestionEntryProps) {
       <Card className="h-fit">
         <CardHeader>
           <Badge variant="secondary" className="w-fit">
-            {messages.caseQuestionEntry.taskBadge}
+            {copy.taskBadge}
           </Badge>
-          <CardTitle className="text-3xl">{messages.caseQuestionEntry.title}</CardTitle>
-          <CardDescription>{messages.caseQuestionEntry.description}</CardDescription>
+          <CardTitle className="text-3xl">{copy.title}</CardTitle>
+          <CardDescription>{copy.description}</CardDescription>
         </CardHeader>
         <CardContent>
           <form className="space-y-5" onSubmit={handleAsk}>
             <div className="space-y-2">
-              <Label htmlFor="case-question-use-case">{messages.caseQuestionEntry.scenarioLabel}</Label>
+              <Label htmlFor="case-question-use-case">{copy.scenarioLabel}</Label>
               <Select
                 id="case-question-use-case"
                 onChange={(event) => {
@@ -189,7 +228,7 @@ export function CaseQuestionEntry({ useCases }: CaseQuestionEntryProps) {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="case-question">{messages.caseQuestionEntry.questionLabel}</Label>
+              <Label htmlFor="case-question">{copy.questionLabel}</Label>
               <Textarea
                 id="case-question"
                 onChange={(event) => {
@@ -198,11 +237,11 @@ export function CaseQuestionEntry({ useCases }: CaseQuestionEntryProps) {
                     resetSavedAnswer();
                   }
                 }}
-                placeholder={messages.caseQuestionEntry.questionPlaceholder}
+                placeholder={copy.questionPlaceholder}
                 rows={7}
                 value={question}
               />
-              <p className="text-sm leading-6 text-muted-foreground">{messages.caseQuestionEntry.questionHelper}</p>
+              <p className="text-sm leading-6 text-muted-foreground">{copy.questionHelper}</p>
             </div>
 
             <div
@@ -214,18 +253,18 @@ export function CaseQuestionEntry({ useCases }: CaseQuestionEntryProps) {
             >
               <p className="font-semibold uppercase tracking-[0.18em]">
                 {askStatus === "loading"
-                  ? messages.common.working
+                  ? copy.working
                   : askStatus === "error"
-                    ? messages.common.error
+                    ? copy.error
                     : askStatus === "success"
-                      ? messages.common.ready
-                      : messages.caseQuestionEntry.caseQuestionLabel}
+                      ? copy.ready
+                      : copy.caseQuestionLabel}
               </p>
               <p className="mt-2">{message}</p>
             </div>
 
             <Button disabled={askStatus === "loading"} type="submit">
-              {askStatus === "loading" ? messages.caseQuestionEntry.generatingButton : messages.caseQuestionEntry.generateButton}
+              {askStatus === "loading" ? copy.generatingButton : copy.generateButton}
             </Button>
           </form>
         </CardContent>
@@ -238,13 +277,13 @@ export function CaseQuestionEntry({ useCases }: CaseQuestionEntryProps) {
 
             <Card className="border-emerald-200 bg-emerald-50/80 shadow-none">
               <CardHeader>
-                <CardTitle>{messages.caseQuestionEntry.workspaceTitle}</CardTitle>
-                <CardDescription>{messages.caseQuestionEntry.workspaceDescription}</CardDescription>
+                <CardTitle>{copy.workspaceTitle}</CardTitle>
+                <CardDescription>{copy.workspaceDescription}</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="grid gap-3 sm:grid-cols-2">
                   <Button disabled={saveStatus === "loading"} onClick={() => void handleSave("save-to-workspace")} type="button">
-                    {messages.caseQuestionEntry.saveToWorkspace}
+                    保存到工作台
                   </Button>
                   <Button
                     disabled={saveStatus === "loading"}
@@ -252,7 +291,7 @@ export function CaseQuestionEntry({ useCases }: CaseQuestionEntryProps) {
                     type="button"
                     variant="outline"
                   >
-                    {messages.caseQuestionEntry.generateChecklist}
+                    生成清单
                   </Button>
                   <Button
                     disabled={saveStatus === "loading"}
@@ -260,7 +299,7 @@ export function CaseQuestionEntry({ useCases }: CaseQuestionEntryProps) {
                     type="button"
                     variant="outline"
                   >
-                    {messages.caseQuestionEntry.startTracking}
+                    开始跟踪
                   </Button>
                   <Button
                     disabled={saveStatus === "loading"}
@@ -268,7 +307,7 @@ export function CaseQuestionEntry({ useCases }: CaseQuestionEntryProps) {
                     type="button"
                     variant="outline"
                   >
-                    {messages.caseQuestionEntry.continueInWorkspace}
+                    继续到案件工作台
                   </Button>
                 </div>
 
@@ -282,20 +321,20 @@ export function CaseQuestionEntry({ useCases }: CaseQuestionEntryProps) {
                   >
                     <p className="font-semibold uppercase tracking-[0.18em]">
                       {saveStatus === "loading"
-                        ? messages.common.working
+                        ? copy.working
                         : saveStatus === "success"
-                          ? messages.common.saved
-                          : messages.common.actionNeeded}
+                          ? copy.saved
+                          : copy.actionNeeded}
                     </p>
                     <p className="mt-2">{saveMessage}</p>
                     {loginHref ? (
                       <Link className="mt-3 inline-flex text-sm font-semibold text-slate-950 underline" href={loginHref}>
-                        {messages.caseQuestionEntry.signInToSave}
+                        {copy.signInToSave}
                       </Link>
                     ) : null}
                     {nextHref ? (
                       <Link className="mt-3 inline-flex text-sm font-semibold text-slate-950 underline" href={nextHref}>
-                        {messages.caseQuestionEntry.openSavedWorkspace}
+                        {copy.openSavedWorkspace}
                       </Link>
                     ) : null}
                   </div>
@@ -306,8 +345,8 @@ export function CaseQuestionEntry({ useCases }: CaseQuestionEntryProps) {
         ) : (
           <Card className="border-slate-200 bg-slate-50 shadow-none">
             <CardHeader>
-              <CardTitle>{messages.caseQuestionEntry.emptyTitle}</CardTitle>
-              <CardDescription>{messages.caseQuestionEntry.emptyDescription}</CardDescription>
+              <CardTitle>{copy.emptyTitle}</CardTitle>
+              <CardDescription>{copy.emptyDescription}</CardDescription>
             </CardHeader>
           </Card>
         )}
@@ -317,30 +356,28 @@ export function CaseQuestionEntry({ useCases }: CaseQuestionEntryProps) {
 }
 
 function StructuredAnswer({ answer }: { answer: CaseQuestionAnswer }) {
-  const { messages } = useLocaleContext();
-
   return (
     <div className="space-y-6">
       <Card>
         <CardHeader>
-          <CardTitle>{messages.caseQuestionEntry.structuredAnswerTitle}</CardTitle>
+          <CardTitle>{copy.structuredAnswerTitle}</CardTitle>
           <CardDescription>{answer.summary}</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm leading-7 text-slate-700">
-            <p className="font-semibold uppercase tracking-[0.18em] text-slate-500">{messages.caseQuestionEntry.whyMattersTitle}</p>
+            <p className="font-semibold uppercase tracking-[0.18em] text-slate-500">{copy.whyMattersTitle}</p>
             <p className="mt-2">{answer.whyThisMatters}</p>
           </div>
         </CardContent>
       </Card>
 
       <div className="grid gap-6 xl:grid-cols-2">
-        <AnswerList title={messages.caseQuestionEntry.contextTitle} items={answer.supportingContextNotes} empty={messages.caseQuestionEntry.emptyItems} />
-        <AnswerList title={messages.caseQuestionEntry.warningsTitle} items={answer.scenarioSpecificWarnings} empty={messages.caseQuestionEntry.emptyWarnings} />
-        <AnswerList title={messages.caseQuestionEntry.nextStepsTitle} items={answer.nextSteps} empty={messages.caseQuestionEntry.emptyItems} />
+        <AnswerList title={copy.publicGuidanceTitle} items={answer.supportingContextNotes} empty={copy.emptyItems} />
+        <AnswerList title={copy.nextStepsTitle} items={answer.nextSteps} empty={copy.emptyItems} />
+        <AnswerList title={copy.scenarioWarningsTitle} items={answer.scenarioSpecificWarnings} empty={copy.emptyWarnings} />
         <Card>
           <CardHeader>
-            <CardTitle>{messages.caseQuestionEntry.trackerActionsTitle}</CardTitle>
+            <CardTitle>{copy.trackerActionsTitle}</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
             {answer.trackerActions.map((item) => (
