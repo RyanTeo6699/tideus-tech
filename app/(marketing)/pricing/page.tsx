@@ -16,34 +16,39 @@ import { getCurrentProfileContext } from "@/lib/profile-server";
 
 const comparisonRows = [
   {
+    key: "active-case-slots",
+    free: "one-active-case",
+    pro: "twelve-active-cases"
+  },
+  {
     key: "workspace-foundation",
-    free: true,
-    pro: true
+    free: "included",
+    pro: "included"
   },
   {
     key: "structured-review",
-    free: true,
-    pro: true
+    free: "included",
+    pro: "included"
   },
   {
     key: "workspace-case-questions",
-    free: false,
-    pro: true
+    free: "not-included",
+    pro: "included"
   },
   {
     key: "workspace-material-actions",
-    free: false,
-    pro: true
+    free: "not-included",
+    pro: "included"
   },
   {
     key: "review-delta",
-    free: false,
-    pro: true
+    free: "not-included",
+    pro: "included"
   },
   {
     key: "handoff-intelligence",
-    free: false,
-    pro: true
+    free: "not-included",
+    pro: "included"
   }
 ] as const;
 
@@ -192,8 +197,8 @@ export default async function PricingPage() {
             >
               {index > 0 ? <div className="col-span-3 -mt-4 mb-4 border-t border-border" /> : null}
               <div>{getComparisonLabel(row.key, locale)}</div>
-              <div>{row.free ? pickLocale(locale, "包含", "包含") : pickLocale(locale, "不包含", "不包含")}</div>
-              <div>{row.pro ? pickLocale(locale, "包含", "包含") : pickLocale(locale, "不包含", "不包含")}</div>
+              <div>{formatComparisonValue(row.free, locale)}</div>
+              <div>{formatComparisonValue(row.pro, locale)}</div>
             </div>
           ))}
         </div>
@@ -257,6 +262,8 @@ function getComparisonLabel(
   locale: "zh-CN" | "zh-TW"
 ) {
   switch (key) {
+    case "active-case-slots":
+      return pickLocale(locale, "活跃案件工作台额度", "活躍案件工作台額度");
     case "workspace-foundation":
       return pickLocale(locale, "保存案件、材料状态与继续路径", "儲存案件、材料狀態與繼續路徑");
     case "structured-review":
@@ -269,5 +276,21 @@ function getComparisonLabel(
       return pickLocale(locale, "审查版本变化对比", "審查版本變化對比");
     case "handoff-intelligence":
       return pickLocale(locale, "更强的交接摘要与人工审阅提示", "更強的交接摘要與人工審閱提示");
+  }
+}
+
+function formatComparisonValue(
+  value: (typeof comparisonRows)[number]["free"] | (typeof comparisonRows)[number]["pro"],
+  locale: "zh-CN" | "zh-TW"
+) {
+  switch (value) {
+    case "included":
+      return pickLocale(locale, "包含", "包含");
+    case "not-included":
+      return pickLocale(locale, "不包含", "不包含");
+    case "one-active-case":
+      return pickLocale(locale, "1 个", "1 個");
+    case "twelve-active-cases":
+      return pickLocale(locale, "12 个", "12 個");
   }
 }

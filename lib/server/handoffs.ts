@@ -2,9 +2,9 @@ import "server-only";
 
 import type { User } from "@supabase/supabase-js";
 
-import type { Tables } from "@/lib/database.types";
-import type { HandoffPacketSummary, HandoffRequestRecord } from "@/lib/handoffs";
-import { parseHandoffRequestRecord } from "@/lib/handoffs";
+import type { Database, Tables } from "@/lib/database.types";
+import type { HandoffPacketSummary, HandoffRequestRecord, HandoffRequestStatus } from "@/lib/handoffs";
+import { isHandoffRequestStatus, parseHandoffRequestRecord } from "@/lib/handoffs";
 import {
   buildCaseSnapshotFacts,
   getCaseHandoffIntelligenceSnapshot,
@@ -14,7 +14,14 @@ import {
 import { getUseCaseDefinition } from "@/lib/case-workflows";
 import type { AppLocale } from "@/lib/i18n/config";
 import { pickLocale } from "@/lib/i18n/workspace";
+import {
+  canAccessProfessionalDashboard,
+  getCurrentPermissionContext,
+  type PermissionContext
+} from "@/lib/permissions";
 import { createClient } from "@/lib/supabase/server";
+
+export const activeProfessionalHandoffStatuses = ["new", "opened", "in_review"] as const;
 
 type BuildHandoffPacketSnapshotInput = {
   caseRecord: Tables<"cases">;
@@ -101,6 +108,7 @@ export async function getLatestClientHandoffRequestForCase(caseId: string): Prom
     .select("*")
     .eq("case_id", caseId)
     .eq("client_user_id", user.id)
+    .in("status", ["new", "opened", "in_review", "requested", "queued"])
     .order("created_at", { ascending: false })
     .limit(1)
     .maybeSingle();
@@ -112,20 +120,25 @@ export async function getLatestClientHandoffRequestForCase(caseId: string): Prom
   return data ? parseHandoffRequestRecord(data) : null;
 }
 
-export async function getProfessionalHandoffInbox(limit = 12): Promise<HandoffRequestRecord[]> {
-  const supabase = await createClient();
-  const {
-    data: { user }
-  } = await supabase.auth.getUser();
+export async function getProfessionalHandoffInbox(
+  limit = 12,
+  options?: {
+    includeClosed?: boolean;
+  }
+): Promise<HandoffRequestRecord[]> {
+  const permissionContext = await getCurrentPermissionContext();
 
-  if (!user) {
+  if (!permissionContext.user || !canAccessProfessionalDashboard(permissionContext)) {
     return [];
   }
+
+  const supabase = await createClient();
+  const statuses = options?.includeClosed ? ["new", "opened", "in_review", "closed"] : [...activeProfessionalHandoffStatuses];
 
   const { data, error } = await supabase
     .from("handoff_requests")
     .select("*")
-    .in("status", ["requested", "queued"])
+    .in("status", statuses)
     .order("created_at", { ascending: false })
     .limit(limit);
 
@@ -133,5 +146,177 @@ export async function getProfessionalHandoffInbox(limit = 12): Promise<HandoffRe
     throw error;
   }
 
-  return (data ?? []).map(parseHandoffRequestRecord);
+  return (data ?? [])
+    .filter((record) => canAccessProfessionalHandoffRecord(record, permissionContext))
+    .map(parseHandoffRequestRecord);
+}
+
+export async function getProfessionalHandoffDetail(handoffId: string): Promise<HandoffRequestRecord | null> {
+  const permissionContext = await getCurrentPermissionContext();
+
+  if (!permissionContext.user || !canAccessProfessionalDashboard(permissionContext)) {
+    return null;
+  }
+
+  const supabase = await createClient();
+  const { data, error } = await supabase.from("handoff_requests").select("*").eq("id", handoffId).maybeSingle();
+
+  if (error) {
+    throw error;
+  }
+
+  if (!data || !canAccessProfessionalHandoffRecord(data, permissionContext)) {
+    return null;
+  }
+
+  return parseHandoffRequestRecord(data);
+}
+
+export type ProfessionalHandoffOperationResult =
+  | {
+      status: "updated";
+      record: HandoffRequestRecord;
+    }
+  | {
+      status: "not_found" | "unauthorized" | "invalid_status" | "invalid_notes";
+      record: null;
+    };
+
+export async function updateProfessionalHandoffOperation({
+  handoffId,
+  nextStatus,
+  internalNotes
+}: {
+  handoffId: string;
+  nextStatus?: HandoffRequestStatus;
+  internalNotes?: string;
+}): Promise<ProfessionalHandoffOperationResult> {
+  const permissionContext = await getCurrentPermissionContext();
+
+  if (!permissionContext.user || !canAccessProfessionalDashboard(permissionContext)) {
+    return { status: "unauthorized", record: null };
+  }
+
+  if (nextStatus && !isHandoffRequestStatus(nextStatus)) {
+    return { status: "invalid_status", record: null };
+  }
+
+  if (typeof internalNotes === "string" && internalNotes.length > 2000) {
+    return { status: "invalid_notes", record: null };
+  }
+
+  const supabase = await createClient();
+  const { data: existing, error: existingError } = await supabase
+    .from("handoff_requests")
+    .select("*")
+    .eq("id", handoffId)
+    .maybeSingle();
+
+  if (existingError) {
+    throw existingError;
+  }
+
+  if (!existing) {
+    return { status: "not_found", record: null };
+  }
+
+  if (!canAccessProfessionalHandoffRecord(existing, permissionContext)) {
+    return { status: "unauthorized", record: null };
+  }
+
+  const now = new Date().toISOString();
+  const update: Database["public"]["Tables"]["handoff_requests"]["Update"] = {};
+
+  if (nextStatus && nextStatus !== existing.status) {
+    update.status = nextStatus;
+    update.status_updated_at = now;
+    update.status_updated_by = permissionContext.user.id;
+
+    if (!existing.professional_user_id && (nextStatus === "opened" || nextStatus === "in_review")) {
+      update.professional_user_id = permissionContext.user.id;
+    }
+
+    if ((nextStatus === "opened" || nextStatus === "in_review") && !existing.opened_at) {
+      update.opened_at = now;
+    }
+
+    if (nextStatus === "in_review" && !existing.in_review_at) {
+      update.in_review_at = now;
+    }
+
+    if (nextStatus === "closed" && !existing.closed_at) {
+      update.closed_at = now;
+    }
+  }
+
+  if (typeof internalNotes === "string") {
+    update.internal_notes = internalNotes.trim() || null;
+  }
+
+  if (Object.keys(update).length === 0) {
+    return {
+      status: "updated",
+      record: parseHandoffRequestRecord(existing)
+    };
+  }
+
+  const { data: updated, error: updateError } = await supabase
+    .from("handoff_requests")
+    .update(update)
+    .eq("id", handoffId)
+    .select("*")
+    .single();
+
+  if (updateError) {
+    throw updateError;
+  }
+
+  return {
+    status: "updated",
+    record: parseHandoffRequestRecord(updated)
+  };
+}
+
+export function canAccessProfessionalHandoffRecord(
+  record: Tables<"handoff_requests">,
+  context: Pick<PermissionContext, "user" | "professionalProfile" | "organizationMemberships" | "roles">
+) {
+  if (!context.user) {
+    return false;
+  }
+
+  if (context.roles.includes("internal_admin")) {
+    return true;
+  }
+
+  if (record.professional_user_id === context.user.id) {
+    return true;
+  }
+
+  const organizationIds = getProfessionalOrganizationIds(context);
+
+  if (record.organization_id && organizationIds.includes(record.organization_id)) {
+    return true;
+  }
+
+  return (
+    !record.professional_user_id &&
+    !record.organization_id &&
+    (context.roles.includes("professional") || context.roles.includes("organization_member"))
+  );
+}
+
+function getProfessionalOrganizationIds(
+  context: Pick<PermissionContext, "professionalProfile" | "organizationMemberships">
+) {
+  return Array.from(
+    new Set(
+      [
+        context.professionalProfile?.intake_status === "active" ? context.professionalProfile.organization_id : null,
+        ...context.organizationMemberships
+          .filter((membership) => membership.status === "active")
+          .map((membership) => membership.organization_id)
+      ].filter((value): value is string => Boolean(value))
+    )
+  );
 }

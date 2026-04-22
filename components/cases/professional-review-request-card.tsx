@@ -37,8 +37,8 @@ export function ProfessionalReviewRequestCard({
           )
         : pickLocale(
             locale,
-            "请求会把当前最新导出包、审查摘要和关键事实固化为一条专业审阅 handoff 记录。",
-            "請求會把目前最新匯出包、審查摘要和關鍵事實固化為一條專業審閱 handoff 記錄。"
+            "请求会把当前最新导出包、审查摘要和关键事实固化为一条专业审阅交接记录。",
+            "請求會把目前最新匯出包、審查摘要和關鍵事實固化為一條專業審閱交接記錄。"
           ),
     [handoffRequest, locale]
   );
@@ -186,8 +186,8 @@ export function ProfessionalReviewRequestCard({
               <p className="text-sm leading-6 text-slate-600">
                 {pickLocale(
                   locale,
-                  "可说明你希望专业端优先关注的问题。这不会改变导出包结构，只会附加到 handoff 记录里。",
-                  "可說明你希望專業端優先關注的問題。這不會改變匯出包結構，只會附加到 handoff 記錄裡。"
+                  "可说明你希望专业端优先关注的问题。这不会改变导出包结构，只会附加到交接记录里。",
+                  "可說明你希望專業端優先關注的問題。這不會改變匯出包結構，只會附加到交接記錄裡。"
                 )}
               </p>
             </div>

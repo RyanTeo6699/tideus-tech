@@ -26,7 +26,8 @@ export async function ProfessionalDashboardShell({
   professionalProfile,
   primaryOrganization,
   memberships,
-  handoffRequests
+  handoffRequests,
+  handoffSummary
 }: ProfessionalDashboardShellProps) {
   const locale = await getCurrentLocale();
   const profileName =
@@ -63,17 +64,39 @@ export async function ProfessionalDashboardShell({
         <Card className="border-white/10 bg-white text-slate-950">
           <CardHeader>
             <Badge variant="secondary" className="mb-4 w-fit">
-              {pickLocale(locale, "专业端外壳", "專業端外殼")}
+              {pickLocale(locale, "专业端工作台", "專業端工作台")}
             </Badge>
-            <CardTitle className="text-3xl">{pickLocale(locale, "为未来审阅与交接流程预留的专业端入口", "為未來審閱與交接流程預留的專業端入口")}</CardTitle>
+            <CardTitle className="text-3xl">{pickLocale(locale, "接收并初步处理 C 端交接请求", "接收並初步處理 C 端交接請求")}</CardTitle>
             <CardDescription>
               {pickLocale(
                 locale,
-                "这不是完整专业工作流。当前只开放专业档案、组织和成员关系的最小壳层，用于后续接入案件审阅队列与交接处理。",
-                "這不是完整專業工作流程。目前只開放專業檔案、組織和成員關係的最小殼層，用於後續接入案件審閱佇列與交接處理。"
+                "当前专业端聚焦收件、查看交接包、推进基础状态和保留内部备注，不扩展成完整客户管理系统。",
+                "目前專業端聚焦收件、查看交接包、推進基礎狀態和保留內部備註，不擴展成完整客戶管理系統。"
               )}
             </CardDescription>
           </CardHeader>
+          <CardContent>
+            <div className="grid gap-3 md:grid-cols-4">
+              <SummaryCard
+                label={pickLocale(locale, "活跃交接", "活躍交接")}
+                value={String(handoffSummary.activeCount)}
+              />
+              <SummaryCard label={pickLocale(locale, "新请求", "新請求")} value={String(handoffSummary.newCount)} />
+              <SummaryCard label={pickLocale(locale, "审阅中", "審閱中")} value={String(handoffSummary.inReviewCount)} />
+              <SummaryCard
+                label={pickLocale(locale, "高风险提示", "高風險提示")}
+                value={String(handoffSummary.highRiskCount)}
+              />
+            </div>
+            <div className="mt-5 flex flex-col gap-3 sm:flex-row">
+              <Link className={buttonVariants({ size: "sm" })} href="/professional/handoffs">
+                {pickLocale(locale, "打开交接队列", "打開交接佇列")}
+              </Link>
+              <Link className={buttonVariants({ variant: "outline", size: "sm" })} href="/dashboard">
+                {pickLocale(locale, "返回消费者工作台", "返回消費者工作台")}
+              </Link>
+            </div>
+          </CardContent>
         </Card>
 
         <div className="grid gap-6 xl:grid-cols-[1.05fr_0.95fr]">
@@ -208,8 +231,8 @@ export async function ProfessionalDashboardShell({
               <CardDescription>
                 {pickLocale(
                   locale,
-                  "这里展示来自 C 端的专业审阅请求。当前只做 intake 壳层：能看到结构化交接记录，但还不做分案、协作或完整审阅处理。",
-                  "這裡展示來自 C 端的專業審閱請求。目前只做 intake 殼層：能看到結構化交接記錄，但還不做分案、協作或完整審閱處理。"
+                  "这里展示来自 C 端的专业审阅请求。你可以进入详情查看交接包，并推进新请求、已打开、审阅中和已关闭状态。",
+                  "這裡展示來自 C 端的專業審閱請求。你可以進入詳情查看交接包，並推進新請求、已開啟、審閱中和已關閉狀態。"
                 )}
               </CardDescription>
             </CardHeader>
@@ -277,6 +300,18 @@ export async function ProfessionalDashboardShell({
                           <p className="mt-2">{item.handoffRequest.request_note}</p>
                         </div>
                       ) : null}
+
+                      <div className="mt-4 flex flex-col gap-3 sm:flex-row">
+                        <Link
+                          className={buttonVariants({ size: "sm" })}
+                          href={`/professional/handoffs/${item.handoffRequest.id}`}
+                        >
+                          {pickLocale(locale, "查看交接详情", "查看交接詳情")}
+                        </Link>
+                        <Link className={buttonVariants({ variant: "outline", size: "sm" })} href="/professional/handoffs">
+                          {pickLocale(locale, "查看完整队列", "查看完整佇列")}
+                        </Link>
+                      </div>
                     </div>
                   );
                 })
@@ -284,25 +319,25 @@ export async function ProfessionalDashboardShell({
                 <EmptyCard
                   description={pickLocale(
                     locale,
-                    "当前还没有来自 C 端的专业审阅请求。一旦导出页发起 handoff，请求会先进入这里。",
-                    "目前還沒有來自 C 端的專業審閱請求。一旦匯出頁發起 handoff，請求會先進入這裡。"
+                    "当前还没有来自 C 端的专业审阅请求。一旦导出页发起交接，请求会先进入这里。",
+                    "目前還沒有來自 C 端的專業審閱請求。一旦匯出頁發起交接，請求會先進入這裡。"
                   )}
                   title={pickLocale(locale, "收件箱为空", "收件箱為空")}
                 />
               )}
-
-              <PlaceholderBlock
-                description={pickLocale(
-                  locale,
-                  "下一阶段这里会接入人工确认、队列状态推进和后续接案处理，但这轮先不实现。",
-                  "下一階段這裡會接入人工確認、佇列狀態推進和後續接案處理，但這輪先不實作。"
-                )}
-                title={pickLocale(locale, "后续专业处理占位", "後續專業處理占位")}
-              />
             </CardContent>
           </Card>
         </div>
       </div>
+    </div>
+  );
+}
+
+function SummaryCard({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+      <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">{label}</p>
+      <p className="mt-2 text-3xl font-semibold text-slate-950">{value}</p>
     </div>
   );
 }
@@ -319,15 +354,6 @@ function InfoCard({ label, value }: { label: string; value: string }) {
 function EmptyCard({ title, description }: { title: string; description: string }) {
   return (
     <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-5">
-      <p className="font-semibold text-slate-950">{title}</p>
-      <p className="mt-2 text-sm leading-6 text-slate-700">{description}</p>
-    </div>
-  );
-}
-
-function PlaceholderBlock({ title, description }: { title: string; description: string }) {
-  return (
-    <div className="rounded-2xl border border-amber-200 bg-amber-50 p-5">
       <p className="font-semibold text-slate-950">{title}</p>
       <p className="mt-2 text-sm leading-6 text-slate-700">{description}</p>
     </div>

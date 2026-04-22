@@ -14,6 +14,7 @@ import { getCurrentLocale } from "@/lib/i18n/server";
 import { pickLocale } from "@/lib/i18n/workspace";
 import { appendCaseStatusHistory, getInitialCaseStatus } from "@/lib/case-state";
 import { buildKnowledgeContext, summarizeKnowledgeContext } from "@/lib/knowledge/adapter";
+import { formatConsumerCaseLimitMessage, getConsumerCaseCreationAccess } from "@/lib/permissions";
 import { createClient } from "@/lib/supabase/server";
 
 export async function POST(request: Request) {
@@ -25,18 +26,28 @@ export async function POST(request: Request) {
     return NextResponse.json({ message: parsed.message }, { status: 400 });
   }
 
-  const supabase = await createClient();
-  const {
-    data: { user }
-  } = await supabase.auth.getUser();
+  const caseCreationAccess = await getConsumerCaseCreationAccess();
 
-  if (!user) {
+  if (!caseCreationAccess.user) {
     return NextResponse.json(
       { message: pickLocale(locale, "请先登录后再把答案保存到工作台。", "請先登入後再把答案儲存到工作台。") },
       { status: 401 }
     );
   }
 
+  if (!caseCreationAccess.allowed) {
+    return NextResponse.json(
+      {
+        message: formatConsumerCaseLimitMessage(caseCreationAccess, locale),
+        requiredPlan: "pro",
+        gatedCapability: "active_case_slots"
+      },
+      { status: 403 }
+    );
+  }
+
+  const supabase = await createClient();
+  const user = caseCreationAccess.user;
   const now = new Date().toISOString();
   const createdStatus = getInitialCaseStatus();
   const intake = buildQuestionSeedIntake(parsed.data.useCase, parsed.data.question, locale);

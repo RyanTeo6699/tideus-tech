@@ -7,6 +7,7 @@ export const consumerPlanTiers = ["free", "pro"] as const;
 export type ConsumerPlanTier = (typeof consumerPlanTiers)[number];
 
 export const consumerPlanCapabilities = [
+  "active_case_slots",
   "workspace_case_questions",
   "workspace_material_actions",
   "review_delta",
@@ -17,6 +18,7 @@ export type ConsumerPlanCapability = (typeof consumerPlanCapabilities)[number];
 
 export type ConsumerPlanMetadata = {
   tier: ConsumerPlanTier;
+  status: "active" | "paused";
   activatedAt: string | null;
   source: string | null;
 };
@@ -50,9 +52,15 @@ const advancedConsumerCapabilitiesByTier: Record<ConsumerPlanTier, ConsumerPlanC
   pro: [...consumerPlanCapabilities]
 };
 
+const activeCaseLimitByTier: Record<ConsumerPlanTier, number> = {
+  free: 1,
+  pro: 12
+};
+
 export function buildConsumerPlanMetadata(
   tier: ConsumerPlanTier,
   options?: {
+    status?: "active" | "paused";
     activatedAt?: string | null;
     source?: string | null;
   }
@@ -61,6 +69,7 @@ export function buildConsumerPlanMetadata(
     platformAccess: {
       consumerPlan: {
         tier,
+        status: options?.status ?? "active",
         activatedAt: options?.activatedAt ?? new Date().toISOString(),
         source: options?.source ?? "manual-activation"
       }
@@ -71,14 +80,31 @@ export function buildConsumerPlanMetadata(
 export function getConsumerPlanState(
   profile: Pick<Tables<"profiles">, "metadata"> | null | undefined
 ): ConsumerPlanState {
+  const durableTier = readConsumerPlanTier(readProfileString(profile, "consumer_plan_tier"));
+  const durableStatus = readConsumerPlanStatus(readProfileString(profile, "consumer_plan_status"));
+  const durableSource = readProfileString(profile, "consumer_plan_source");
+  const durableActivatedAt = readProfileString(profile, "consumer_plan_activated_at");
+
+  if (durableTier) {
+    return {
+      tier: durableTier,
+      status: durableStatus ?? "active",
+      activatedAt: durableActivatedAt,
+      source: durableSource ?? (durableTier === "free" ? "default-free" : "durable-profile"),
+      isDefault: false
+    };
+  }
+
   const metadata = readJsonRecord(profile?.metadata);
   const platformAccess = readJsonRecord(metadata.platformAccess);
   const consumerPlan = readJsonRecord(platformAccess.consumerPlan);
   const tier = readConsumerPlanTier(consumerPlan.tier);
+  const status = readConsumerPlanStatus(consumerPlan.status) ?? "active";
 
   if (!tier) {
     return {
       tier: "free",
+      status: "active",
       activatedAt: null,
       source: "default-free",
       isDefault: true
@@ -87,6 +113,7 @@ export function getConsumerPlanState(
 
   return {
     tier,
+    status,
     activatedAt: readOptionalString(consumerPlan.activatedAt),
     source: readOptionalString(consumerPlan.source),
     isDefault: false
@@ -98,7 +125,14 @@ export function hasConsumerPlanCapability(
   capability: ConsumerPlanCapability
 ) {
   const plan = isConsumerPlanState(profileOrPlan) ? profileOrPlan : getConsumerPlanState(profileOrPlan);
-  return advancedConsumerCapabilitiesByTier[plan.tier].includes(capability);
+  return plan.status === "active" && advancedConsumerCapabilitiesByTier[plan.tier].includes(capability);
+}
+
+export function getConsumerPlanActiveCaseLimit(
+  profileOrPlan: ConsumerPlanState | Pick<Tables<"profiles">, "metadata"> | null | undefined
+) {
+  const plan = isConsumerPlanState(profileOrPlan) ? profileOrPlan : getConsumerPlanState(profileOrPlan);
+  return activeCaseLimitByTier[plan.tier];
 }
 
 export function formatConsumerPlanName(tier: ConsumerPlanTier, locale: AppLocale) {
@@ -123,6 +157,7 @@ export function getConsumerPlanDefinitions(locale: AppLocale): ConsumerPlanDefin
       ),
       activation: pickLocale(locale, "当前开放", "目前開放"),
       features: [
+        pickLocale(locale, "保留 1 个活跃案件工作台", "保留 1 個活躍案件工作台"),
         pickLocale(locale, "保存案件工作台与材料状态", "儲存案件工作台與材料狀態"),
         pickLocale(locale, "生成结构化审查与基础导出摘要", "產生結構化審查與基礎匯出摘要"),
         pickLocale(locale, "通过公共信息问答入口创建或继续案件", "透過公共資訊提問入口建立或繼續案件")
@@ -141,6 +176,7 @@ export function getConsumerPlanDefinitions(locale: AppLocale): ConsumerPlanDefin
       ),
       activation: pickLocale(locale, "当前通过预约演示人工开通", "目前透過預約示範人工開通"),
       features: [
+        pickLocale(locale, "最多保留 12 个活跃案件工作台", "最多保留 12 個活躍案件工作台"),
         pickLocale(locale, "案件内 AI 提问与下一步解释", "案件內 AI 提問與下一步解釋"),
         pickLocale(locale, "材料工作动作建议与补充材料提示", "材料工作動作建議與補充材料提示"),
         pickLocale(locale, "审查版本变化对比与优先动作整理", "審查版本變化對比與優先動作整理"),
@@ -160,6 +196,23 @@ export function getConsumerCapabilityUpgradePrompt(
   const eyebrow = pickLocale(locale, "Pro 工作流层", "Pro 工作流程層");
 
   switch (capability) {
+    case "active_case_slots":
+      return {
+        eyebrow,
+        title: pickLocale(locale, "更多活跃案件属于 Pro", "更多活躍案件屬於 Pro"),
+        description: pickLocale(
+          locale,
+          "Free 版保留 1 个活跃案件工作台，适合先跑通单一工作流。Pro 解锁多案件连续推进，避免不同申请准备混在一个案件里。",
+          "免費版保留 1 個活躍案件工作台，適合先跑通單一工作流程。Pro 解鎖多案件連續推進，避免不同申請準備混在一個案件裡。"
+        ),
+        bullets: [
+          pickLocale(locale, "为不同申请或不同家庭成员保留独立案件记录", "為不同申請或不同家庭成員保留獨立案件紀錄"),
+          pickLocale(locale, "每个案件单独保留材料、审查版本与交接上下文", "每個案件單獨保留材料、審查版本與交接脈絡"),
+          pickLocale(locale, "适合同时推进多个准备任务或需要长期连续跟进的用户", "適合同時推進多個準備任務或需要長期連續跟進的使用者")
+        ],
+        primaryLabel,
+        secondaryLabel
+      };
     case "workspace_case_questions":
       return {
         eyebrow,
@@ -236,6 +289,12 @@ export function getConsumerCapabilityAccessDeniedMessage(
   locale: AppLocale
 ) {
   switch (capability) {
+    case "active_case_slots":
+      return pickLocale(
+        locale,
+        "Free 当前最多保留 1 个活跃案件。请先升级 Pro，再创建新的案件工作台。",
+        "免費版目前最多保留 1 個活躍案件。請先升級 Pro，再建立新的案件工作台。"
+      );
     case "workspace_case_questions":
       return pickLocale(
         locale,
@@ -271,6 +330,19 @@ function readConsumerPlanTier(value: Json | undefined): ConsumerPlanTier | null 
   return typeof value === "string" && consumerPlanTiers.includes(value as ConsumerPlanTier)
     ? (value as ConsumerPlanTier)
     : null;
+}
+
+function readConsumerPlanStatus(value: Json | undefined): "active" | "paused" | null {
+  return value === "active" || value === "paused" ? value : null;
+}
+
+function readProfileString(profile: Pick<Tables<"profiles">, "metadata"> | null | undefined, key: string) {
+  if (!profile || !(key in profile)) {
+    return null;
+  }
+
+  const value = (profile as Record<string, unknown>)[key];
+  return typeof value === "string" && value.trim() ? value.trim() : null;
 }
 
 function readOptionalString(value: Json | undefined) {

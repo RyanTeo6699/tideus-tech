@@ -23,6 +23,7 @@ import { formatAppDateTime } from "@/lib/i18n/format";
 import { getCurrentLocale } from "@/lib/i18n/server";
 import { formatRiskSeverityLabel, getWorkspaceCopy, pickLocale } from "@/lib/i18n/workspace";
 import { hasConsumerPlanCapability } from "@/lib/plans";
+import { canRequestProfessionalHandoff, getCurrentPermissionContext } from "@/lib/permissions";
 
 type ReviewExportPageProps = {
   params: Promise<{
@@ -56,6 +57,8 @@ export default async function ReviewExportPage({ params }: ReviewExportPageProps
   const keyFacts = buildCaseSnapshotFacts(detail.caseRecord, locale).slice(0, 6);
   const materialCounts = getCaseMaterialStatusCounts(detail.documents);
   const canUseHandoffIntelligence = hasConsumerPlanCapability(detail.profile, "handoff_intelligence");
+  const permissionContext = await getCurrentPermissionContext();
+  const canRequestHandoff = canRequestProfessionalHandoff(permissionContext);
   const latestHandoffRequest = await getLatestClientHandoffRequestForCase(caseId);
   const riskSummary = {
     high: review.riskFlags.filter((item) => item.severity === "high").length,
@@ -109,7 +112,18 @@ export default async function ReviewExportPage({ params }: ReviewExportPageProps
           </header>
 
           <section className="mt-8 space-y-8">
-            <ProfessionalReviewRequestCard caseId={caseId} initialHandoffRequest={latestHandoffRequest} />
+            {canRequestHandoff ? (
+              <ProfessionalReviewRequestCard caseId={caseId} initialHandoffRequest={latestHandoffRequest} />
+            ) : (
+              <PlanUpgradeCard
+                capability="handoff_intelligence"
+                caseId={caseId}
+                className="print:hidden"
+                locale={locale}
+                sourceSurface="review-export-professional-handoff-request"
+                useCase={detail.caseRecord.use_case_slug}
+              />
+            )}
 
             <Section title={copy.export.readinessSnapshot}>
               <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-5 text-sm leading-7 text-slate-900">
@@ -148,7 +162,7 @@ export default async function ReviewExportPage({ params }: ReviewExportPageProps
                   </div>
                 </div>
               </Section>
-            ) : !canUseHandoffIntelligence ? (
+            ) : !canUseHandoffIntelligence && canRequestHandoff ? (
               <PlanUpgradeCard
                 capability="handoff_intelligence"
                 caseId={caseId}

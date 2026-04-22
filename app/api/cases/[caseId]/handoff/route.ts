@@ -6,6 +6,7 @@ import { normalizeCaseStatus } from "@/lib/case-state";
 import { parseHandoffRequestRecord } from "@/lib/handoffs";
 import { getCurrentLocale } from "@/lib/i18n/server";
 import { pickLocale } from "@/lib/i18n/workspace";
+import { getConsumerCapabilityAccessDeniedMessage, getConsumerPlanState, hasConsumerPlanCapability } from "@/lib/plans";
 import { buildHandoffPacketSnapshot } from "@/lib/server/handoffs";
 import { createClient } from "@/lib/supabase/server";
 
@@ -54,7 +55,7 @@ export async function POST(request: Request, { params }: CaseHandoffRouteProps) 
       .select("*")
       .eq("case_id", caseId)
       .eq("client_user_id", user.id)
-      .in("status", ["requested", "queued"])
+      .in("status", ["new", "opened", "in_review", "requested", "queued"])
       .order("created_at", { ascending: false })
       .limit(1)
       .maybeSingle()
@@ -77,6 +78,7 @@ export async function POST(request: Request, { params }: CaseHandoffRouteProps) 
 
   const caseRecord = caseResult.data;
   const latestReview = reviewResult.data?.[0] ?? null;
+  const planState = getConsumerPlanState(profileResult.data ?? null);
 
   if (!caseRecord) {
     return NextResponse.json(
@@ -93,6 +95,17 @@ export async function POST(request: Request, { params }: CaseHandoffRouteProps) 
         message: pickLocale(locale, "请先生成最新审查，再请求专业审阅。", "請先產生最新審查，再請求專業審閱。")
       },
       { status: 400 }
+    );
+  }
+
+  if (!hasConsumerPlanCapability(planState, "handoff_intelligence")) {
+    return NextResponse.json(
+      {
+        message: getConsumerCapabilityAccessDeniedMessage("handoff_intelligence", locale),
+        requiredPlan: "pro",
+        gatedCapability: "handoff_intelligence"
+      },
+      { status: 403 }
     );
   }
 
@@ -131,7 +144,7 @@ export async function POST(request: Request, { params }: CaseHandoffRouteProps) 
     .insert({
       case_id: caseRecord.id,
       client_user_id: user.id,
-      status: "requested",
+      status: "new",
       client_locale: locale,
       requested_review_version: latestReview.version_number,
       requested_readiness_status: latestReview.readiness_status,

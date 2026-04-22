@@ -2,7 +2,7 @@ import type { Json, Tables } from "@/lib/database.types";
 import { defaultLocale, isAppLocale, type AppLocale } from "@/lib/i18n/config";
 import { pickLocale } from "@/lib/i18n/workspace";
 
-export const handoffRequestStatuses = ["requested", "queued", "archived"] as const;
+export const handoffRequestStatuses = ["new", "opened", "in_review", "closed"] as const;
 
 export type HandoffRequestStatus = (typeof handoffRequestStatuses)[number];
 
@@ -130,8 +130,20 @@ export function parseHandoffRequestRecord(record: Tables<"handoff_requests">): H
   };
 }
 
+export function isHandoffRequestStatus(value: unknown): value is HandoffRequestStatus {
+  return typeof value === "string" && handoffRequestStatuses.includes(value as HandoffRequestStatus);
+}
+
 export function formatHandoffRequestStatus(status: string | null | undefined, locale: AppLocale) {
   switch (status) {
+    case "new":
+      return pickLocale(locale, "新请求", "新請求");
+    case "opened":
+      return pickLocale(locale, "已打开", "已開啟");
+    case "in_review":
+      return pickLocale(locale, "审阅中", "審閱中");
+    case "closed":
+      return pickLocale(locale, "已关闭", "已關閉");
     case "requested":
       return pickLocale(locale, "已请求", "已請求");
     case "queued":
@@ -141,6 +153,18 @@ export function formatHandoffRequestStatus(status: string | null | undefined, lo
     default:
       return pickLocale(locale, "未设置", "未設定");
   }
+}
+
+export function formatHandoffAssignmentLabel(record: Tables<"handoff_requests">, locale: AppLocale) {
+  if (record.professional_user_id) {
+    return pickLocale(locale, "已保留给处理成员", "已保留給處理成員");
+  }
+
+  if (record.organization_id) {
+    return pickLocale(locale, "组织队列", "組織佇列");
+  }
+
+  return pickLocale(locale, "未分配收件", "未分配收件");
 }
 
 function readHandoffIntelligence(value: Json | undefined) {

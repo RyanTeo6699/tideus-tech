@@ -2,11 +2,14 @@ import { redirect } from "next/navigation";
 
 import { CaseIntakeForm } from "@/components/cases/case-intake-form";
 import { WorkspaceShell } from "@/components/dashboard/workspace-shell";
+import { PlanUpgradeCard } from "@/components/site/plan-upgrade-card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { buildProfileSummaryFacts } from "@/lib/profile";
-import { getCurrentProfileContext } from "@/lib/profile-server";
 import { getCaseIntakeInitialValues } from "@/lib/cases";
 import { getUseCaseDefinition } from "@/lib/case-workflows";
 import { getLocaleContext } from "@/lib/i18n/server";
+import { pickLocale } from "@/lib/i18n/workspace";
+import { formatConsumerCaseLimitMessage, getConsumerCaseCreationAccess } from "@/lib/permissions";
 
 type CaseIntakePageProps = {
   searchParams: Promise<{
@@ -23,9 +26,9 @@ export default async function CaseIntakePage({ searchParams }: CaseIntakePagePro
     redirect("/start-case");
   }
 
-  const { user, profile } = await getCurrentProfileContext();
+  const caseCreationAccess = await getConsumerCaseCreationAccess();
 
-  if (!user) {
+  if (!caseCreationAccess.user) {
     redirect(`/login?next=${encodeURIComponent(`/case-intake?useCase=${useCase.slug}`)}`);
   }
 
@@ -39,11 +42,30 @@ export default async function CaseIntakePage({ searchParams }: CaseIntakePagePro
       eyebrow={locale === "zh-TW" ? "案件資料收集" : "案件资料收集"}
       title={locale === "zh-TW" ? `${useCase.shortTitle} 資料收集` : `${useCase.shortTitle} 资料收集`}
     >
-      <CaseIntakeForm
-        initialValues={getCaseIntakeInitialValues(profile, useCase.slug)}
-        profileFacts={buildProfileSummaryFacts(profile, locale).slice(0, 5)}
-        useCase={useCase}
-      />
+      {caseCreationAccess.allowed ? (
+        <CaseIntakeForm
+          initialValues={getCaseIntakeInitialValues(caseCreationAccess.profile, useCase.slug)}
+          profileFacts={buildProfileSummaryFacts(caseCreationAccess.profile, locale).slice(0, 5)}
+          useCase={useCase}
+        />
+      ) : (
+        <div className="space-y-5">
+          <Card className="border-amber-200 bg-amber-50 shadow-none">
+            <CardHeader>
+              <CardTitle>{pickLocale(locale, "已达到 Free 活跃案件上限", "已達到免費版活躍案件上限")}</CardTitle>
+            </CardHeader>
+            <CardContent className="text-sm leading-7 text-slate-700">
+              {formatConsumerCaseLimitMessage(caseCreationAccess, locale)}
+            </CardContent>
+          </Card>
+          <PlanUpgradeCard
+            capability="active_case_slots"
+            locale={locale}
+            sourceSurface="case-intake-active-case-limit"
+            useCase={useCase.slug}
+          />
+        </div>
+      )}
     </WorkspaceShell>
   );
 }

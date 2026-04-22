@@ -178,6 +178,10 @@ export function ProfileForm({ initialValues, email, updatedAt }: ProfileFormProp
           job_offer_support: values.jobOfferSupport || null,
           province_preference: values.provincePreference || null,
           refusal_history_flag: values.refusalHistoryFlag === "yes",
+          consumer_plan_tier: "free",
+          consumer_plan_status: "active",
+          consumer_plan_source: "default-free",
+          consumer_plan_activated_at: null,
           metadata: {},
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString()

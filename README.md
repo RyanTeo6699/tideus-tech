@@ -94,6 +94,8 @@ Public:
 - `/use-cases/[slug]`
 - `/case-question`
 - `/start-case`
+- `/for-professionals`
+- `/professional/login`
 - `/book-demo`
 - `/trust`
 - `/privacy`
@@ -109,6 +111,9 @@ Protected:
 - `/review-results/[caseId]`
 - `/review-results/[caseId]/export`
 - `/dashboard/profile`
+- `/professional/dashboard`
+- `/professional/handoffs`
+- `/professional/handoffs/[handoffId]`
 
 Primary APIs:
 
@@ -116,6 +121,7 @@ Primary APIs:
 - `/api/cases/[caseId]/documents`
 - `/api/cases/[caseId]/documents/[documentId]/upload`
 - `/api/cases/[caseId]/review`
+- `/api/cases/[caseId]/handoff`
 - `/api/case-question`
 - `/api/case-question/save`
 - `/api/cases/[caseId]/question`
@@ -124,6 +130,7 @@ Primary APIs:
 - `/api/lead-requests`
 - `/api/profile`
 - `/api/preferences/locale`
+- `/api/professional/handoffs/[handoffId]`
 
 Internal-only APIs:
 
@@ -170,6 +177,11 @@ Primary wedge tables:
 Supporting tables:
 
 - `profiles`
+- `professional_profiles`
+- `organizations`
+- `organization_members`
+- `handoff_requests`
+- `case_assignments`
 
 Case lifecycle states:
 
@@ -278,6 +290,30 @@ Structured knowledge context is built through `lib/knowledge/adapter.ts` and sce
 
 The adapter borrows only the useful backend pattern from ImmiPilot-style systems: source-aware, versioned, freshness-conscious workflow context. It does not import public pages, data dashboards, broad RAG search, pathway tools, or chat UX.
 
+## Immi Fusion Boundary
+
+Immi-to-Tideus fusion is backend-only. Tideus keeps its workflow-first frontend shell, and ImmiPilot-style capabilities may contribute only internal knowledge, public-information references, rule patterns, retrieval support, and refresh mechanics that feed saved workflow outputs.
+
+Formal mapping:
+
+- `docs/fusion/immi-to-tideus-fusion-map.md`
+
+Current and future landing zones:
+
+- `lib/knowledge/`: scenario packs, knowledge adapter, processing-time notes, official reference labels, and refresh snapshots
+- `lib/public-info/`: internal source descriptors, processing-time reference contracts, source freshness metadata, and future retrieval source contracts
+- `lib/review-rules/`: deterministic condition helpers for checklist, missing item, risk flag, priority action, review handoff, and escalation output
+- `docs/fusion/`: governance for what may be absorbed, delayed, or excluded
+
+Excluded from active Tideus frontend fusion:
+
+- public news portal
+- public data portal
+- public compare tools
+- public processing-time lookup
+- public guide portals beyond the current wedge
+- generic public copilot or broad RAG chat
+
 ## Knowledge Refresh Pipeline
 
 Knowledge remains an internal enhancement layer. Tideus does not expose refreshed knowledge as a public portal or searchable content surface.
@@ -339,6 +375,50 @@ Each AI envelope includes:
 
 If OpenAI is unavailable, times out, or returns invalid structure, Tideus falls back to deterministic workflow output.
 
+## Plan And Permission Enforcement
+
+Tideus treats access level as a system-level fact, not a frontend display choice.
+
+Current durable access model:
+
+- Anonymous users can access public product pages and limited public-information entry, but cannot create saved workflow state.
+- Free C-side users have saved workflow access with a limited active-case allowance and basic workflow outputs.
+- Pro C-side users unlock materially stronger workflow value, including more active cases, case-scoped workspace AI actions, review delta output, handoff intelligence, and professional handoff requests.
+- Professional B-side users require an active `professional_profiles` record or active `organization_members` record before professional dashboard and handoff inbox access is granted.
+- Internal admin access is metadata-backed and only used where current server paths need controlled override behavior.
+
+Server-side enforcement points:
+
+- `profiles.consumer_plan_tier`, `profiles.consumer_plan_status`, `profiles.consumer_plan_source`, and `profiles.consumer_plan_activated_at` persist C-side plan state.
+- `lib/permissions.ts` centralizes role and permission reads using Supabase Auth plus profile, professional profile, and organization membership records.
+- `/api/cases` and `/api/case-question/save` enforce active-case limits before writing new saved cases.
+- `/api/cases/[caseId]/question`, `/api/cases/[caseId]/materials/action`, `/api/cases/[caseId]/review`, and `/api/cases/[caseId]/handoff` enforce Pro workflow capabilities server-side.
+- `/professional/dashboard` and the professional handoff inbox only load for active professional profiles, active organization members, or internal admin users.
+
+The current implementation does not include payment-provider integration. Plan changes are represented by durable database fields so a future billing provider can update the same system-level model without changing product permissions.
+
+## Professional Handoff Operations
+
+The B-side is now an operational backend foundation for professional handoff intake, not just a placeholder shell.
+
+Current professional capabilities:
+
+- View an operational dashboard with active handoff counts, new request counts, in-review counts, and high-risk request counts.
+- Open a professional handoff queue at `/professional/handoffs`.
+- Inspect a handoff detail page at `/professional/handoffs/[handoffId]`.
+- Review the latest handoff packet summary, client identity snapshot, case type, readiness state, key case facts, risk counts, missing material summary, next steps, and human-review prompts.
+- Move a handoff through a minimal status lifecycle: new, opened, in review, closed.
+- Preserve handling structure by setting `professional_user_id` when a professional opens or begins reviewing an unassigned handoff.
+- Save a small internal notes field for future professional review continuity.
+
+This is intentionally not a full CRM. There is no billing flow, broad assignment engine, client management module, team collaboration workspace, or full professional review workflow in this sprint.
+
+Professional access remains server-enforced:
+
+- Professional pages require an active professional profile, active organization membership, or internal admin access.
+- Professional handoff queries explicitly filter by assigned professional, organization membership, or unassigned intake visibility.
+- The professional status update API rejects unauthorized C-side users and unauthorized professional users.
+
 ## Stack
 
 - Next.js 15
@@ -389,6 +469,8 @@ Optional:
    - `supabase/migrations/202603310004_sprint_7_launch_readiness.sql`
    - `supabase/migrations/202604090001_expand_app_event_types.sql`
    - `supabase/migrations/202604100001_add_knowledge_refresh_event_type.sql`
+   - `supabase/migrations/202604210001_add_plan_permission_model.sql`
+   - `supabase/migrations/202604220001_add_professional_handoff_operations.sql`
 4. Enable Email/Password sign-in in Supabase Auth.
 5. If email confirmation is enabled, the app supports `/auth/callback`.
 

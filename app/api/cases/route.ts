@@ -8,6 +8,7 @@ import { parseCaseCreateInput } from "@/lib/case-review";
 import { buildCaseTitle, buildInitialCaseDocuments } from "@/lib/cases";
 import { getCurrentLocale } from "@/lib/i18n/server";
 import { pickLocale } from "@/lib/i18n/workspace";
+import { formatConsumerCaseLimitMessage, getConsumerCaseCreationAccess } from "@/lib/permissions";
 import { appendCaseStatusHistory, getInitialCaseStatus, getNextCaseStatus } from "@/lib/case-state";
 import { createClient } from "@/lib/supabase/server";
 
@@ -20,18 +21,28 @@ export async function POST(request: Request) {
     return NextResponse.json({ message: parsed.message }, { status: 400 });
   }
 
-  const supabase = await createClient();
-  const {
-    data: { user }
-  } = await supabase.auth.getUser();
+  const caseCreationAccess = await getConsumerCaseCreationAccess();
 
-  if (!user) {
+  if (!caseCreationAccess.user) {
     return NextResponse.json(
       { message: pickLocale(locale, "请先登录后再创建案件。", "請先登入後再建立案件。") },
       { status: 401 }
     );
   }
 
+  if (!caseCreationAccess.allowed) {
+    return NextResponse.json(
+      {
+        message: formatConsumerCaseLimitMessage(caseCreationAccess, locale),
+        requiredPlan: "pro",
+        gatedCapability: "active_case_slots"
+      },
+      { status: 403 }
+    );
+  }
+
+  const supabase = await createClient();
+  const user = caseCreationAccess.user;
   const now = new Date().toISOString();
   const createdStatus = getInitialCaseStatus();
   const completedStatus = getNextCaseStatus(createdStatus, "intake-complete");

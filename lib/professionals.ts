@@ -6,6 +6,7 @@ import type { Tables } from "@/lib/database.types";
 import type { HandoffRequestRecord } from "@/lib/handoffs";
 import type { AppLocale } from "@/lib/i18n/config";
 import { pickLocale } from "@/lib/i18n/workspace";
+import { canAccessProfessionalDashboard, getCurrentPermissionContext } from "@/lib/permissions";
 import { getProfessionalHandoffInbox } from "@/lib/server/handoffs";
 import { createClient } from "@/lib/supabase/server";
 
@@ -19,17 +20,28 @@ export type ProfessionalDashboardData = {
   primaryOrganization: Tables<"organizations"> | null;
   memberships: ProfessionalMembershipRecord[];
   handoffRequests: HandoffRequestRecord[];
+  handoffSummary: ProfessionalHandoffSummary;
+};
+
+export type ProfessionalHandoffSummary = {
+  activeCount: number;
+  newCount: number;
+  openedCount: number;
+  inReviewCount: number;
+  assignedToCurrentUserCount: number;
+  highRiskCount: number;
+  missingMaterialCount: number;
 };
 
 export async function getProfessionalDashboardData(): Promise<ProfessionalDashboardData | null> {
-  const supabase = await createClient();
-  const {
-    data: { user }
-  } = await supabase.auth.getUser();
+  const permissionContext = await getCurrentPermissionContext();
 
-  if (!user) {
+  if (!permissionContext.user || !canAccessProfessionalDashboard(permissionContext)) {
     return null;
   }
+
+  const supabase = await createClient();
+  const user = permissionContext.user;
 
   const [professionalProfileResult, membershipResult] = await Promise.all([
     supabase.from("professional_profiles").select("*").eq("user_id", user.id).maybeSingle(),
@@ -83,8 +95,58 @@ export async function getProfessionalDashboardData(): Promise<ProfessionalDashbo
     professionalProfile,
     primaryOrganization,
     memberships: membershipRecords,
-    handoffRequests
+    handoffRequests,
+    handoffSummary: buildProfessionalHandoffSummary(handoffRequests, user.id)
   };
+}
+
+export function buildProfessionalHandoffSummary(records: HandoffRequestRecord[], userId: string): ProfessionalHandoffSummary {
+  return records.reduce<ProfessionalHandoffSummary>(
+    (summary, item) => {
+      const status = item.handoffRequest.status;
+      const highRiskTotal = item.packet?.riskSummary.high ?? 0;
+      const missingTotal = item.packet?.materialSummary.requiredActionCount ?? item.packet?.materialSummary.missing ?? 0;
+
+      if (status !== "closed") {
+        summary.activeCount += 1;
+      }
+
+      if (status === "new") {
+        summary.newCount += 1;
+      }
+
+      if (status === "opened") {
+        summary.openedCount += 1;
+      }
+
+      if (status === "in_review") {
+        summary.inReviewCount += 1;
+      }
+
+      if (item.handoffRequest.professional_user_id === userId) {
+        summary.assignedToCurrentUserCount += 1;
+      }
+
+      if (highRiskTotal > 0) {
+        summary.highRiskCount += 1;
+      }
+
+      if (missingTotal > 0) {
+        summary.missingMaterialCount += 1;
+      }
+
+      return summary;
+    },
+    {
+      activeCount: 0,
+      newCount: 0,
+      openedCount: 0,
+      inReviewCount: 0,
+      assignedToCurrentUserCount: 0,
+      highRiskCount: 0,
+      missingMaterialCount: 0
+    }
+  );
 }
 
 export function formatProfessionalIntakeStatus(status: string | null | undefined, locale: AppLocale) {
