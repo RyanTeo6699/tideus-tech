@@ -131,6 +131,8 @@ Primary APIs:
 - `/api/profile`
 - `/api/preferences/locale`
 - `/api/professional/handoffs/[handoffId]`
+- `/api/billing/checkout`
+- `/api/billing/webhook`
 
 Internal-only APIs:
 
@@ -395,7 +397,26 @@ Server-side enforcement points:
 - `/api/cases/[caseId]/question`, `/api/cases/[caseId]/materials/action`, `/api/cases/[caseId]/review`, and `/api/cases/[caseId]/handoff` enforce Pro workflow capabilities server-side.
 - `/professional/dashboard` and the professional handoff inbox only load for active professional profiles, active organization members, or internal admin users.
 
-The current implementation does not include payment-provider integration. Plan changes are represented by durable database fields so a future billing provider can update the same system-level model without changing product permissions.
+Stripe checkout and webhook sync now update the same durable profile plan fields. Current Pro entitlement is granted only when the subscription lifecycle state is active or trialing; inactive, canceled, expired, or paused subscription states do not unlock Pro-only server capabilities.
+
+## Billing Lifecycle
+
+Free / Pro is now a commercial lifecycle, not only product copy.
+
+Current billing flow:
+
+- Authenticated C-side users start Pro checkout through `/api/billing/checkout`.
+- Stripe redirects back to `/billing/success` or `/billing/cancel`.
+- `/api/billing/webhook` verifies the Stripe signature, records billing events idempotently, and syncs subscription state into `billing_subscriptions`, `billing_events`, and `profiles.consumer_plan_*`.
+- Profile plan state remains the runtime permission source for active-case limits, workspace AI actions, review delta, handoff intelligence, and professional handoff requests.
+
+Required Stripe deployment configuration:
+
+- `STRIPE_SECRET_KEY`
+- `STRIPE_PRO_PRICE_ID`
+- `STRIPE_WEBHOOK_SECRET`
+- A Stripe webhook endpoint pointing to `/api/billing/webhook`
+- Webhook events covering checkout completion and subscription lifecycle changes, especially `checkout.session.completed`, `customer.subscription.created`, `customer.subscription.updated`, and `customer.subscription.deleted`
 
 ## Professional Handoff Operations
 
@@ -411,7 +432,7 @@ Current professional capabilities:
 - Preserve handling structure by setting `professional_user_id` when a professional opens or begins reviewing an unassigned handoff.
 - Save a small internal notes field for future professional review continuity.
 
-This is intentionally not a full CRM. There is no billing flow, broad assignment engine, client management module, team collaboration workspace, or full professional review workflow in this sprint.
+This is intentionally not a full CRM. There is no broad assignment engine, client management module, team collaboration workspace, or full professional review workflow in this sprint.
 
 Professional access remains server-enforced:
 
@@ -444,8 +465,15 @@ Required:
 - `NEXT_PUBLIC_APP_URL`
 - `NEXT_PUBLIC_SUPABASE_URL`
 - `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`
+- `SUPABASE_SERVICE_ROLE_KEY`
 
-Optional:
+Required for Pro checkout and subscription sync:
+
+- `STRIPE_SECRET_KEY`
+- `STRIPE_PRO_PRICE_ID`
+- `STRIPE_WEBHOOK_SECRET`
+
+Optional but recommended:
 
 - `OPENAI_API_KEY`
 - `OPENAI_MODEL`
@@ -454,12 +482,26 @@ Optional:
 - `NEXT_PUBLIC_POSTHOG_KEY`
 - `NEXT_PUBLIC_POSTHOG_HOST`
 
-`TIDEUS_KNOWLEDGE_REFRESH_TOKEN` is required only for the internal knowledge refresh route.
+`OPENAI_API_KEY` is optional for local deterministic fallback, but should be configured in production for AI-enhanced workflow output.
+
+`TIDEUS_KNOWLEDGE_REFRESH_TOKEN` is required only when `/api/internal/knowledge/refresh` will be used.
+
+## Vercel Deployment
+
+Use Node.js 22 or newer and deploy the App Router project with the same environment variables listed above.
+
+Deployment notes:
+
+- Do not commit or depend on `node_modules`, `.next`, `.tmp`, `.DS_Store`, `__MACOSX`, or `tsconfig.tsbuildinfo`.
+- Run `npm install`, `npm run typecheck`, and `npm run build` before promotion.
+- Configure the Stripe webhook URL after the Vercel production URL is available.
+- Keep `SUPABASE_SERVICE_ROLE_KEY`, `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `OPENAI_API_KEY`, and `TIDEUS_KNOWLEDGE_REFRESH_TOKEN` server-only.
+- Set `NEXT_PUBLIC_APP_URL` to the canonical deployed origin so auth callbacks and Stripe return URLs are stable.
 
 ## Supabase Setup
 
 1. Create a Supabase project.
-2. Copy the project URL and publishable key into `.env.local`.
+2. Copy the project URL, publishable key, and service role key into `.env.local`.
 3. Apply these migrations in order:
    - `supabase/migrations/202603300001_sprint_2_foundation.sql`
    - `supabase/migrations/202603300002_sprint_3_workflows.sql`
@@ -469,10 +511,14 @@ Optional:
    - `supabase/migrations/202603310004_sprint_7_launch_readiness.sql`
    - `supabase/migrations/202604090001_expand_app_event_types.sql`
    - `supabase/migrations/202604100001_add_knowledge_refresh_event_type.sql`
+   - `supabase/migrations/202604100002_add_professional_shell.sql`
+   - `supabase/migrations/202604110001_add_handoff_requests.sql`
    - `supabase/migrations/202604210001_add_plan_permission_model.sql`
    - `supabase/migrations/202604220001_add_professional_handoff_operations.sql`
+   - `supabase/migrations/202604220002_add_billing_subscription_lifecycle.sql`
 4. Enable Email/Password sign-in in Supabase Auth.
 5. If email confirmation is enabled, the app supports `/auth/callback`.
+6. Create the private Supabase Storage bucket `case-materials`.
 
 ## Local Development
 

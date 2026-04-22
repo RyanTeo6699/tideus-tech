@@ -130,14 +130,27 @@ export async function POST(request: Request, { params }: CaseHandoffRouteProps) 
     );
   }
 
-  const packet = buildHandoffPacketSnapshot({
-    caseRecord,
-    documents: documentsResult.data ?? [],
-    latestReview,
-    profile: profileResult.data ?? null,
-    user,
-    locale
-  });
+  let packet: ReturnType<typeof buildHandoffPacketSnapshot>;
+
+  try {
+    packet = buildHandoffPacketSnapshot({
+      caseRecord,
+      documents: documentsResult.data ?? [],
+      latestReview,
+      profile: profileResult.data ?? null,
+      user,
+      locale
+    });
+  } catch (error) {
+    console.error("Unable to build professional handoff packet", error);
+
+    return NextResponse.json(
+      {
+        message: pickLocale(locale, "暂时无法生成交接资料包。", "暫時無法產生交接資料包。")
+      },
+      { status: 500 }
+    );
+  }
 
   const { data: inserted, error: insertError } = await supabase
     .from("handoff_requests")

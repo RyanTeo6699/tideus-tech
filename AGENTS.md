@@ -2,37 +2,48 @@
 
 ## Project Identity
 
-Tideus is an AI-driven, workflow-first application preparation platform.
+Tideus is a two-sided, AI-driven, workflow-first application preparation platform.
 
-It is a two-sided platform:
+It serves:
 - C-side: immigration clients / applicants
-- B-side: immigration agencies, consultants, or law firms
+- B-side: immigration agencies, consultants, and law firms
 
 Tideus is NOT:
-- a generic immigration chatbot
+- a generic chatbot
 - a broad immigration portal
-- a public news or data platform
+- a public news/data site
+- a pure tracker app
 - a pure case-management utility
 - a legal advice product
 - a replacement for licensed professionals
 
+---
+
 ## Core Product Definition
 
-The core product loop is:
-
-1. the user asks a scenario question or starts a workflow task
-2. AI answers using public information plus user/case context
-3. AI reduces repetitive preparation work
-4. meaningful outputs enter a saved workflow record
-5. the user continues progressing the case over time
-6. the workflow produces review-ready and handoff-ready outputs
+The core of Tideus is not tracker by itself.
 
 The strongest product characteristic is:
-**a clear workflow that turns answers into progress.**
 
-Results do not merely "land in tracker".
-Results must enter workflow.
-Tracker and workspace are operational layers inside the workflow, not the product definition by themselves.
+**a very clear workflow that turns answers into progress.**
+
+AI uses public information plus user/case context to answer questions and reduce repetitive preparation work.
+Those outputs must enter workflow, not merely sit in chat or tracker.
+
+Correct model:
+- AI helps answer
+- AI helps automate repetitive work
+- outputs enter workflow
+- workflow progresses over time
+- tracker and workspace are operational/visual layers inside workflow
+
+Incorrect model:
+- AI chat as the product
+- tracker as the product core
+- isolated tools without progression
+- portal-style browsing as the main experience
+
+---
 
 ## Product Shape
 
@@ -44,20 +55,45 @@ The active product must remain:
 - AI-enhanced
 - tracker/workspace-backed
 - handoff-ready
+- platform-oriented
 
 The active product must NOT drift into:
 - generic chat-first UX
-- broad portal UX
-- feature-sprawl dashboards
-- "we do everything" positioning
+- portal UX
 - disconnected tool menus
+- feature-sprawl dashboards
+- “we do everything” positioning
+
+---
+
+## Workflow Rule (Highest Product Rule)
+
+All major outputs must enter workflow.
+
+Workflow includes:
+1. user entry
+2. structured input
+3. AI/public-information enhancement
+4. case/task progression
+5. material state updates
+6. review generation
+7. review delta generation
+8. export / handoff
+9. B-side review continuation
+
+Tracker is only part of workflow.
+Workspace is only the container layer of workflow.
+Neither replaces workflow as the product core.
+
+Every new feature must strengthen workflow clarity and progression.
+
+---
 
 ## Two-Sided Platform Rule
 
-The product must support both sides of the platform.
+The platform must support both sides.
 
 ### C-side
-
 The C-side experience should let users:
 - ask scenario-specific questions
 - get structured answers informed by public information
@@ -68,20 +104,24 @@ The C-side experience should let users:
 - export or hand off outputs when ready
 
 ### B-side
+The B-side is not decorative.
+It must be architecturally real.
 
-The B-side must be prepared architecturally early, even if the surface is phased.
-
-Architecture must reserve room for:
+The system must reserve and increasingly support:
 - professional profiles
 - organizations
 - organization members
 - handoff queues
-- case assignment
-- external review workflows
+- handoff detail review
+- case assignment foundations
+- internal review notes foundations
+- future collaboration workflows
 
-B-side work must not hijack the primary C-side product shell.
+B-side work must not hijack the C-side shell, but it is a real product line, not a placeholder forever.
 
-## Plan And Access Separation Rule
+---
+
+## Free / Pro / Professional Rule
 
 There must be clear, visible, structural differences between:
 - anonymous users
@@ -89,69 +129,95 @@ There must be clear, visible, structural differences between:
 - paid Pro C-side users
 - Professional B-side users
 
-These tiers must differ in substance, not just volume.
+These tiers must differ in substance, not just usage volume.
 
 ### Anonymous
-
-Anonymous access may cover:
+May access:
 - public product pages
 - supported scenario discovery
 - limited public-information-backed AI entry
 
-Anonymous access must NOT become a full saved workflow experience.
+Must NOT get:
+- full saved workflow continuity
+- advanced workflow value
+- protected operational surfaces
 
 ### Free C-side
-
-Free registered users may have:
-- saved cases
-- basic workspace continuity
+May access:
+- basic saved workflow continuity
 - core materials tracking
-- structured review generation within the narrow supported workflows
+- structured review generation in the narrow supported workflows
+
+Must remain materially limited compared with Pro.
 
 ### Pro C-side
-
-Paid Pro users should have clearly stronger workflow value, such as:
+Should unlock materially stronger workflow value, including where applicable:
 - deeper repetitive-work reduction
-- stronger automation
 - richer delta / handoff intelligence
-- more advanced review continuity
+- stronger workflow continuity
+- stronger materials/review support
+- stronger saved workflow value
 
 ### Professional B-side
+Professional is not merely an upgraded consumer plan.
+It is a separate role with operational responsibilities and dedicated backend access.
 
-Professional access is a separate product role, not just an upgraded consumer plan.
+### Enforcement rule
+Free / Pro / Professional must be system facts, not just UI copy.
+Permissions and capabilities must be enforced server-side, not merely hidden in the UI.
 
-Professional capabilities should be architecturally distinct and may include:
-- review queues
-- assignment
-- client handoff intake
-- organization visibility
-- professional review actions
+---
 
-Free, Pro, and Professional must stay conceptually distinct in architecture, copy, and future gating decisions.
+## Billing / Subscription Lifecycle Rule
+
+Billing is now a real product layer.
+
+Subscription state must be treated as a system fact.
+
+The system must correctly model and handle lifecycle states such as:
+- active
+- inactive
+- canceled
+- expired
+- trialing (only if used)
+- other billing states only when truly needed
+
+Capabilities must derive from plan/role state.
+Plan state must not be simulated only in frontend presentation.
+
+Webhook and subscription sync logic are part of the core platform infrastructure.
+
+---
 
 ## Frontend Product Surfaces
 
-Primary active product surfaces should center around:
+Primary active surfaces should center around:
 - Home / AI Task Entry
 - Scenario Entry Pages
 - AI Answer Surface
 - Tracker / Workspace
 - Materials Workflow
 - Review / Delta / Handoff Surfaces
+- Pricing / Upgrade
 - Book Demo / Request Review
-- Professional shell pages when explicitly added
+- For Professionals
+- Professional operational backend surfaces
 
 Public messaging should emphasize:
-- AI helps answer your scenario questions
+- AI helps answer scenario questions
 - AI helps reduce repetitive preparation work
-- outputs enter a workflow-backed workspace
-- the user can continue progressing the task/case over time
-- the product supports clean future human handoff
+- outputs enter workflow
+- users can continue progressing tasks/cases
+- the system supports clean human handoff
 
 Do not position the product around:
 - standalone assessments
 - standalone comparisons
 - standalone copilot tools
+- public compare products
+- public portal navigation
+
+---
 
 ## AI Placement Rule
 
@@ -168,9 +234,32 @@ Primary AI layers:
 
 AI outputs must remain structured and actionable.
 
-Avoid long generic freeform prose whenever a structured result is more appropriate.
+Prefer:
+- summary
+- whyThisMatters
+- readinessStatus
+- checklist
+- missingItems
+- riskFlags
+- nextSteps
+- timelineNote
+- supportingContextNotes
+- officialReferenceLabels
+- improvedAreas
+- remainingGaps
+- newRisks
+- removedRisks
+- priorityActions
+- externalSummary
+- reviewReadyStatus
+- issuesNeedingHumanReview
+- escalationTriggers
 
-## Public Information And Immi Fusion Rule
+Avoid long generic freeform answer walls whenever a structured output is more appropriate.
+
+---
+
+## Public Information / Immi Fusion Rule
 
 Tideus must NOT merge the Immi frontend directly.
 
@@ -195,6 +284,24 @@ Do NOT prioritize:
 - public data portal pages
 - generic public copilot/chat pages
 
+---
+
+## Knowledge Refresh Rule
+
+Knowledge refresh is now a production capability, not an experiment.
+
+Refreshed knowledge must:
+- remain internal-first
+- support current active scenarios only unless explicitly expanded
+- be versioned or traceable
+- carry source labels where practical
+- fail gracefully without breaking workflow
+- actually affect answer/review/export outputs
+
+Refresh infrastructure must not remain an isolated backend utility that never reaches user-facing workflow value.
+
+---
+
 ## Language Requirements (Hard Requirement)
 
 The full active product surface must support:
@@ -211,7 +318,9 @@ Rules:
 5. Underlying schemas and business logic must remain stable and must not be duplicated by language.
 6. UI copy, CTA text, loading states, empty states, errors, export packets, and AI-generated user-facing text must all respect the chosen Chinese language.
 
-English, if retained at all, is secondary and must not drive architecture decisions.
+English, if retained, is secondary and must not drive architecture decisions.
+
+---
 
 ## Core Entities
 
@@ -226,7 +335,7 @@ Primary workflow entities:
 - app_events
 - lead_requests
 
-B-side preparation entities:
+B-side operational entities:
 - professional_profiles
 - organizations
 - organization_members
@@ -242,152 +351,139 @@ Entity roles:
 - `case_events` track workflow progression
 - `app_events` track funnel/product interaction
 - `lead_requests` capture conversion intent
+- `handoff_requests` connect C-side workflow to B-side operational review
+- `case_assignments` support future B-side execution ownership
 
 Legacy assessment/comparison/copilot entities may remain only for migration continuity and must never define new architecture.
 
-## Workflow Rule
+---
 
-All major outputs must enter workflow.
+## Current Product Stage
 
-Workflow includes:
-- user entry
-- structured input
-- AI enhancement
-- case/task progression
-- material state updates
-- review generation
-- review delta generation
-- handoff/export
+The project is no longer in early MVP definition mode.
 
-Tracker and workspace are workflow layers, not the product core by themselves.
+The current stage is:
 
-## Current Supported Public Scenarios
+**commercialization + platformization + productionization**
 
-Only the current wedge scenarios should be actively developed:
-- Visitor Record
-- Study Permit Extension
+This means current priorities are no longer:
+- broad new feature invention
+- portal expansion
+- new public tool surfaces
 
-Do not add new public scenarios unless explicitly directed.
+Current priorities ARE:
+1. workflow integrity
+2. subscription and permission integrity
+3. bilingual completeness
+4. B-side operational reliability
+5. knowledge refresh reliability
+6. deployment/build reliability
+7. production hardening
+8. docs/env/monitoring alignment
 
-## Required Output Shape
-
-Preferred outputs include:
-- summary
-- whyThisMatters
-- readinessStatus
-- checklist
-- missingItems
-- riskFlags
-- nextSteps
-- timelineNote
-- supportingContextNotes
-- officialReferenceLabels
-- improvedAreas
-- remainingGaps
-- newRisks
-- removedRisks
-- priorityActions
-- externalSummary
-- reviewReadyStatus
-- issuesNeedingHumanReview
-- escalationTriggers
-
-The product should not rely on long unstructured answer walls.
-
-## Event Intelligence Rule
-
-Important workflow and funnel events should be captured cleanly.
-
-### Case event examples
-- case_created
-- intake_started
-- intake_completed
-- materials_updated
-- review_generated
-- review_regenerated
-- case_resumed
-- export_clicked
-
-### App event examples
-- landing_cta_clicked
-- use_case_cta_clicked
-- start_case_selected
-- review_cta_clicked
-- dashboard_resume_clicked
-- book_demo_clicked
-- early_access_requested
-
-Useful metadata should be included where practical:
-- useCase
-- readinessStatus
-- missingCount
-- riskCount
-- reviewVersion
-- sourceSurface
-- changedCount
-
-Do not add noisy analytics for vanity purposes.
-
-## Legacy / Migration Rule
-
-Legacy assessment/comparison/copilot surfaces may remain only for migration continuity.
-
-They must not:
-- define active product architecture
-- shape primary navigation
-- shape primary dashboard metrics
-- shape homepage messaging
-- shape plan separation
-- shape future AI strategy
-
-Legacy code should be isolated clearly under legacy/archive paths where practical.
-
-Examples:
-- `lib/legacy/*`
-- `components/legacy/*`
-
-If a function or module exists only for continuity, make that explicit in naming and placement.
-
-## Engineering Rules
-
-1. Keep active product paths aligned with the current platform definition.
-2. Keep AI server-side.
-3. Keep ownership filtering explicit.
-4. Keep deterministic fallback available whenever AI or knowledge enhancement exists.
-5. Keep code typed and maintainable.
-6. Do not widen scope casually.
-7. If a function signature changes, all call sites must be updated in the same round.
-8. If localization keys change, both `zh-CN` and `zh-TW` must be completed in the same round.
-9. Preserve stable auth, storage, upload flow, export packet, and current workflow continuity unless explicitly changing them.
-10. A sprint is not done unless `npm run typecheck` passes.
+---
 
 ## Current Priorities
 
-1. keep the active product workflow-first
-2. strengthen public-information-backed answering
-3. strengthen AI-driven repetitive-work reduction
-4. strengthen tracker/workspace progression
-5. strengthen review delta and handoff quality
-6. support full-site `zh-CN` and `zh-TW`
-7. establish clear Free / Pro / Professional separation
-8. prepare the B-side backend shell without widening public scope
-9. strengthen backend-only knowledge refresh and Immi capability fusion
+Priority order:
+1. keep workflow strong and coherent
+2. enforce subscription/plan/role capabilities server-side
+3. strengthen B-side operational backend
+4. productionize knowledge refresh
+5. stabilize deployment/build/runtime behavior
+6. complete bilingual alignment
+7. improve handoff quality
+8. keep documentation aligned with actual architecture
+
+---
 
 ## What Not To Build Now
 
 Do not build now:
-- broad public news/content portal
-- public data portal
-- broad compare-pathway product
+- public news/content portal
+- broad public data portal
+- public compare-pathway products
 - generic public copilot
-- large admin platform
-- overbuilt CRM
 - broad scenario expansion
-- payment-first expansion before plan/value separation is clear
+- overbuilt CRM
+- large admin platform
+- broad role complexity beyond current platform needs
 - any feature that weakens workflow clarity
+- any feature that widens public surface faster than the workflow/platform core can support
 
-## North Star
+---
 
-The product should feel like:
+## Engineering Rules
 
-**an AI-driven workflow platform that uses public information plus user/case context to answer questions, reduce repetitive preparation work, and continuously move a saved case toward review-ready and handoff-ready outputs, while reserving clear room for future professional-side review workflows.**
+1. Preserve stable auth, storage, workflow, billing lifecycle, and current platform structure.
+2. Keep ownership and access filtering explicit.
+3. Keep AI server-side.
+4. Keep deterministic fallback whenever AI/knowledge enhancement exists.
+5. Keep code typed, maintainable, and production-minded.
+6. Do not widen scope casually.
+7. If a function signature changes, all call sites must be updated in the same round.
+8. If localization keys change, both `zh-CN` and `zh-TW` must be completed in the same round.
+9. A sprint is not complete unless both `npm run typecheck` and `npm run build` pass in a clean install environment.
+10. Do not combine major architectural changes and major feature expansion in the same sprint unless explicitly required.
+
+---
+
+## Build / Repo Discipline (Hard Requirement)
+
+The repo and delivery package must remain clean.
+
+Do NOT commit or ship:
+- `node_modules/`
+- `.next/`
+- `.tmp/`
+- `__MACOSX/`
+- `.DS_Store`
+
+A clean environment verification is mandatory for completion.
+
+Every serious sprint should be verifiable with:
+- `rm -rf node_modules .next .tmp`
+- `npm install`
+- `npm run typecheck`
+- `npm run build`
+
+If that sequence does not pass, the sprint is not done.
+
+---
+
+## Delivery Discipline
+
+Every Codex sprint should be single-purpose.
+
+Prompts should:
+- define one primary objective
+- define hard boundaries
+- forbid unrelated scope expansion
+- require exact verification steps
+
+Do not run multi-theme “mega sprints” that combine:
+- product redesign
+- billing changes
+- platform role changes
+- i18n rewrites
+- knowledge system rewrites
+in one round unless absolutely required.
+
+---
+
+## Documentation Rule
+
+README and internal docs must match the current actual platform state.
+
+They must not lag behind the architecture.
+They must not continue to describe the product as an earlier single-sided case-only MVP once the platform has evolved beyond that stage.
+
+---
+
+## Final North Star
+
+Tideus is a workflow-first, AI-driven, public-information-enhanced two-sided platform.
+
+Its core promise is:
+
+**not just answering questions, but turning answers into progress through a clear workflow that can continue, upgrade, and hand off across C-side and B-side surfaces.**

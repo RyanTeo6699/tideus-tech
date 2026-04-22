@@ -25,20 +25,20 @@ export default async function ProfessionalLoginPage() {
           {pickLocale(locale, "专业端入口", "專業端入口")}
         </Badge>
         <h1 className="font-serif text-5xl leading-tight">
-          {pickLocale(locale, "登录到专业端外壳，准备后续审阅与交接流程。", "登入到專業端外殼，準備後續審閱與交接流程。")}
+          {pickLocale(locale, "登录到专业端，接收并查看交接审阅请求。", "登入到專業端，接收並查看交接審閱請求。")}
         </h1>
         <p className="mt-6 text-lg leading-8 text-slate-300">
           {pickLocale(
             locale,
-            "当前专业端只开放最小壳层：专业档案、组织结构和未来工作流入口。它不会在这轮扩展成完整后台。",
-            "目前專業端只開放最小殼層：專業檔案、組織結構和未來工作流程入口。它不會在這輪擴展成完整後台。"
+            "当前专业端开放身份、组织、交接队列、交接详情和基础状态处理。它不会在这轮扩展成完整客户管理后台。",
+            "目前專業端開放身分、組織、交接佇列、交接詳情和基礎狀態處理。它不會在這輪擴展成完整客戶管理後台。"
           )}
         </p>
         <div className="mt-10 space-y-3">
           {[
             pickLocale(locale, "查看专业身份与开通状态。", "查看專業身分與開通狀態。"),
             pickLocale(locale, "查看所属组织与成员角色关系。", "查看所屬組織與成員角色關係。"),
-            pickLocale(locale, "为未来案件审阅和交接队列预留统一入口。", "為未來案件審閱和交接佇列預留統一入口。")
+            pickLocale(locale, "接收 C 端交接请求并查看结构化交接包。", "接收 C 端交接請求並查看結構化交接包。")
           ].map((item) => (
             <div className="rounded-[24px] border border-white/10 bg-white/5 p-4 text-sm leading-6 text-slate-200" key={item}>
               {item}

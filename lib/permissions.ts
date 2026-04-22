@@ -9,6 +9,7 @@ import {
   getConsumerPlanActiveCaseLimit,
   getConsumerPlanState,
   hasConsumerPlanCapability,
+  isConsumerPlanEntitled,
   type ConsumerPlanCapability,
   type ConsumerPlanState
 } from "@/lib/plans";
@@ -146,6 +147,14 @@ export function canRequestProfessionalHandoff(context: PermissionContext) {
 
 export function formatConsumerCaseLimitMessage(access: ConsumerCaseCreationAccess, locale: AppLocale) {
   if (access.consumerPlan.tier === "pro") {
+    if (!isConsumerPlanEntitled(access.consumerPlan)) {
+      return pickLocale(
+        locale,
+        `当前 Pro 订阅未生效，系统会按 Free 上限保留 ${access.activeCaseLimit} 个活跃案件。请重新开通 Pro 后再创建新的工作台。`,
+        `目前 Pro 訂閱未生效，系統會按免費版上限保留 ${access.activeCaseLimit} 個活躍案件。請重新開通 Pro 後再建立新的工作台。`
+      );
+    }
+
     return pickLocale(
       locale,
       `Pro 当前最多保留 ${access.activeCaseLimit} 个活跃案件。你已经有 ${access.activeCaseCount} 个案件，请整理旧案件或联系 Tideus 支持后再创建新的工作台。`,
@@ -176,6 +185,7 @@ function buildAnonymousPermissionContext(): PermissionContext {
       tier: "free",
       status: "active",
       activatedAt: null,
+      currentPeriodEnd: null,
       source: "anonymous",
       isDefault: true
     },
@@ -198,7 +208,7 @@ function buildPlatformRoles({
 }) {
   const roles: PlatformRole[] = ["consumer"];
 
-  if (consumerPlan.tier === "pro" && consumerPlan.status === "active") {
+  if (isConsumerPlanEntitled(consumerPlan)) {
     roles.push("consumer_pro");
   }
 

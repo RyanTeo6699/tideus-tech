@@ -6,6 +6,10 @@ export const consumerPlanTiers = ["free", "pro"] as const;
 
 export type ConsumerPlanTier = (typeof consumerPlanTiers)[number];
 
+export const consumerPlanStatuses = ["active", "inactive", "canceled", "expired", "trialing", "paused"] as const;
+
+export type ConsumerPlanStatus = (typeof consumerPlanStatuses)[number];
+
 export const consumerPlanCapabilities = [
   "active_case_slots",
   "workspace_case_questions",
@@ -18,8 +22,9 @@ export type ConsumerPlanCapability = (typeof consumerPlanCapabilities)[number];
 
 export type ConsumerPlanMetadata = {
   tier: ConsumerPlanTier;
-  status: "active" | "paused";
+  status: ConsumerPlanStatus;
   activatedAt: string | null;
+  currentPeriodEnd: string | null;
   source: string | null;
 };
 
@@ -60,8 +65,9 @@ const activeCaseLimitByTier: Record<ConsumerPlanTier, number> = {
 export function buildConsumerPlanMetadata(
   tier: ConsumerPlanTier,
   options?: {
-    status?: "active" | "paused";
+    status?: ConsumerPlanStatus;
     activatedAt?: string | null;
+    currentPeriodEnd?: string | null;
     source?: string | null;
   }
 ) {
@@ -71,6 +77,7 @@ export function buildConsumerPlanMetadata(
         tier,
         status: options?.status ?? "active",
         activatedAt: options?.activatedAt ?? new Date().toISOString(),
+        currentPeriodEnd: options?.currentPeriodEnd ?? null,
         source: options?.source ?? "manual-activation"
       }
     }
@@ -84,12 +91,14 @@ export function getConsumerPlanState(
   const durableStatus = readConsumerPlanStatus(readProfileString(profile, "consumer_plan_status"));
   const durableSource = readProfileString(profile, "consumer_plan_source");
   const durableActivatedAt = readProfileString(profile, "consumer_plan_activated_at");
+  const durableCurrentPeriodEnd = readProfileString(profile, "consumer_plan_current_period_end");
 
   if (durableTier) {
     return {
       tier: durableTier,
       status: durableStatus ?? "active",
       activatedAt: durableActivatedAt,
+      currentPeriodEnd: durableCurrentPeriodEnd,
       source: durableSource ?? (durableTier === "free" ? "default-free" : "durable-profile"),
       isDefault: false
     };
@@ -106,6 +115,7 @@ export function getConsumerPlanState(
       tier: "free",
       status: "active",
       activatedAt: null,
+      currentPeriodEnd: null,
       source: "default-free",
       isDefault: true
     };
@@ -115,6 +125,7 @@ export function getConsumerPlanState(
     tier,
     status,
     activatedAt: readOptionalString(consumerPlan.activatedAt),
+    currentPeriodEnd: readOptionalString(consumerPlan.currentPeriodEnd),
     source: readOptionalString(consumerPlan.source),
     isDefault: false
   };
@@ -125,14 +136,37 @@ export function hasConsumerPlanCapability(
   capability: ConsumerPlanCapability
 ) {
   const plan = isConsumerPlanState(profileOrPlan) ? profileOrPlan : getConsumerPlanState(profileOrPlan);
-  return plan.status === "active" && advancedConsumerCapabilitiesByTier[plan.tier].includes(capability);
+  return isConsumerPlanEntitled(plan) && advancedConsumerCapabilitiesByTier[plan.tier].includes(capability);
 }
 
 export function getConsumerPlanActiveCaseLimit(
   profileOrPlan: ConsumerPlanState | Pick<Tables<"profiles">, "metadata"> | null | undefined
 ) {
   const plan = isConsumerPlanState(profileOrPlan) ? profileOrPlan : getConsumerPlanState(profileOrPlan);
-  return activeCaseLimitByTier[plan.tier];
+  return isConsumerPlanEntitled(plan) ? activeCaseLimitByTier[plan.tier] : activeCaseLimitByTier.free;
+}
+
+export function isConsumerPlanEntitled(plan: Pick<ConsumerPlanState, "tier" | "status">) {
+  return plan.tier === "pro" && (plan.status === "active" || plan.status === "trialing");
+}
+
+export function formatConsumerPlanStatus(status: ConsumerPlanStatus | string | null | undefined, locale: AppLocale) {
+  switch (status) {
+    case "active":
+      return pickLocale(locale, "生效中", "生效中");
+    case "trialing":
+      return pickLocale(locale, "试用中", "試用中");
+    case "inactive":
+      return pickLocale(locale, "未生效", "未生效");
+    case "canceled":
+      return pickLocale(locale, "已取消", "已取消");
+    case "expired":
+      return pickLocale(locale, "已过期", "已過期");
+    case "paused":
+      return pickLocale(locale, "已暂停", "已暫停");
+    default:
+      return pickLocale(locale, "未设置", "未設定");
+  }
 }
 
 export function formatConsumerPlanName(tier: ConsumerPlanTier, locale: AppLocale) {
@@ -174,7 +208,7 @@ export function getConsumerPlanDefinitions(locale: AppLocale): ConsumerPlanDefin
         "适合需要持续追问、变化追踪和更强交接输出的用户。",
         "適合需要持續追問、變化追蹤和更強交接輸出的使用者。"
       ),
-      activation: pickLocale(locale, "当前通过预约演示人工开通", "目前透過預約示範人工開通"),
+      activation: pickLocale(locale, "通过安全结账开通", "透過安全結帳開通"),
       features: [
         pickLocale(locale, "最多保留 12 个活跃案件工作台", "最多保留 12 個活躍案件工作台"),
         pickLocale(locale, "案件内 AI 提问与下一步解释", "案件內 AI 提問與下一步解釋"),
@@ -192,7 +226,7 @@ export function getConsumerCapabilityUpgradePrompt(
   locale: AppLocale
 ): ConsumerCapabilityUpgradePrompt {
   const primaryLabel = pickLocale(locale, "查看 Free / Pro 差异", "查看 Free / Pro 差異");
-  const secondaryLabel = pickLocale(locale, "预约升级 Pro", "預約升級 Pro");
+  const secondaryLabel = pickLocale(locale, "立即升级 Pro", "立即升級 Pro");
   const eyebrow = pickLocale(locale, "Pro 工作流层", "Pro 工作流程層");
 
   switch (capability) {
@@ -332,8 +366,10 @@ function readConsumerPlanTier(value: Json | undefined): ConsumerPlanTier | null 
     : null;
 }
 
-function readConsumerPlanStatus(value: Json | undefined): "active" | "paused" | null {
-  return value === "active" || value === "paused" ? value : null;
+function readConsumerPlanStatus(value: Json | undefined): ConsumerPlanStatus | null {
+  return typeof value === "string" && consumerPlanStatuses.includes(value as ConsumerPlanStatus)
+    ? (value as ConsumerPlanStatus)
+    : null;
 }
 
 function readProfileString(profile: Pick<Tables<"profiles">, "metadata"> | null | undefined, key: string) {

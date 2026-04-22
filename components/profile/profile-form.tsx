@@ -182,6 +182,11 @@ export function ProfileForm({ initialValues, email, updatedAt }: ProfileFormProp
           consumer_plan_status: "active",
           consumer_plan_source: "default-free",
           consumer_plan_activated_at: null,
+          consumer_plan_current_period_end: null,
+          billing_provider: null,
+          billing_customer_id: null,
+          billing_subscription_id: null,
+          billing_last_event_id: null,
           metadata: {},
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString()

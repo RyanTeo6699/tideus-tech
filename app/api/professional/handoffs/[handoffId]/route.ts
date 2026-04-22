@@ -38,11 +38,24 @@ export async function PATCH(request: Request, { params }: ProfessionalHandoffRou
     );
   }
 
-  const result = await updateProfessionalHandoffOperation({
-    handoffId,
-    nextStatus: isHandoffRequestStatus(body?.status) ? body.status : undefined,
-    internalNotes: typeof body?.internalNotes === "string" ? body.internalNotes : undefined
-  });
+  let result: Awaited<ReturnType<typeof updateProfessionalHandoffOperation>>;
+
+  try {
+    result = await updateProfessionalHandoffOperation({
+      handoffId,
+      nextStatus: isHandoffRequestStatus(body?.status) ? body.status : undefined,
+      internalNotes: typeof body?.internalNotes === "string" ? body.internalNotes : undefined
+    });
+  } catch (error) {
+    console.error("Unable to update professional handoff operation", error);
+
+    return NextResponse.json(
+      {
+        message: pickLocale(locale, "暂时无法更新交接记录。", "暫時無法更新交接紀錄。")
+      },
+      { status: 500 }
+    );
+  }
 
   switch (result.status) {
     case "updated":

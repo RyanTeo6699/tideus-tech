@@ -32,7 +32,20 @@ export async function POST(request: Request) {
     return NextResponse.json({ message: parsed.message }, { status: 400 });
   }
 
-  const error = await saveKnowledgeRefreshSnapshot(parsed.data);
+  let error: Awaited<ReturnType<typeof saveKnowledgeRefreshSnapshot>>;
+
+  try {
+    error = await saveKnowledgeRefreshSnapshot(parsed.data);
+  } catch (refreshError) {
+    console.error("Unable to persist knowledge refresh snapshot", refreshError);
+
+    return NextResponse.json(
+      {
+        message: "知识刷新暂时无法写入。"
+      },
+      { status: 500 }
+    );
+  }
 
   if (error) {
     return NextResponse.json(

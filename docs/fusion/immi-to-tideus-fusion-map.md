@@ -103,7 +103,7 @@ The following Immi capabilities and surfaces must not be merged into the active 
 
 ### Phase 4: Future B-side Support
 
-- Expose only workflow-derived outputs to the professional shell.
+- Expose only workflow-derived outputs to the professional operational backend.
 - Use handoff records, review-ready status, human-review issues, and escalation triggers as the bridge.
 - Do not expose raw public-info crawl, broad search, or portal data to professional users unless it is attached to a case workflow.
 
